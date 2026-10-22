@@ -9,23 +9,16 @@ import { nodesAtom, bandsAtom, drawingsAtom } from '@/atoms/workspace';
 import { agentPresetsAtom } from '@/atoms/presets';
 import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom } from '@/atoms/ui';
 import {
-  MousePointer,
-  Hand,
-  PenTool,
-  Link,
+  Navigation,
   Terminal,
-  FileText,
-  BookOpen,
+  Scroll,
+  Paperclip,
+  Folder,
   Globe,
-  Plus,
+  Pencil,
   ZoomIn,
   ZoomOut,
-  Maximize,
-  Group,
-  Sparkles,
   Trash2,
-  CheckCircle,
-  Activity,
 } from 'lucide-react';
 import { AgentPreset } from '@maestri/shared';
 
@@ -259,177 +252,183 @@ export const CanvasToolbar: React.FC = () => {
 
   return (
     <>
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-2 bg-[#18191f]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md z-40 select-none">
-      {/* Mode Switches */}
-      <div className="flex items-center gap-0.5 bg-black/40 p-1 rounded-xl">
-        <button
-          onClick={() => setMode('select')}
-          className={`p-2 rounded-lg transition-colors ${
-            mode === 'select' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-400 hover:text-white'
-          }`}
-          title="Select Mode (V) - Drag & Arrange Nodes"
-        >
-          <MousePointer className="w-4 h-4" />
-        </button>
+      {/* Top Floating Toolbar (Matching Reference Image) */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-40 select-none">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#202126]/90 border border-white/10 rounded-full shadow-2xl backdrop-blur-md">
+          {/* 1. Selection / Navigation Arrow */}
+          <button
+            onClick={() => setMode('select')}
+            className={`p-2 rounded-full transition-all ${
+              mode === 'select'
+                ? 'text-blue-500 fill-blue-500 bg-white/5'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Selecionar (V)"
+          >
+            <Navigation className="w-4 h-4 fill-current -rotate-45" />
+          </button>
 
-        <button
-          onClick={() => setMode('pan')}
-          className={`p-2 rounded-lg transition-colors ${
-            mode === 'pan' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-400 hover:text-white'
-          }`}
-          title="Hand / Pan Canvas (H or Space+Drag)"
-        >
-          <Hand className="w-4 h-4" />
-        </button>
+          {/* 2. Terminal / Agent */}
+          <button
+            onClick={() => setIsCreateAgentOpen(true)}
+            className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
+            title="Novo Terminal / Agente"
+          >
+            <Terminal className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={() => setMode('draw')}
-          className={`p-2 rounded-lg transition-colors ${
-            mode === 'draw' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-400 hover:text-white'
-          }`}
-          title="Freehand Brush / Paint (P)"
-        >
-          <PenTool className="w-4 h-4" />
-        </button>
+          {/* 3. Scroll / Sticky Note */}
+          <button
+            onClick={addStickyNote}
+            className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
+            title="Adicionar Nota"
+          >
+            <Scroll className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={() => setMode('connect')}
-          className={`p-2 rounded-lg transition-colors ${
-            mode === 'connect'
-              ? 'bg-emerald-600 text-white shadow-md animate-pulse'
-              : 'text-zinc-400 hover:text-white'
-          }`}
-          title="Connect Cable Tie (C) - Link agent to note/portal"
-        >
-          <Link className="w-4 h-4" />
-        </button>
-      </div>
+          {/* 4. Paperclip / Cable Tie Link */}
+          <button
+            onClick={() => setMode(mode === 'connect' ? 'select' : 'connect')}
+            className={`p-2 rounded-full transition-all ${
+              mode === 'connect'
+                ? 'text-emerald-400 bg-white/5 animate-pulse'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Conectar Cabo (C)"
+          >
+            <Paperclip className="w-4 h-4" />
+          </button>
 
-      {/* Brush color palette when in draw mode */}
-      {mode === 'draw' && (
-        <>
-          <div className="w-[1px] h-6 bg-white/10 my-auto mx-1" />
-          <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded-xl">
+          {/* 5. Folder / Multi-Page Binder */}
+          <button
+            onClick={addNoteStack}
+            className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
+            title="Adicionar Fichário (Binder)"
+          >
+            <Folder className="w-4 h-4" />
+          </button>
+
+          {/* 6. Globe / Browser Portal */}
+          <button
+            onClick={addPortal}
+            className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
+            title="Adicionar Browser Portal"
+          >
+            <Globe className="w-4 h-4" />
+          </button>
+
+          {/* 7. Typography / Section Band */}
+          <button
+            onClick={addBand}
+            className="w-8 h-8 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center"
+            title="Adicionar Seção (Band)"
+          >
+            <span className="font-bold text-[13px] font-sans tracking-tight">Aa</span>
+          </button>
+
+          {/* 8. Pencil / Draw Mode */}
+          <button
+            onClick={() => setMode(mode === 'draw' ? 'select' : 'draw')}
+            className={`p-2 rounded-full transition-all ${
+              mode === 'draw'
+                ? 'text-blue-400 bg-white/5'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Pintar no Canvas (D)"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Color Palette dropdown when in draw mode */}
+        {mode === 'draw' && (
+          <div className="flex items-center gap-1.5 bg-[#202126]/90 border border-white/10 px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md animate-fade-in">
             {brushColors.map((c) => (
               <button
                 key={c.value}
                 onClick={() => setDrawColor(c.value)}
                 style={{ backgroundColor: c.value }}
-                className={`w-4 h-4 rounded-full transition-transform ${
+                className={`w-3.5 h-3.5 rounded-full transition-transform ${
                   drawColor === c.value ? 'scale-125 ring-2 ring-white shadow-md' : 'opacity-70 hover:opacity-100'
                 }`}
                 title={c.label}
               />
             ))}
+            <div className="w-[1px] h-3.5 bg-white/10 mx-1" />
             <button
               onClick={clearDrawings}
-              className="ml-1 p-1 text-zinc-400 hover:text-red-400 rounded transition-colors"
-              title="Clear all drawings"
+              className="p-1 text-zinc-400 hover:text-red-400 rounded-full transition-colors"
+              title="Limpar desenhos"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
-        </>
-      )}
-
-      <div className="w-[1px] h-6 bg-white/10 my-auto mx-1" />
-
-      {/* Creation Tools */}
-      <div className="flex items-center gap-1">
-        {/* Terminal / Agent Add - Opens Novo Terminal Modal */}
-        <button
-          onClick={() => setIsCreateAgentOpen(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/15 text-blue-300 hover:bg-blue-500/25 border border-blue-500/30 text-xs font-medium transition-colors"
-          title="Novo Terminal / Agente"
-        >
-          <Terminal className="w-3.5 h-3.5 text-blue-400" />
-          <span>Agent</span>
-          <Plus className="w-3 h-3 ml-0.5 opacity-70" />
-        </button>
-
-        {/* Note Add */}
-        <button
-          onClick={addStickyNote}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-yellow-500/15 text-yellow-300 hover:bg-yellow-500/25 border border-yellow-500/30 text-xs font-medium transition-colors"
-          title="Add Sticky Note"
-        >
-          <FileText className="w-3.5 h-3.5 text-yellow-400" />
-          <span>Note</span>
-        </button>
-
-        {/* NoteStack (Fichário) Add */}
-        <button
-          onClick={addNoteStack}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 border border-purple-500/30 text-xs font-medium transition-colors"
-          title="Add Multi-Page Binder"
-        >
-          <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-          <span>Binder</span>
-        </button>
-
-        {/* Portal Add */}
-        <button
-          onClick={addPortal}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-medium transition-colors"
-          title="Add Browser Portal"
-        >
-          <Globe className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Portal</span>
-        </button>
-
-        {/* Band Add */}
-        <button
-          onClick={addBand}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-500/15 text-zinc-300 hover:bg-zinc-500/25 border border-zinc-500/30 text-xs font-medium transition-colors"
-          title="Add Spatial Band Group"
-        >
-          <Group className="w-3.5 h-3.5" />
-          <span>Band</span>
-        </button>
+        )}
       </div>
-    </div>
 
-    {/* Bottom-Right Corner Controls: Agent Limits Button (to the left of Zoom) + Zoom Controls */}
-    <div className="absolute bottom-6 right-6 flex items-center gap-2 px-2.5 py-1.5 bg-[#18191f]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md z-40 select-none">
-      {/* Agent Limits Button */}
-      <button
-        onClick={() => setIsAgentLimitsOpen(true)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-medium text-emerald-300 hover:text-white transition-all shadow-sm"
-        title="Limites Reais dos Agentes (Quotas, RPM/TPM, Janela de Contexto)"
-      >
-        <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-        <span>Limites</span>
-      </button>
-
-      <div className="w-[1px] h-5 bg-white/10 mx-0.5" />
-
-      {/* Zoom Controls */}
-      <div className="flex items-center gap-0.5">
+      {/* Bottom-Right Corner: Limits Pill Button (Image 3) + Zoom Controls */}
+      <div className="absolute bottom-6 right-6 flex items-center gap-2 z-40 select-none">
+        {/* Limits Button matching Image 3 */}
         <button
-          onClick={() => handleZoom(-0.1)}
-          className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-          title="Zoom Out (-)"
+          data-agent-limits-trigger="true"
+          onClick={() => setIsAgentLimitsOpen((prev) => !prev)}
+          className="flex items-center gap-2 px-2.5 py-1.5 bg-[#202126]/90 hover:bg-[#28292e] border border-white/10 hover:border-white/20 rounded-full shadow-lg transition-all cursor-pointer"
+          title="Uso dos agentes"
         >
-          <ZoomOut className="w-3.5 h-3.5" />
+          {/* Codex Ring (green concentric circles) */}
+          <div className="relative w-5 h-5 flex items-center justify-center">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="#10b981" strokeWidth="2.5" strokeOpacity="0.4" />
+              <circle cx="12" cy="12" r="5" stroke="#10b981" strokeWidth="2" strokeOpacity="0.5" />
+            </svg>
+          </div>
+
+          {/* Antigravity Ring (blue progress arc ~47% and inner dot) */}
+          <div className="relative w-5 h-5 flex items-center justify-center">
+            <svg className="w-5 h-5 -rotate-90" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="8" stroke="#1e293b" strokeWidth="3" />
+              <circle
+                cx="12"
+                cy="12"
+                r="8"
+                stroke="#60a5fa"
+                strokeWidth="3"
+                strokeDasharray={50.26}
+                strokeDashoffset={50.26 * (1 - 0.47)}
+                strokeLinecap="round"
+              />
+              <circle cx="12" cy="12" r="3.5" stroke="#1e293b" strokeWidth="1.5" />
+            </svg>
+          </div>
         </button>
 
-        <button
-          onClick={handleResetZoom}
-          className="px-2 py-1 text-xs font-mono text-zinc-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-          title="Reset Zoom (100%)"
-        >
-          {zoomPercent}%
-        </button>
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-0.5 px-2 py-1 bg-[#202126]/90 border border-white/10 rounded-full shadow-lg backdrop-blur-md">
+          <button
+            onClick={() => handleZoom(-0.1)}
+            className="p-1 text-zinc-400 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+            title="Zoom Out (-)"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
 
-        <button
-          onClick={() => handleZoom(0.1)}
-          className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-          title="Zoom In (+)"
-        >
-          <ZoomIn className="w-3.5 h-3.5" />
-        </button>
+          <button
+            onClick={handleResetZoom}
+            className="px-1.5 py-0.5 text-xs font-mono text-zinc-300 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+            title="Reset Zoom (100%)"
+          >
+            {zoomPercent}%
+          </button>
+
+          <button
+            onClick={() => handleZoom(0.1)}
+            className="p-1 text-zinc-400 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+            title="Zoom In (+)"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
-    </div>
     </>
   );
 };
