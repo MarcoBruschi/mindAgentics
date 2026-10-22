@@ -690,6 +690,9 @@ app: {
     detectAgents() {
       return electron.ipcRenderer.invoke('maestri:terminal:detectAgents');
     },
+    getAgentLimits() {
+      return electron.ipcRenderer.invoke('maestri:terminal:getAgentLimits');
+    },
     spawn(input) {
       return electron.ipcRenderer.invoke(C.terminalSpawn, input);
     },

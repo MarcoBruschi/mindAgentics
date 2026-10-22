@@ -265,6 +265,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
 
   // Terminal PTY
   handle('maestri:terminal:detectAgents', () => terminalManager.detectInstalledAgents());
+  handle('maestri:terminal:getAgentLimits', () => terminalManager.getAgentLimits());
   handle(C.terminalSpawn, async (opts: any) => terminalManager.spawn(opts));
 
   ipcMain.on('maestri:canvas:sync', (_event, payload: any) => {

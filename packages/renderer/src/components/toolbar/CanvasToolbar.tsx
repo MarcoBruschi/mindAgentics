@@ -7,7 +7,7 @@ import {
 } from '@/atoms/canvas';
 import { nodesAtom, bandsAtom, drawingsAtom } from '@/atoms/workspace';
 import { agentPresetsAtom } from '@/atoms/presets';
-import { isCreateAgentModalOpenAtom } from '@/atoms/ui';
+import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom } from '@/atoms/ui';
 import {
   MousePointer,
   Hand,
@@ -25,6 +25,7 @@ import {
   Sparkles,
   Trash2,
   CheckCircle,
+  Activity,
 } from 'lucide-react';
 import { AgentPreset } from '@maestri/shared';
 
@@ -47,6 +48,7 @@ export const CanvasToolbar: React.FC = () => {
   const [drawColor, setDrawColor] = useAtom(activeDrawColorAtom);
 
   const [, setIsCreateAgentOpen] = useAtom(isCreateAgentModalOpenAtom);
+  const [, setIsAgentLimitsOpen] = useAtom(isAgentLimitsModalOpenAtom);
   const [showPresetMenu, setShowPresetMenu] = useState(false);
   const [agentExecutionMode, setAgentExecutionMode] = useState<'normal' | 'autonomous'>('autonomous');
   const [detectedAgents, setDetectedAgents] = useState<DetectedAgent[]>([]);
@@ -256,7 +258,8 @@ export const CanvasToolbar: React.FC = () => {
   ];
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-2 bg-[#18191f]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md z-40 select-none">
+    <>
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-2 bg-[#18191f]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md z-40 select-none">
       {/* Mode Switches */}
       <div className="flex items-center gap-0.5 bg-black/40 p-1 rounded-xl">
         <button
@@ -384,14 +387,27 @@ export const CanvasToolbar: React.FC = () => {
           <span>Band</span>
         </button>
       </div>
+    </div>
 
-      <div className="w-[1px] h-6 bg-white/10 my-auto mx-1" />
+    {/* Bottom-Right Corner Controls: Agent Limits Button (to the left of Zoom) + Zoom Controls */}
+    <div className="absolute bottom-6 right-6 flex items-center gap-2 px-2.5 py-1.5 bg-[#18191f]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md z-40 select-none">
+      {/* Agent Limits Button */}
+      <button
+        onClick={() => setIsAgentLimitsOpen(true)}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-medium text-emerald-300 hover:text-white transition-all shadow-sm"
+        title="Limites Reais dos Agentes (Quotas, RPM/TPM, Janela de Contexto)"
+      >
+        <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+        <span>Limites</span>
+      </button>
+
+      <div className="w-[1px] h-5 bg-white/10 mx-0.5" />
 
       {/* Zoom Controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
         <button
           onClick={() => handleZoom(-0.1)}
-          className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5"
+          className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
           title="Zoom Out (-)"
         >
           <ZoomOut className="w-3.5 h-3.5" />
@@ -399,7 +415,7 @@ export const CanvasToolbar: React.FC = () => {
 
         <button
           onClick={handleResetZoom}
-          className="px-2 py-1 text-xs font-mono text-zinc-300 hover:text-white rounded-lg hover:bg-white/5"
+          className="px-2 py-1 text-xs font-mono text-zinc-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
           title="Reset Zoom (100%)"
         >
           {zoomPercent}%
@@ -407,12 +423,13 @@ export const CanvasToolbar: React.FC = () => {
 
         <button
           onClick={() => handleZoom(0.1)}
-          className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5"
+          className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
           title="Zoom In (+)"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
+    </>
   );
 };

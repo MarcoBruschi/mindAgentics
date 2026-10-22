@@ -7,6 +7,8 @@ import { WorkspaceSettingsModal } from '@/components/modals/WorkspaceSettingsMod
 import { CommandPalette } from '@/components/modals/CommandPalette';
 import { CreateAgentModal } from '@/components/modals/CreateAgentModal';
 import { CreateWorkspaceModal } from '@/components/modals/CreateWorkspaceModal';
+import { AgentLimitsModal } from '@/components/modals/AgentLimitsModal';
+import { WindowControls } from '@/components/window/WindowControls';
 import {
   workspacesAtom,
   activeWorkspaceIdAtom,
@@ -88,7 +90,10 @@ export const App: React.FC = () => {
   }, [undo, redo]);
 
   return (
-    <div className="w-screen h-screen flex overflow-hidden bg-[#0e0f12] text-zinc-100 select-none font-sans">
+    <div className="w-screen h-screen flex overflow-hidden bg-[#0e0f12] text-zinc-100 select-none font-sans relative">
+      {/* Top-Right Window Controls (Minimize, Maximize, Close) */}
+      <WindowControls />
+
       {/* Sidebar */}
       <Sidebar />
 
@@ -103,6 +108,7 @@ export const App: React.FC = () => {
       <CommandPalette />
       <CreateAgentModal />
       <CreateWorkspaceModal />
+      <AgentLimitsModal />
     </div>
   );
 };

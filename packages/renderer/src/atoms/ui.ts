@@ -24,3 +24,4 @@ export const isCommandPaletteOpenAtom = atom<boolean>(false);
 export const isSidebarCollapsedAtom = atom<boolean>(false);
 export const isCreateAgentModalOpenAtom = atom<boolean>(false);
 export const isCreateWorkspaceModalOpenAtom = atom<boolean>(false);
+export const isAgentLimitsModalOpenAtom = atom<boolean>(false);
