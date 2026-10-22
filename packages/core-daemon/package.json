@@ -1,0 +1,22 @@
+{
+  "name": "@maestri/core-daemon",
+  "version": "0.26.0",
+  "description": "Core Daemon and Maestri CLI runtime for spatial canvas workspace",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "maestri": "./bin/maestri.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@maestri/shared": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}

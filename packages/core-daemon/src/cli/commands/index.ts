@@ -1,0 +1,44 @@
+import type { NamedPipeServer } from '../../daemon/pipeServer.js';
+import { listCommand } from './list.js';
+import { notifyCommand } from './notify.js';
+import { askCommand } from './ask.js';
+import { checkCommand } from './check.js';
+import { sayCommand } from './say.js';
+import { recallCommand } from './recall.js';
+import { noteCommand } from './note.js';
+import { portalCommand } from './portal.js';
+import { presetCommand } from './preset.js';
+import { roleCommand } from './role.js';
+import { routineCommand } from './routine.js';
+import { workspaceCommand } from './workspace.js';
+import { floorCommand } from './floor.js';
+import { statusCommand } from './status.js';
+import { debugCommand } from './debug.js';
+import { recruitCommand } from './recruit.js';
+import { dismissCommand } from './dismiss.js';
+import { connectCommand } from './connect.js';
+import { bandCommand } from './band.js';
+import { arrangeCommand } from './arrange.js';
+
+export function registerAllCommands(pipeServer: NamedPipeServer) {
+  pipeServer.registerHandler('list', listCommand);
+  pipeServer.registerHandler('notify', notifyCommand);
+  pipeServer.registerHandler('ask', askCommand);
+  pipeServer.registerHandler('check', checkCommand);
+  pipeServer.registerHandler('say', sayCommand);
+  pipeServer.registerHandler('recall', recallCommand);
+  pipeServer.registerHandler('note', noteCommand);
+  pipeServer.registerHandler('portal', portalCommand);
+  pipeServer.registerHandler('preset', presetCommand);
+  pipeServer.registerHandler('role', roleCommand);
+  pipeServer.registerHandler('routine', routineCommand);
+  pipeServer.registerHandler('workspace', workspaceCommand);
+  pipeServer.registerHandler('floor', floorCommand);
+  pipeServer.registerHandler('status', statusCommand);
+  pipeServer.registerHandler('debug', debugCommand);
+  pipeServer.registerHandler('recruit', recruitCommand);
+  pipeServer.registerHandler('dismiss', dismissCommand);
+  pipeServer.registerHandler('connect', connectCommand);
+  pipeServer.registerHandler('band', bandCommand);
+  pipeServer.registerHandler('arrange', arrangeCommand);
+}

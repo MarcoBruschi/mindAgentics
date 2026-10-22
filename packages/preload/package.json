@@ -1,0 +1,19 @@
+{
+  "name": "@maestri/preload",
+  "version": "0.26.0",
+  "description": "Preload contextBridge API layer for Maestri",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --external:electron --outfile=dist/index.js && tsc --emitDeclarationOnly"
+  },
+  "dependencies": {
+    "@maestri/shared": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "electron": "^33.2.0",
+    "typescript": "^5.7.2",
+    "esbuild": "^0.25.0"
+  }
+}

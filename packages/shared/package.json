@@ -1,0 +1,13 @@
+{
+  "name": "@maestri/shared",
+  "version": "0.26.0",
+  "description": "Shared TypeScript types, IPC channel constants, and frame protocols for Maestri",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

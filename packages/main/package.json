@@ -1,0 +1,23 @@
+{
+  "name": "@maestri/main",
+  "version": "0.26.0",
+  "description": "Electron Main Process for Maestri spatial canvas workspace",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "electron dist/index.js"
+  },
+  "dependencies": {
+    "@maestri/shared": "*",
+    "@maestri/core-daemon": "*",
+    "@maestri/preload": "*",
+    "node-pty": "1.2.0-beta.15",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "electron": "^33.2.0",
+    "typescript": "^5.7.2"
+  }
+}
