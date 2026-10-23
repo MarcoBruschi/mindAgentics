@@ -1,6 +1,7 @@
 import { app, BrowserWindow, session } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import { IPC_CHANNELS as C } from '@maestri/shared';
 import { DataService } from './storage/dataService.js';
@@ -29,6 +30,24 @@ function resolvePreloadPath(): string {
   return candidates[0];
 }
 
+function getWindowMaterial(): 'acrylic' | 'vibrancy' | null {
+  if (process.platform === 'darwin') {
+    return 'vibrancy';
+  }
+  if (process.platform === 'win32') {
+    try {
+      const release = os.release();
+      const build = Number.parseInt(release.split('.')[2] ?? '', 10);
+      if (Number.isFinite(build) && build >= 22621) {
+        return 'acrylic';
+      }
+    } catch {
+      // fallback
+    }
+  }
+  return null;
+}
+
 async function createWindow(): Promise<BrowserWindow> {
   await dataService.initLayout();
   const appStateDoc = await dataService.getAppState();
@@ -42,6 +61,7 @@ async function createWindow(): Promise<BrowserWindow> {
   };
 
   const preloadPath = resolvePreloadPath();
+  const material = getWindowMaterial();
 
   const win = new BrowserWindow({
     x: bounds.x,
@@ -50,10 +70,12 @@ async function createWindow(): Promise<BrowserWindow> {
     height: bounds.height || 800,
     minWidth: 900,
     minHeight: 600,
-    frame: false,
     titleBarStyle: 'hidden',
+    autoHideMenuBar: true,
     trafficLightPosition: { x: 14, y: 14 },
-    backgroundColor: '#0f1012',
+    backgroundColor: material ? '#00000000' : '#0f1012',
+    ...(material === 'acrylic' ? { backgroundMaterial: 'acrylic' } : {}),
+    ...(material === 'vibrancy' ? { vibrancy: 'sidebar' } : {}),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -130,6 +152,11 @@ async function createWindow(): Promise<BrowserWindow> {
   }
 
   return win;
+}
+
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
 }
 
 if (app && typeof app.whenReady === 'function') {

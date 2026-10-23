@@ -35,6 +35,16 @@ export const App: React.FC = () => {
 
   // Initial backend load with normalization for existing disk workspaces
   useEffect(() => {
+    const api = (window as any).api || (window as any).maestri;
+    if (api?.app?.info) {
+      api.app.info().then((info: any) => {
+        document.documentElement.classList.toggle(
+          'window-translucent',
+          Boolean(info?.windowMaterial || info?.windowSeeThrough)
+        );
+      }).catch(() => {});
+    }
+
     if (window.api?.workspace?.list) {
       window.api.workspace
         .list()
@@ -168,25 +178,25 @@ export const App: React.FC = () => {
   }, [undo, redo, setIsSidebarOpen]);
 
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden bg-[#1E1E1E] text-zinc-100 select-none font-sans relative">
+    <div className="app-shell w-screen h-screen flex flex-col overflow-hidden bg-transparent text-zinc-100 select-none font-sans relative">
       {/* Top Draggable Electron Titlebar / Tab Bar */}
       <TitleBar />
 
       {/* Main Workspace Body */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Full Canvas Viewport (runs underneath the frosted sidebar) */}
-        <main className="w-full h-full absolute inset-0 overflow-hidden flex flex-col">
+        {/* Frosted Translucent Sidebar */}
+        <Sidebar />
+
+        {/* Full Canvas Viewport (runs next to the sidebar with solid canvas background) */}
+        <main className="flex-1 h-full relative overflow-hidden flex flex-col bg-[#1E1E1E]">
           <InfiniteCanvas />
           <CanvasToolbar />
         </main>
 
-        {/* Frosted Glass Sidebar */}
-        <Sidebar />
-
-        {/* Canvas Hamburger Toggle Button (3 horizontal stacked bars) */}
+        {/* Canvas Hamburger Toggle Button (Round toggle button) */}
         <button
           onClick={() => setIsSidebarOpen((prev: boolean) => !prev)}
-          className={`absolute top-3 z-40 p-2 rounded-lg bg-[#1c1d22]/80 hover:bg-[#282930] backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white shadow-lg transition-all duration-300 ease-in-out flex items-center justify-center cursor-pointer ${
+          className={`absolute top-3 z-40 w-9 h-9 rounded-full bg-[#1c1d22]/80 hover:bg-[#282930] backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white shadow-lg transition-all duration-300 ease-in-out flex items-center justify-center cursor-pointer ${
             isSidebarOpen ? 'left-[268px]' : 'left-3'
           }`}
           title={isSidebarOpen ? 'Esconder barra lateral' : 'Mostrar barra lateral'}

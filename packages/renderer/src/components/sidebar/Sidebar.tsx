@@ -77,12 +77,20 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`absolute top-0 bottom-0 left-0 w-64 h-full border-r border-white/[0.08] flex flex-col z-30 select-none text-zinc-300 bg-[#16171a]/70 backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-in-out ${
-        isCollapsed ? '-translate-x-full pointer-events-none' : 'translate-x-0'
+      className={`relative h-full border-r border-white/[0.08] flex flex-col z-30 select-none text-zinc-300 transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+        isCollapsed
+          ? 'w-0 border-r-0 opacity-0 pointer-events-none'
+          : 'w-64 opacity-100'
       }`}
+      style={{
+        backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+      }}
     >
-      {/* Quick Search */}
-      <div className="p-3 pb-1">
+      <div className="w-64 h-full flex flex-col shrink-0">
+        {/* Quick Search */}
+        <div className="p-3 pb-1">
         <button
           onClick={() => setIsCommandPaletteOpen(true)}
           className="w-full flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.05] text-xs text-[#8E8E93] hover:text-zinc-200 transition-colors cursor-pointer"
@@ -184,6 +192,7 @@ export const Sidebar: React.FC = () => {
         >
           <Settings className="w-4 h-4" strokeWidth={1.5} />
         </button>
+      </div>
       </div>
 
       {/* Delete Workspace Confirmation Dialog */}

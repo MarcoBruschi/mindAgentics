@@ -44,16 +44,30 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   // ==========================================
   // App & Window Management
   // ==========================================
-  handle(C.appInfo, () => ({
-    appVersion: '0.26.0',
-    electronVersion: process.versions.electron || '',
-    platform: process.platform,
-    locale: app.getLocale(),
-    isPackaged: app.isPackaged,
-    windowMaterial: 'mica',
-    windowSeeThrough: false,
-    buildSha: 'clean-room-0.26.0'
-  }));
+  handle(C.appInfo, () => {
+    let windowMaterial: 'acrylic' | 'vibrancy' | null = null;
+    if (process.platform === 'darwin') {
+      windowMaterial = 'vibrancy';
+    } else if (process.platform === 'win32') {
+      try {
+        const build = Number.parseInt(os.release().split('.')[2] ?? '', 10);
+        if (Number.isFinite(build) && build >= 22621) {
+          windowMaterial = 'acrylic';
+        }
+      } catch {}
+    }
+
+    return {
+      appVersion: '0.26.0',
+      electronVersion: process.versions.electron || '',
+      platform: process.platform,
+      locale: app.getLocale(),
+      isPackaged: app.isPackaged,
+      windowMaterial,
+      windowSeeThrough: false,
+      buildSha: 'clean-room-0.26.0'
+    };
+  });
 
   handle(C.appDiagnosticReport, () => ({
     os: `${process.platform} ${process.arch}`,
