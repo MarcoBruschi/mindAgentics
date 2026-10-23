@@ -47,7 +47,7 @@ export const CableTieComponent: React.FC<CableTieProps> = ({ tie, fromNode, toNo
         stroke="#60a5fa"
         strokeWidth={2.5}
         strokeDasharray="6 4"
-        className="transition-all duration-200 group-hover:stroke-blue-400 group-hover:stroke-[3.5px] drop-shadow-[0_0_8px_rgba(96,165,250,0.6)]"
+        className="transition-[stroke,stroke-width] duration-150 group-hover:stroke-blue-400 group-hover:stroke-[3.5px]"
       />
       {/* Minimal subtle delete button visible only on line hover */}
       {onDelete && (
