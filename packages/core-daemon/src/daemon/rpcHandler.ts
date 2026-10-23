@@ -118,12 +118,22 @@ export class RpcHandler {
         break;
       }
 
+      case 'unregisterTerminal': {
+        if (payload?.terminalId) {
+          this.state.unregisterTerminal(payload.terminalId);
+        }
+        break;
+      }
+
       case 'syncCanvas': {
         if (Array.isArray(payload?.nodes)) {
           this.state.nodes.clear();
+          const activeTerminalIds = new Set<string>();
+
           for (const node of payload.nodes) {
             this.state.nodes.set(node.id, node);
             if (node.kind === 'terminal' && node.content?.terminalId) {
+              activeTerminalIds.add(node.content.terminalId);
               const existing = this.state.terminals.get(node.content.terminalId);
               if (existing) {
                 existing.title = node.content.title;
@@ -143,6 +153,13 @@ export class RpcHandler {
                   scrollback: [],
                 });
               }
+            }
+          }
+
+          // Expurgar referências a terminais/agentes que foram apagados do canvas
+          for (const [termId] of this.state.terminals.entries()) {
+            if (!activeTerminalIds.has(termId)) {
+              this.state.unregisterTerminal(termId);
             }
           }
         }

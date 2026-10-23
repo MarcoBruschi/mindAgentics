@@ -13,16 +13,80 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({ drawings, currentStr
       return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
     }, '');
 
+    const type = stroke.brushType || 'pen';
+    const baseColor = stroke.color || '#3b82f6';
+    const baseWidth = stroke.width || 4;
+
+    if (type === 'highlighter') {
+      return (
+        <path
+          key={stroke.id}
+          d={pathStr}
+          stroke={baseColor}
+          strokeWidth={Math.max(12, baseWidth * 2.6)}
+          strokeOpacity={0.4}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+          fill="none"
+          className="pointer-events-none mix-blend-screen"
+        />
+      );
+    }
+
+    if (type === 'dashed') {
+      return (
+        <path
+          key={stroke.id}
+          d={pathStr}
+          stroke={baseColor}
+          strokeWidth={baseWidth}
+          strokeDasharray={`${baseWidth * 2} ${baseWidth * 2}`}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          className="pointer-events-none drop-shadow-[0_0_4px_rgba(255,255,255,0.2)]"
+        />
+      );
+    }
+
+    if (type === 'neon') {
+      return (
+        <g key={stroke.id} className="pointer-events-none">
+          {/* Outer glow */}
+          <path
+            d={pathStr}
+            stroke={baseColor}
+            strokeWidth={baseWidth * 2.5}
+            strokeOpacity={0.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+            style={{ filter: `blur(4px)` }}
+          />
+          {/* Inner core */}
+          <path
+            d={pathStr}
+            stroke="#ffffff"
+            strokeWidth={Math.max(1.5, baseWidth * 0.6)}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </g>
+      );
+    }
+
+    // Default 'pen'
     return (
       <path
         key={stroke.id}
         d={pathStr}
-        stroke={stroke.color || '#3b82f6'}
-        strokeWidth={stroke.width || 3}
+        stroke={baseColor}
+        strokeWidth={baseWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
-        className="pointer-events-none drop-shadow-[0_0_6px_rgba(59,130,246,0.4)]"
+        className="pointer-events-none drop-shadow-[0_0_6px_rgba(59,130,246,0.35)]"
       />
     );
   };

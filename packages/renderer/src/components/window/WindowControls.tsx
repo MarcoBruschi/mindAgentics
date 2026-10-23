@@ -45,7 +45,7 @@ export const WindowControls: React.FC = () => {
 
   return (
     <div
-      className="fixed top-0 right-0 z-50 flex items-center h-8 bg-transparent select-none"
+      className="flex items-center h-8 bg-transparent select-none -mr-3"
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
       {/* Minimize */}

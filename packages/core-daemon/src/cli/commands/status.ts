@@ -5,7 +5,7 @@ export const statusCommand: CommandHandler = async (req, state) => {
   const callerTitle = caller ? caller.title : 'Current Terminal';
   const role = caller?.agentRole || 'None';
   const preset = caller?.presetId || 'Default';
-  const maestro = caller?.maestroMode ? 'Enabled' : 'Disabled';
+  const maestro = (caller?.maestroMode ?? req.options?.maestroMode) ? 'Enabled' : 'Disabled';
   const status = caller?.status || 'idle';
 
   const ws = caller ? state.workspaces.get(caller.workspaceId) : undefined;

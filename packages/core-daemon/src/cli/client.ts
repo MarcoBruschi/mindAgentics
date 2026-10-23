@@ -72,7 +72,10 @@ export async function runCliClient(argv: string[]): Promise<void> {
     floorId: process.env.MAESTRI_FLOOR_ID,
     command: parsed.command,
     args: parsed.args,
-    options: parsed.options,
+    options: {
+      ...parsed.options,
+      maestroMode: process.env.MAESTRI_MAESTRO_MODE === '1',
+    },
   };
 
   const client = net.createConnection(pipePath!, () => {

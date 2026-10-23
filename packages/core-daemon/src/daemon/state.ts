@@ -165,23 +165,43 @@ export class DaemonState {
     this.terminals.set(term.id, term);
   }
 
+  public unregisterTerminal(id: string) {
+    this.terminals.delete(id);
+    // Also remove from any asks in flight
+    for (const [askId, ask] of this.asksInFlight.entries()) {
+      if (ask.fromTerminalId === id || ask.toTerminalId === id) {
+        this.asksInFlight.delete(askId);
+      }
+    }
+  }
+
   public getTerminalByNameOrId(nameOrId: string, callerWorkspaceId?: string, excludeTerminalId?: string): TerminalRuntime | undefined {
+    const norm = nameOrId.trim().toLowerCase();
+
     // 1. Direct ID match
     if (this.terminals.has(nameOrId)) {
       return this.terminals.get(nameOrId);
     }
 
-    // 2. Exact Title match, prioritizing other terminals over caller self
+    // 2. Exact Title match in caller's workspace
     for (const term of this.terminals.values()) {
       if (excludeTerminalId && term.id === excludeTerminalId) continue;
-      if (term.title.toLowerCase() === nameOrId.toLowerCase()) {
+      if (term.title.toLowerCase() === norm) {
         if (!callerWorkspaceId || term.workspaceId === callerWorkspaceId) {
           return term;
         }
       }
     }
 
-    // 3. Match "Name @ Workspace"
+    // 3. Exact Title match across any workspace
+    for (const term of this.terminals.values()) {
+      if (excludeTerminalId && term.id === excludeTerminalId) continue;
+      if (term.title.toLowerCase() === norm) {
+        return term;
+      }
+    }
+
+    // 4. Match "Name @ Workspace"
     if (nameOrId.includes('@')) {
       const [titlePart, wsPart] = nameOrId.split('@').map((s) => s.trim().toLowerCase());
       for (const term of this.terminals.values()) {
@@ -193,6 +213,28 @@ export class DaemonState {
           ws.name.toLowerCase() === wsPart
         ) {
           return term;
+        }
+      }
+    }
+
+    // 5. Substring / partial Title match
+    for (const term of this.terminals.values()) {
+      if (excludeTerminalId && term.id === excludeTerminalId) continue;
+      if (term.title.toLowerCase().includes(norm) || norm.includes(term.title.toLowerCase())) {
+        return term;
+      }
+    }
+
+    // 6. Check state.nodes (in case a terminal node was registered on canvas)
+    for (const node of this.nodes.values()) {
+      if (node.kind === 'terminal') {
+        const content = node.content as any;
+        const termId = content?.terminalId;
+        const title = (content?.title || '').toLowerCase();
+        if (node.id.toLowerCase() === norm || termId === nameOrId || title === norm || title.includes(norm)) {
+          if (termId && this.terminals.has(termId)) {
+            return this.terminals.get(termId);
+          }
         }
       }
     }

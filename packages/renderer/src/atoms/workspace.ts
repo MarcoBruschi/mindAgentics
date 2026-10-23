@@ -179,8 +179,11 @@ export const activeWorkspaceIdAtom = atom<string>(getSavedActiveId());
 export const activeFloorIdAtom = atom<string>('floor-main');
 
 // ==========================================
-// Undo / Redo History Atoms
+// Undo / Redo History Atoms & Transactional Groups
+// Section 4 of Maestri Interaction Model
 // ==========================================
+export const MAX_UNDO_LEVELS = 50;
+
 export interface CanvasFloorSnapshot {
   nodes: CanvasNode[];
   cableTies: CableTie[];
@@ -190,15 +193,73 @@ export interface CanvasFloorSnapshot {
 
 export const undoStackAtom = atom<CanvasFloorSnapshot[]>([]);
 export const redoStackAtom = atom<CanvasFloorSnapshot[]>([]);
+export const undoGroupDepthAtom = atom<number>(0);
+export const undoGroupPushedAtom = atom<boolean>(false);
+
+export const beginUndoGroupAtom = atom(null, (get, set) => {
+  const depth = get(undoGroupDepthAtom);
+  if (depth === 0) {
+    set(undoGroupPushedAtom, false);
+  }
+  set(undoGroupDepthAtom, depth + 1);
+});
+
+export const endUndoGroupAtom = atom(null, (get, set) => {
+  const depth = get(undoGroupDepthAtom);
+  const nextDepth = Math.max(0, depth - 1);
+  set(undoGroupDepthAtom, nextDepth);
+  if (nextDepth === 0) {
+    set(undoGroupPushedAtom, false);
+  }
+});
 
 export const pushSnapshotAtom = atom(
   null,
   (get, set, snapshot: CanvasFloorSnapshot) => {
+    const depth = get(undoGroupDepthAtom);
+    const alreadyPushed = get(undoGroupPushedAtom);
+
+    if (depth > 0) {
+      if (alreadyPushed) {
+        return;
+      }
+      set(undoGroupPushedAtom, true);
+    }
+
     const currentUndo = get(undoStackAtom);
-    set(undoStackAtom, [...currentUndo.slice(-40), snapshot]);
+    set(undoStackAtom, [...currentUndo.slice(-(MAX_UNDO_LEVELS - 1)), snapshot]);
     set(redoStackAtom, []);
   }
 );
+
+/**
+ * Reconciles live terminal processes so that undo/redo restores positions
+ * and geometry without disconnecting active background processes or PTY sessions.
+ */
+function keepingLiveTerminals(restoredNodes: CanvasNode[], currentNodes: CanvasNode[]): CanvasNode[] {
+  const liveMap = new Map<string, CanvasNode>();
+  for (const n of currentNodes) {
+    if (n.kind === 'terminal') {
+      liveMap.set(n.id, n);
+    }
+  }
+
+  return restoredNodes.map((n) => {
+    if (n.kind === 'terminal') {
+      const live = liveMap.get(n.id);
+      if (live && live.content) {
+        return {
+          ...n,
+          content: {
+            ...n.content,
+            status: (live.content as any)?.status ?? (n.content as any)?.status,
+          },
+        };
+      }
+    }
+    return n;
+  });
+}
 
 export const undoAtom = atom(null, (get, set) => {
   const floor = get(activeFloorAtom);
@@ -217,8 +278,14 @@ export const undoAtom = atom(null, (get, set) => {
   set(undoStackAtom, undoStack.slice(0, -1));
   set(redoStackAtom, (prev) => [...prev, currentSnapshot]);
 
+  const reconciledNodes = keepingLiveTerminals(previousSnapshot.nodes || [], floor.nodes || []);
+  const restoredSnapshot: CanvasFloorSnapshot = {
+    ...previousSnapshot,
+    nodes: reconciledNodes,
+  };
+
   const updatedFloors = workspace.floors.map((f) =>
-    f.id === floor.id ? { ...f, ...previousSnapshot } : f
+    f.id === floor.id ? { ...f, ...restoredSnapshot } : f
   );
   const updatedWorkspaces = get(workspacesAtom).map((w) =>
     w.id === workspace.id ? { ...w, floors: updatedFloors } : w
@@ -243,8 +310,14 @@ export const redoAtom = atom(null, (get, set) => {
   set(redoStackAtom, redoStack.slice(0, -1));
   set(undoStackAtom, (prev) => [...prev, currentSnapshot]);
 
+  const reconciledNodes = keepingLiveTerminals(nextSnapshot.nodes || [], floor.nodes || []);
+  const restoredSnapshot: CanvasFloorSnapshot = {
+    ...nextSnapshot,
+    nodes: reconciledNodes,
+  };
+
   const updatedFloors = workspace.floors.map((f) =>
-    f.id === floor.id ? { ...f, ...nextSnapshot } : f
+    f.id === floor.id ? { ...f, ...restoredSnapshot } : f
   );
   const updatedWorkspaces = get(workspacesAtom).map((w) =>
     w.id === workspace.id ? { ...w, floors: updatedFloors } : w
@@ -391,6 +464,51 @@ export const drawingsAtom = atom(
       typeof update === 'function' ? update(currentDrawings) : update;
     const updatedFloors = workspace.floors.map((f) =>
       f.id === floor.id ? { ...f, drawings: newDrawings } : f
+    );
+    const updatedWorkspaces = get(workspacesAtom).map((w) =>
+      w.id === workspace.id ? { ...w, floors: updatedFloors } : w
+    );
+    set(workspacesAtom, updatedWorkspaces);
+  }
+);
+
+/**
+ * Patch frames of multiple nodes atomically inside a single undo step
+ */
+export const patchFramesAtom = atom(
+  null,
+  (
+    get,
+    set,
+    updates: Array<{ id: string; x?: number; y?: number; width?: number; height?: number }>
+  ) => {
+    const floor = get(activeFloorAtom);
+    const workspace = get(activeWorkspaceAtom);
+    if (!floor || !workspace || !Array.isArray(workspace.floors)) return;
+
+    const snapshot: CanvasFloorSnapshot = {
+      nodes: floor.nodes ? [...floor.nodes] : [],
+      cableTies: floor.cableTies ? [...floor.cableTies] : [],
+      bands: floor.bands ? [...floor.bands] : [],
+      drawings: floor.drawings ? [...floor.drawings] : [],
+    };
+    set(pushSnapshotAtom, snapshot);
+
+    const updateMap = new Map(updates.map((u) => [u.id, u]));
+    const newNodes = (floor.nodes || []).map((node) => {
+      const patch = updateMap.get(node.id);
+      if (!patch) return node;
+      return {
+        ...node,
+        x: patch.x !== undefined ? patch.x : node.x,
+        y: patch.y !== undefined ? patch.y : node.y,
+        width: patch.width !== undefined ? patch.width : node.width,
+        height: patch.height !== undefined ? patch.height : node.height,
+      };
+    });
+
+    const updatedFloors = workspace.floors.map((f) =>
+      f.id === floor.id ? { ...f, nodes: newNodes } : f
     );
     const updatedWorkspaces = get(workspacesAtom).map((w) =>
       w.id === workspace.id ? { ...w, floors: updatedFloors } : w

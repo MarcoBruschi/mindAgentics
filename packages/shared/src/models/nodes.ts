@@ -180,6 +180,8 @@ export interface CanvasDrawing {
   points: DrawingPoint[];
   color: string;
   width: number;
+  brushType?: 'pen' | 'highlighter' | 'dashed' | 'neon';
+  opacity?: number;
   zIndex?: number;
 }
 
@@ -217,6 +219,9 @@ export interface TextBlockContent {
   text: string;
   fontSize?: number;
   color?: string;
+  fontFamily?: string;
+  fontWeight?: string;
+  fontStyle?: string;
 }
 
 export interface TextBlockNode extends BaseNode {

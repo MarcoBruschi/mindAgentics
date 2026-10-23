@@ -22,6 +22,14 @@ export const isCreateFloorModalOpenAtom = atom<boolean>(false);
 export const isFloorLandingModalOpenAtom = atom<boolean>(false);
 export const isCommandPaletteOpenAtom = atom<boolean>(false);
 export const isSidebarCollapsedAtom = atom<boolean>(false);
+export const isSidebarOpenAtom = atom(
+  (get) => !get(isSidebarCollapsedAtom),
+  (get, set, update: boolean | ((prev: boolean) => boolean)) => {
+    const current = !get(isSidebarCollapsedAtom);
+    const next = typeof update === 'function' ? update(current) : update;
+    set(isSidebarCollapsedAtom, !next);
+  }
+);
 export const isCreateAgentModalOpenAtom = atom<boolean>(false);
 export const isCreateWorkspaceModalOpenAtom = atom<boolean>(false);
 export const isAgentLimitsModalOpenAtom = atom<boolean>(false);

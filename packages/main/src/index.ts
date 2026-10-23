@@ -12,7 +12,7 @@ import { registerIpcDispatcher } from './ipc/dispatcher.js';
 let mainWindow: BrowserWindow | null = null;
 const dataService = new DataService();
 const supervisor = new CoreDaemonSupervisor();
-const terminalManager = new TerminalManager(supervisor);
+const terminalManager = new TerminalManager(supervisor, dataService);
 const gitService = new GitWorktreeService();
 
 function resolvePreloadPath(): string {

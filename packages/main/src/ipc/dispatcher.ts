@@ -18,7 +18,7 @@ export interface DispatcherDeps {
 
 export function registerIpcDispatcher(deps: DispatcherDeps): void {
   const { dataService, supervisor, terminalManager, gitService } = deps;
-  const getWin = () => deps.mainWindow;
+  const getWin = () => deps.mainWindow || BrowserWindow.getAllWindows()[0] || null;
 
   const handle = (channel: string, handler: (...args: any[]) => any) => {
     ipcMain.handle(channel, async (_event, ...args) => {
@@ -266,7 +266,26 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   // Terminal PTY
   handle('maestri:terminal:detectAgents', () => terminalManager.detectInstalledAgents());
   handle('maestri:terminal:getAgentLimits', () => terminalManager.getAgentLimits());
+  handle('maestri:terminal:setMaestroMode', (_event: any, terminalId: string, maestroMode: boolean) => {
+    terminalManager.setMaestroMode(terminalId, maestroMode);
+    return { ok: true };
+  });
   handle(C.terminalSpawn, async (opts: any) => terminalManager.spawn(opts));
+
+  // Forward CoreDaemon canvas placement events to renderer
+  supervisor.on('placeNode', (payload: any) => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('maestri:canvas:nodePlaced', payload);
+    }
+  });
+
+  supervisor.on('cableTieCreated', (payload: any) => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('maestri:canvas:cableTieCreated', payload);
+    }
+  });
 
   ipcMain.on('maestri:canvas:sync', (_event, payload: any) => {
     supervisor.syncCanvas(payload);

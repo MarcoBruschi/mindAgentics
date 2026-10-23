@@ -195,7 +195,14 @@ export class CoreDaemonSupervisor extends EventEmitter {
       case 'terminalMemory':
         this.emit('terminalMemory', frame.payload);
         break;
+      case 'placeNode':
+        this.emit('placeNode', frame.payload);
+        break;
+      case 'cableTieCreated':
+        this.emit('cableTieCreated', frame.payload);
+        break;
       default:
+        this.emit(frame.type, frame.payload);
         this.emit('event', frame);
         break;
     }
@@ -256,6 +263,10 @@ export class CoreDaemonSupervisor extends EventEmitter {
 
   public syncCanvas(payload: any): void {
     this.sendNotification('syncCanvas', payload);
+  }
+
+  public unregisterTerminal(terminalId: string): void {
+    this.sendNotification('unregisterTerminal', { terminalId });
   }
 
   public chatTurnSettled(terminalId: string, output: string, askId?: string): void {

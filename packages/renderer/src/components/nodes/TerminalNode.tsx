@@ -63,15 +63,26 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   const agentCommand = node.content.command !== undefined ? node.content.command : (preset.command || '');
   const agentName = node.content.title || preset.name;
   const hasAttention = node.content.hasAttention || false;
+  const isMaestro = Boolean(node.content.maestroMode);
 
   // Find components linked via Cable Ties to this node
   const linkedTies = (cableTies || []).filter(
-    (t) => t.fromNodeId === node.id || t.toNodeId === node.id
+    (t) =>
+      t.fromNodeId === node.id ||
+      t.toNodeId === node.id ||
+      t.fromNodeId === node.content.terminalId ||
+      t.toNodeId === node.content.terminalId
   );
   const linkedNodes = linkedTies
-    .map((t) =>
-      (allNodes || []).find((n) => n.id === (t.fromNodeId === node.id ? t.toNodeId : t.fromNodeId))
-    )
+    .map((t) => {
+      const otherId =
+        t.fromNodeId === node.id || t.fromNodeId === node.content.terminalId
+          ? t.toNodeId
+          : t.fromNodeId;
+      return (allNodes || []).find(
+        (n) => n.id === otherId || (n.kind === 'terminal' && n.content?.terminalId === otherId)
+      );
+    })
     .filter(Boolean) as any[];
 
   const getAgentIcon = (presetName?: string) => {
@@ -91,6 +102,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
 
   useEffect(() => {
     if (!terminalRef.current) return;
+
+    let isDisposed = false;
 
     // Initialize Xterm
     const term = new Terminal({
@@ -112,7 +125,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       fontSize: 12,
       lineHeight: 1.25,
       cursorBlink: true,
-      scrollback: 2000,
+      scrollback: 10000,
       convertEol: true,
     });
 
@@ -141,32 +154,16 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     let unsubscribeStatus: (() => void) | undefined;
 
     if (window.maestri?.terminal) {
-      // Spawn or attach backend PTY session
-      window.maestri.terminal
-        .spawn({
-          id: termId,
-          command: agentCommand,
-          cols: term.cols || 80,
-          rows: term.rows || 24,
-          cwd: activeWorkspace?.workingDirectory,
-          title: agentName,
-          presetId: preset.id,
-        })
-        .catch((err: any) => {
-          console.warn('[terminal.spawn error]', err);
-        });
-
-      // Load previous scrollback if reconnecting
-      window.maestri.terminal
-        .getScrollback?.(termId)
-        .then((sb: any) => {
-          if (sb && term) term.write(sb);
-        })
-        .catch(() => {});
+      let scrollbackRestored = false;
+      const pendingDataQueue: string[] = [];
 
       unsubscribeData = window.maestri.terminal.onData((receivedId: string, data: string) => {
         if (receivedId === termId && data) {
-          term.write(data);
+          if (!scrollbackRestored) {
+            pendingDataQueue.push(data);
+          } else {
+            term.write(data);
+          }
         }
       });
 
@@ -186,6 +183,46 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       term.onData((data) => {
         window.maestri?.terminal.write(termId, data);
       });
+
+      // Restore scrollback first so previous conversations remain visible, then spawn or attach backend PTY session
+      const restoreAndSpawn = async () => {
+        try {
+          if (window.maestri.terminal.getScrollback) {
+            const sb = await window.maestri.terminal.getScrollback(termId);
+            if (!isDisposed && sb && term) {
+              term.write(sb);
+            }
+          }
+        } catch (err: any) {
+          console.warn('[terminal.getScrollback error]', err);
+        } finally {
+          if (isDisposed) return;
+          scrollbackRestored = true;
+          if (pendingDataQueue.length > 0) {
+            for (const chunk of pendingDataQueue) {
+              term.write(chunk);
+            }
+            pendingDataQueue.length = 0;
+          }
+
+          try {
+            await window.maestri.terminal.spawn({
+              id: termId,
+              command: agentCommand,
+              cols: term.cols || 80,
+              rows: term.rows || 24,
+              cwd: activeWorkspace?.workingDirectory,
+              title: agentName,
+              presetId: preset.id,
+              maestroMode: isMaestro,
+            });
+          } catch (err: any) {
+            console.warn('[terminal.spawn error]', err);
+          }
+        }
+      };
+
+      restoreAndSpawn();
     } else {
       // Fallback shell
       term.writeln(`\x1b[1;34m=== Maestri Agent Terminal ===\x1b[0m`);
@@ -243,6 +280,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     }, 150);
 
     return () => {
+      isDisposed = true;
       resizeObserver.disconnect();
       unsubscribeData?.();
       unsubscribeStatus?.();
@@ -259,6 +297,21 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         status: !hasAttention ? 'attention' : 'idle',
       },
     });
+  };
+
+  const toggleMaestro = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextMaestro = !isMaestro;
+    onUpdate({
+      ...nodeRef.current,
+      content: {
+        ...nodeRef.current.content,
+        maestroMode: nextMaestro,
+      },
+    });
+    if (window.maestri?.terminal?.setMaestroMode) {
+      window.maestri.terminal.setMaestroMode(node.content.terminalId, nextMaestro).catch(() => {});
+    }
   };
 
   const handleInsertReference = (targetNode: any) => {
@@ -312,9 +365,19 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full h-full bg-[#0d0e11] select-none text-zinc-300">
+    <div
+      className={`flex flex-col w-full h-full bg-[#0d0e11] select-none text-zinc-300 transition-all ${
+        isMaestro ? 'ring-1 ring-amber-500/30' : ''
+      }`}
+    >
       {/* Node Header */}
-      <div className="node-drag-handle flex items-center justify-between px-3 py-2 bg-[#16181d] border-b border-white/5 cursor-move">
+      <div
+        className={`node-drag-handle flex items-center justify-between px-3 py-2 border-b cursor-move transition-colors ${
+          isMaestro
+            ? 'bg-[#16181d] border-amber-500/20'
+            : 'bg-[#16181d] border-white/5'
+        }`}
+      >
         <div className="flex items-center gap-2">
           {getAgentIcon(agentName)}
 
@@ -357,17 +420,52 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
             {agentCommand ? agentCommand.split(' ')[0] : 'shell'}
           </span>
 
-          {/* Mode Badge (Autonomous vs Normal) */}
+          {/* Maestro Toggle Badge (Discreto e Simples) */}
+          <button
+            type="button"
+            onClick={toggleMaestro}
+            className={`px-2 py-0.5 text-[10px] font-medium rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+              isMaestro
+                ? 'bg-amber-500/10 text-amber-300 border border-amber-500/25 hover:bg-amber-500/15'
+                : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.07] border border-white/[0.06]'
+            }`}
+            title={
+              isMaestro
+                ? 'Modo Maestro Ativo: Este agente é o Orquestrador da Equipe. Clique para desativar.'
+                : 'Ativar Modo Maestro: Promove este agente a Orquestrador da Equipe.'
+            }
+          >
+            <span className="text-[10px] leading-none opacity-80">🎼</span>
+            <span>Maestro</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                isMaestro ? 'bg-amber-400/90' : 'bg-zinc-600'
+              }`}
+            />
+          </button>
+
+          {isMaestro && (
+            <span
+              className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium tracking-wide bg-purple-500/10 text-purple-300/90 border border-purple-500/20"
+              title="Este agente possui o papel de Maestro / Orquestrador Central"
+            >
+              <span className="opacity-80">👑</span>
+              <span>Orquestrador</span>
+            </span>
+          )}
+
+          {/* Mode Badge (Autonomous vs Normal - Discreto e Simples) */}
           {node.content.isAutonomous ? (
             <span
-              className="px-1.5 py-0.5 text-[9px] font-semibold tracking-wide rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-0.5"
+              className="px-1.5 py-0.5 text-[9px] font-medium tracking-wide rounded-md bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20 flex items-center gap-1"
               title="Modo Autônomo: auto-aprova ações sem pausar para confirmações"
             >
-              ⚡ Autônomo
+              <span className="opacity-75">⚡</span>
+              <span>Autônomo</span>
             </span>
           ) : (
             <span
-              className="px-1.5 py-0.5 text-[9px] font-semibold tracking-wide rounded bg-zinc-500/15 text-zinc-400 border border-zinc-500/25"
+              className="px-1.5 py-0.5 text-[9px] font-medium tracking-wide rounded-md bg-white/[0.04] text-zinc-400 border border-white/[0.06]"
               title="Modo Normal: solicita confirmação de ações"
             >
               Normal

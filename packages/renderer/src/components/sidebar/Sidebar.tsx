@@ -4,6 +4,7 @@ import {
   workspacesAtom,
   activeWorkspaceIdAtom,
   activeWorkspaceAtom,
+  nodesAtom,
 } from '@/atoms/workspace';
 import {
   isWorkspaceSettingsModalOpenAtom,
@@ -13,24 +14,30 @@ import {
 } from '@/atoms/ui';
 import {
   Folder,
-  Layers,
   Settings,
   Plus,
-  ChevronLeft,
-  ChevronRight,
   Search,
-  Check,
   Trash2,
   Edit2,
+  Terminal,
 } from 'lucide-react';
 import { Workspace } from '@maestri/shared';
+
+const WORKSPACE_ICON_COLORS = [
+  '#3B82F6', // Blue
+  '#EF4444', // Coral / Red
+  '#A855F7', // Purple
+  '#10B981', // Emerald
+  '#F59E0B', // Amber
+];
 
 export const Sidebar: React.FC = () => {
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom);
   const [activeWorkspaceId, setActiveWorkspaceId] = useAtom(activeWorkspaceIdAtom);
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
+  const [allNodes] = useAtom(nodesAtom);
 
-  const [isCollapsed, setIsCollapsed] = useAtom(isSidebarCollapsedAtom);
+  const [isCollapsed] = useAtom(isSidebarCollapsedAtom);
   const [, setIsSettingsOpen] = useAtom(isWorkspaceSettingsModalOpenAtom);
   const [, setIsCommandPaletteOpen] = useAtom(isCommandPaletteOpenAtom);
   const [, setIsCreateWorkspaceOpen] = useAtom(isCreateWorkspaceModalOpenAtom);
@@ -68,111 +75,31 @@ export const Sidebar: React.FC = () => {
     setIsSettingsOpen(true);
   };
 
-  if (isCollapsed) {
-    return (
-      <div className="w-12 h-full bg-[#121316] border-r border-white/5 flex flex-col items-center py-3 gap-3 z-30 select-none">
-        <button
-          onClick={() => setIsCollapsed(false)}
-          className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5"
-          title="Expand Sidebar"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-
-        <div className="w-6 h-[1px] bg-white/10" />
-
-        <button
-          onClick={() => setIsCommandPaletteOpen(true)}
-          className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5"
-          title="Command Palette (Ctrl+K)"
-        >
-          <Search className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={() => setIsCreateWorkspaceOpen(true)}
-          className="p-2 text-zinc-400 hover:text-blue-400 rounded-lg hover:bg-blue-500/10"
-          title="Novo Workspace"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-
-        <div className="flex-1" />
-
-        <button
-          onClick={() => setIsSettingsOpen(true)}
-          className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5"
-          title="Configurações do Workspace"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <aside className="w-64 h-full bg-[#121316] border-r border-white/5 flex flex-col z-30 select-none text-zinc-300">
-      {/* Workspace Header */}
-      <div className="p-3 border-b border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-2 overflow-hidden">
-          <div className="w-6 h-6 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-xs">
-            M
-          </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="font-semibold text-xs text-white truncate">
-              {activeWorkspace?.name || 'Maestri'}
-            </span>
-            <span className="text-[10px] text-zinc-500 truncate font-mono">
-              {activeWorkspace?.workingDirectory || ''}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-white/5"
-            title="Configurações do Workspace"
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setIsCollapsed(true)}
-            className="p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-white/5"
-            title="Recolher Barra Lateral"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
+    <aside
+      className={`absolute top-0 bottom-0 left-0 w-64 h-full border-r border-white/[0.08] flex flex-col z-30 select-none text-zinc-300 bg-[#16171a]/70 backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-in-out ${
+        isCollapsed ? '-translate-x-full pointer-events-none' : 'translate-x-0'
+      }`}
+    >
       {/* Quick Search */}
-      <div className="px-3 py-2">
+      <div className="p-3 pb-1">
         <button
           onClick={() => setIsCommandPaletteOpen(true)}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#181a20] border border-white/5 text-xs text-zinc-400 hover:text-zinc-200 hover:border-white/15 transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.05] text-xs text-[#8E8E93] hover:text-zinc-200 transition-colors cursor-pointer"
         >
-          <div className="flex items-center gap-2">
-            <Search className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Search actions...</span>
-          </div>
-          <kbd className="px-1 py-0.5 text-[9px] font-mono bg-black/40 rounded border border-white/10 text-zinc-500">
-            Ctrl+K
-          </kbd>
+          <Search className="w-3.5 h-3.5 text-[#8E8E93] shrink-0" strokeWidth={1.5} />
+          <span>Filtrar</span>
         </button>
       </div>
 
       {/* Workspaces List Section */}
       <div className="flex-1 overflow-y-auto px-2 py-1 space-y-4">
         <div>
-          <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-            <span className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-blue-400" />
-              Workspaces ({workspaces.length})
-            </span>
+          <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-[#8E8E93] uppercase tracking-[0.05em]">
+            <span>WORKSPACES</span>
             <button
               onClick={() => setIsCreateWorkspaceOpen(true)}
-              className="p-1 hover:text-blue-400 rounded hover:bg-white/5 transition-colors"
+              className="p-1 text-[#AEAEB2] hover:text-white transition-colors cursor-pointer"
               title="Adicionar Novo Workspace"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -180,21 +107,29 @@ export const Sidebar: React.FC = () => {
           </div>
 
           <div className="space-y-1 mt-1">
-            {workspaces.map((ws: Workspace) => {
+            {workspaces.map((ws: Workspace, index: number) => {
               const isActive = ws.id === activeWorkspaceId;
-              const nodeCount = ws.floors?.[0]?.nodes?.length || 0;
+              const nodeCount = isActive
+                ? (allNodes?.length ?? (ws.floors || []).reduce((acc: number, f: any) => acc + (f?.nodes?.length || 0), 0))
+                : (ws.floors || []).reduce((acc: number, f: any) => acc + (f?.nodes?.length || 0), 0) || ((ws as any).nodes?.length || 0);
+              const iconColor = WORKSPACE_ICON_COLORS[index % WORKSPACE_ICON_COLORS.length];
+
               return (
                 <div
                   key={ws.id}
                   onClick={() => setActiveWorkspaceId(ws.id)}
-                  className={`group flex items-center justify-between px-2.5 py-2 rounded-lg text-xs cursor-pointer transition-colors ${
+                  className={`group flex items-center justify-between px-2.5 py-2 text-xs cursor-pointer transition-colors ${
                     isActive
-                      ? 'bg-blue-600/15 text-blue-300 font-medium border border-blue-500/25'
-                      : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                      ? 'bg-white/10 text-white font-medium rounded-[6px] border-none'
+                      : 'text-[#E5E5EA] bg-transparent hover:bg-white/[0.05] rounded-[6px]'
                   }`}
                 >
                   <div className="flex items-center gap-2 truncate flex-1 mr-1">
-                    <Folder className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-400' : 'text-zinc-500'}`} />
+                    <Folder
+                      className="w-3.5 h-3.5 shrink-0"
+                      strokeWidth={1.5}
+                      style={{ color: iconColor }}
+                    />
                     <span className="truncate">{ws.name}</span>
                   </div>
 
@@ -219,10 +154,11 @@ export const Sidebar: React.FC = () => {
                       )}
                     </div>
 
-                    <span className="text-[10px] text-zinc-500 font-mono group-hover:hidden">
-                      {nodeCount} items
-                    </span>
-                    {isActive && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                    {/* Real Node / Item count */}
+                    <div className="flex items-center gap-1 text-[#8E8E93] group-hover:hidden">
+                      <Terminal className="w-3 h-3 text-[#8E8E93]" strokeWidth={1.5} />
+                      <span className="text-[10px] font-mono">{nodeCount}</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -232,13 +168,21 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Bottom Panel Actions */}
-      <div className="p-2 border-t border-white/5 flex items-center justify-between bg-[#101114]">
+      <div className="p-3 border-t border-white/[0.08] flex items-center justify-between bg-transparent">
         <button
           onClick={() => setIsCreateWorkspaceOpen(true)}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"
+          className="flex items-center gap-2 text-[12px] text-[#8E8E93] hover:text-white transition-colors cursor-pointer"
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Novo Workspace</span>
+          <Folder className="w-3.5 h-3.5 text-[#8E8E93]" strokeWidth={1.5} />
+          <span>Novo grupo</span>
+        </button>
+
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="p-1.5 text-[#8E8E93] hover:text-white rounded-md hover:bg-white/[0.06] transition-colors cursor-pointer"
+          title="Configurações do Workspace"
+        >
+          <Settings className="w-4 h-4" strokeWidth={1.5} />
         </button>
       </div>
 

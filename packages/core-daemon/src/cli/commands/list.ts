@@ -9,8 +9,9 @@ export const listCommand: CommandHandler = async (req, state) => {
   const lines: string[] = [];
 
   // You section
+  const callerMaestro = caller?.maestroMode ? ' [🎼 Maestro Mode Active]' : '';
   lines.push('You:');
-  lines.push(`  ${callerTitle} (ID: ${req.terminalId.slice(0, 8)})`);
+  lines.push(`  ${callerTitle}${callerMaestro} (ID: ${req.terminalId.slice(0, 8)})`);
   if (callerWs) {
     lines.push(`  ${callerTitle} @ ${callerWsName}`);
   }
@@ -41,11 +42,12 @@ export const listCommand: CommandHandler = async (req, state) => {
   for (const term of state.terminals.values()) {
     if (term.id === req.terminalId) continue;
     hasAgents = true;
+    const maestroStr = term.maestroMode ? ' [🎼 Maestro]' : '';
     const roleStr = term.agentRole ? ` [Role: ${term.agentRole}]` : '';
     const presetStr = term.presetId ? ` (${term.presetId})` : '';
     const statusStr = ` [${term.status}]`;
     const accStr = term.account ? ` (Account: ${term.account})` : '';
-    lines.push(`  * ${term.title}${roleStr}${presetStr}${statusStr}${accStr}`);
+    lines.push(`  * ${term.title}${maestroStr}${roleStr}${presetStr}${statusStr}${accStr}`);
   }
   if (!hasAgents) {
     lines.push('  (none connected)');

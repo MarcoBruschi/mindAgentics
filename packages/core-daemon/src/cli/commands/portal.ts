@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
 import type { PortalNode, PortalContent } from '@maestri/shared';
+import { placeNode } from '../../daemon/spatial.js';
 
 async function fetchPage(url: string, userAgent?: string): Promise<{ html: string; title: string; text: string; elements: Array<{ ref: string; type: string; label: string; href?: string }> }> {
   let finalUrl = url.trim();
@@ -80,7 +81,8 @@ function findPortal(state: any, nameOrId: string): PortalNode | undefined {
     if (node.kind === 'portal') {
       const p = (node as PortalNode).content;
       const title = (p.title || (p.portalKind === 'device' ? p.deviceName : 'Portal') || '').toLowerCase();
-      if (node.id === nameOrId || title === norm) {
+      const url = (p.url || '').toLowerCase();
+      if (node.id === nameOrId || title === norm || title.includes(norm) || url === norm || url.includes(norm)) {
         return node as PortalNode;
       }
     }
@@ -93,11 +95,16 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
   const action = (subaction || '').toLowerCase();
 
   switch (action) {
+    case 'open':
     case 'create': {
-      const urlOrSim = restArgs[0] || (req.options.url as string) || (req.options.simulator ? 'device' : 'about:blank');
-      const explicitName = restArgs[1] || (req.options.name as string);
+      let urlOrSim = restArgs[0] || (req.options.url as string) || (req.options.simulator ? 'device' : 'about:blank');
+      const explicitName = (req.options.name as string) || (req.options.title as string) || restArgs[1];
       const isDevice = Boolean(req.options.simulator);
       const simulatorId = req.options.simulator as string | undefined;
+
+      if (!isDevice && urlOrSim && !/^https?:\/\//i.test(urlOrSim) && urlOrSim !== 'about:blank' && urlOrSim.includes('.')) {
+        urlOrSim = 'https://' + urlOrSim;
+      }
 
       let width = 1280;
       let height = 800;
@@ -114,13 +121,83 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
 
       const portalId = randomUUID();
       const nodeId = `node-portal-${portalId.slice(0, 8)}`;
-      const title = explicitName || (isDevice ? (simulatorId || 'Pixel') : 'Portal');
+      let defaultTitle = 'Web Portal';
+      if (isDevice) {
+        defaultTitle = simulatorId || 'Pixel';
+      } else if (urlOrSim && urlOrSim.startsWith('http')) {
+        try {
+          defaultTitle = new URL(urlOrSim).hostname;
+        } catch {
+          defaultTitle = 'Web Portal';
+        }
+      }
+      const title = explicitName || defaultTitle;
+
+      // Find caller node on canvas
+      let callerNodeId = req.terminalId;
+      let callerNode: any = undefined;
+      for (const n of state.nodes.values()) {
+        if (n.kind === 'terminal' && ((n.content as any)?.terminalId === req.terminalId || n.id === req.terminalId)) {
+          callerNodeId = n.id;
+          callerNode = n;
+          break;
+        }
+      }
+
+      // If callerNode was not found by exact terminalId, check by title or Maestro
+      if (!callerNode && req.terminalId) {
+        const callerTerm = state.terminals?.get(req.terminalId);
+        if (callerTerm) {
+          for (const n of state.nodes.values()) {
+            if (n.kind === 'terminal' && ((n.content as any)?.title === callerTerm.title || (n.content as any)?.terminalId === callerTerm.id)) {
+              callerNodeId = n.id;
+              callerNode = n;
+              break;
+            }
+          }
+        }
+      }
+      if (!callerNode) {
+        for (const n of state.nodes.values()) {
+          if (n.kind === 'terminal' && (n.content as any)?.maestroMode) {
+            callerNodeId = n.id;
+            callerNode = n;
+            break;
+          }
+        }
+        if (!callerNode) {
+          for (const n of state.nodes.values()) {
+            if (n.kind === 'terminal') {
+              callerNodeId = n.id;
+              callerNode = n;
+              break;
+            }
+          }
+        }
+      }
+
+      // Compute intelligent spatial placement
+      const existingNodesList = Array.from(state.nodes.values());
+      const coords = placeNode({
+        width,
+        height,
+        existingNodes: existingNodesList,
+        anchorNodeId: callerNodeId,
+        placementDirection: 'right',
+      });
+
+      const finalX = (typeof coords?.x === 'number' && !isNaN(coords.x))
+        ? coords.x
+        : (callerNode ? callerNode.x + callerNode.width + 40 : 100);
+      const finalY = (typeof coords?.y === 'number' && !isNaN(coords.y))
+        ? coords.y
+        : (callerNode ? callerNode.y : 100);
 
       const portalNode: PortalNode = {
         id: nodeId,
         kind: 'portal',
-        x: 100,
-        y: 700,
+        x: finalX,
+        y: finalY,
         width,
         height,
         zIndex: 12,
@@ -138,16 +215,42 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       state.nodes.set(nodeId, portalNode);
 
       // Wire portal to caller terminal
-      state.connections.push({
-        fromId: req.terminalId,
-        toId: nodeId,
-        label: 'Driver',
+      if (callerNodeId) {
+        state.connections.push({
+          fromId: callerNodeId,
+          toId: nodeId,
+          label: action === 'open' ? 'Reference' : 'Driver',
+        });
+
+        sendToMain({
+          type: 'cableTieCreated',
+          id: `tie-${Date.now()}`,
+          payload: {
+            fromNodeId: callerNodeId,
+            toNodeId: nodeId,
+            label: action === 'open' ? 'Reference' : 'Driver',
+          },
+        });
+      }
+
+      sendToMain({
+        type: 'placeNode',
+        id: `place-${nodeId}`,
+        payload: {
+          node: portalNode,
+          width,
+          height,
+          existingNodes: Array.from(state.nodes.values()),
+          anchorNodeId: callerNodeId,
+          placementDirection: 'right',
+        },
       });
 
+      const actionDesc = action === 'open' ? 'Opened reference portal' : 'Created portal';
       return {
-        output: `Created portal "${title}" [${isDevice ? `device: ${simulatorId}` : `url: ${urlOrSim}`}] (${width}x${height})`,
+        output: `${actionDesc} "${title}" [${isDevice ? `device: ${simulatorId}` : `url: ${urlOrSim}`}] (${width}x${height}). Linked to canvas.`,
         exitCode: 0,
-        data: { portalId, nodeId, title },
+        data: { portalId, nodeId, title, url: urlOrSim },
       };
     }
 

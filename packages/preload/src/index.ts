@@ -176,6 +176,12 @@ app: {
   canvas: {
     sync(data: any) {
       electron.ipcRenderer.send('maestri:canvas:sync', data);
+    },
+    onNodePlaced(handler: (payload: any) => void) {
+      return subscribe('maestri:canvas:nodePlaced', handler);
+    },
+    onCableTieCreated(handler: (payload: any) => void) {
+      return subscribe('maestri:canvas:cableTieCreated', handler);
     }
   },
   updates: {
@@ -692,6 +698,9 @@ app: {
     },
     getAgentLimits() {
       return electron.ipcRenderer.invoke('maestri:terminal:getAgentLimits');
+    },
+    setMaestroMode(terminalId, maestroMode) {
+      return electron.ipcRenderer.invoke('maestri:terminal:setMaestroMode', terminalId, maestroMode);
     },
     spawn(input) {
       return electron.ipcRenderer.invoke(C.terminalSpawn, input);
@@ -1645,6 +1654,12 @@ app: {
   },
   tidyNode(request) {
     return invokeWithLicenseFailure(C.tidyNode, request);
+  },
+  onNodePlaced(handler: (payload: any) => void) {
+    return subscribe('maestri:canvas:nodePlaced', handler);
+  },
+  onCableTieCreated(handler: (payload: any) => void) {
+    return subscribe('maestri:canvas:cableTieCreated', handler);
   }
 };
 

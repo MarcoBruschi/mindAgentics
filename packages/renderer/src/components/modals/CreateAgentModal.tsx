@@ -50,7 +50,7 @@ export const CreateAgentModal: React.FC = () => {
   const [isAutonomous, setIsAutonomous] = useState(true);
   const [customInstructions, setCustomInstructions] = useState('');
 
-  // Detected Agents from system
+  // Detected Agents and Limits from system
   const [installedMap, setInstalledMap] = useState<Record<string, boolean>>({
     antigravity: true,
     codex: true,
@@ -59,6 +59,7 @@ export const CreateAgentModal: React.FC = () => {
     claude: false,
     shell: true,
   });
+  const [limitsReports, setLimitsReports] = useState<any[]>([]);
 
   useEffect(() => {
     if (activeWorkspace?.workingDirectory && !workingDirectory) {
@@ -67,18 +68,34 @@ export const CreateAgentModal: React.FC = () => {
   }, [activeWorkspace?.workingDirectory]);
 
   useEffect(() => {
-    if (window.maestri?.terminal?.detectAgents) {
-      window.maestri.terminal.detectAgents().then((agents: any[]) => {
-        if (Array.isArray(agents)) {
-          const map: Record<string, boolean> = {};
-          for (const a of agents) {
-            map[a.id] = !!a.installed;
-            if (a.id === 'github-copilot' || a.id === 'gh-copilot') map['copilot'] = !!a.installed;
+    const fetchLimits = async () => {
+      try {
+        const getLimitsFn =
+          window.maestri?.terminal?.getAgentLimits ||
+          window.api?.terminal?.getAgentLimits;
+
+        if (typeof getLimitsFn === 'function') {
+          const res = await getLimitsFn();
+          if (Array.isArray(res)) {
+            setLimitsReports(res);
           }
-          setInstalledMap((prev) => ({ ...prev, ...map }));
         }
-      }).catch(() => {});
-    }
+
+        if (window.maestri?.terminal?.detectAgents) {
+          const agents = await window.maestri.terminal.detectAgents();
+          if (Array.isArray(agents)) {
+            const map: Record<string, boolean> = {};
+            for (const a of agents) {
+              map[a.id] = !!a.installed;
+              if (a.id === 'github-copilot' || a.id === 'gh-copilot') map['copilot'] = !!a.installed;
+            }
+            setInstalledMap((prev) => ({ ...prev, ...map }));
+          }
+        }
+      } catch {}
+    };
+
+    fetchLimits();
   }, []);
 
   const presets: PresetItem[] = [
@@ -116,8 +133,33 @@ export const CreateAgentModal: React.FC = () => {
 
   const handleCreate = () => {
     const finalName = terminalName.trim() || 'Terminal';
-    const finalCmd = command.trim();
+    let finalCmd = command.trim();
     const finalDir = workingDirectory.trim() || activeWorkspace?.workingDirectory || 'C:\\Users\\mabru\\Documents\\maestri';
+
+    // Auto-approval in autonomous mode
+    if (isAutonomous && finalCmd) {
+      if (finalCmd.startsWith('agy')) {
+        if (!finalCmd.includes('--dangerously-skip-permissions')) {
+          finalCmd += ' --dangerously-skip-permissions --mode auto';
+        }
+      } else if (finalCmd.startsWith('codex')) {
+        if (!finalCmd.includes('--dangerously-bypass-approvals-and-sandbox')) {
+          finalCmd += ' --dangerously-bypass-approvals-and-sandbox --ask-for-approval never';
+        }
+      } else if (finalCmd.startsWith('claude')) {
+        if (!finalCmd.includes('--dangerously-skip-permissions')) {
+          finalCmd += ' --dangerously-skip-permissions';
+        }
+      } else if (finalCmd.startsWith('opencode')) {
+        if (!finalCmd.includes('--dangerously-skip-permissions')) {
+          finalCmd += ' --dangerously-skip-permissions';
+        }
+      } else {
+        if (!finalCmd.includes('--dangerously-skip-permissions')) {
+          finalCmd += ' --dangerously-skip-permissions';
+        }
+      }
+    }
 
     // Spawn point centered on current canvas viewport
     const viewportCenterX = -offset.x / offset.zoom + 200;
@@ -218,11 +260,6 @@ export const CreateAgentModal: React.FC = () => {
                       {preset.id === 'opencode' && <Code2 className="w-5 h-5 text-cyan-400" />}
                       {preset.id === 'copilot' && <Terminal className="w-5 h-5 text-indigo-400" />}
                       {preset.id === 'shell' && <Terminal className="w-5 h-5 text-zinc-400" />}
-
-                      {/* Small green dot indicator if installed on local machine */}
-                      {isInstalled && (
-                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#17181c]" title="Instalado nesta máquina" />
-                      )}
                     </div>
                     <span className="text-[10px] font-medium leading-tight text-center truncate w-full">
                       {preset.name}
@@ -483,6 +520,59 @@ export const CreateAgentModal: React.FC = () => {
                   className="w-full px-3 py-2 bg-[#121316] border border-white/10 rounded-xl text-xs text-white outline-none focus:border-blue-500"
                 />
               </div>
+
+              {/* Card de Limites Reais do Agente Selecionado */}
+              {(() => {
+                const report = limitsReports.find(
+                  (r) =>
+                    r.id === selectedPresetId ||
+                    (selectedPresetId === 'copilot' && (r.id === 'github-copilot' || r.id === 'gh-copilot'))
+                );
+                const isInst = installedMap[selectedPresetId] ?? false;
+
+                return (
+                  <div className="p-3 bg-black/40 border border-white/5 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                      <span>Especificações e Limites</span>
+                    </div>
+
+                    {report ? (
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                        <div className="p-2 bg-white/5 rounded-lg overflow-hidden">
+                          <span className="text-zinc-500 block text-[10px]">Modelo / Plano</span>
+                          <span className="text-white font-medium truncate block">
+                            {report.activeModel || report.planOrTier}
+                          </span>
+                        </div>
+                        <div className="p-2 bg-white/5 rounded-lg overflow-hidden">
+                          <span className="text-zinc-500 block text-[10px]">Janela de Contexto</span>
+                          <span className="text-white font-medium truncate block">
+                            {report.contextWindowFormatted || 'Padrão'}
+                          </span>
+                        </div>
+                        <div className="p-2 bg-white/5 rounded-lg overflow-hidden">
+                          <span className="text-zinc-500 block text-[10px]">Taxa de Limite</span>
+                          <span className="text-white font-medium truncate block">
+                            {report.rateLimitRPM || 'Padrão'}
+                          </span>
+                        </div>
+                        <div className="p-2 bg-white/5 rounded-lg overflow-hidden">
+                          <span className="text-zinc-500 block text-[10px]">Histórico em Disco</span>
+                          <span className="text-white font-medium truncate block">
+                            {report.quotaUsed || 'Ativo'}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-zinc-500 pt-1">
+                        {isInst
+                          ? 'Pronto para execução local no terminal.'
+                          : 'Este executável CLI não foi detectado no sistema desta máquina.'}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

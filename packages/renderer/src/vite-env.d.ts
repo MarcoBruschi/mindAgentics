@@ -12,7 +12,9 @@ interface MaestriWindowBridge {
       rows?: number;
       title?: string;
       presetId?: string;
-    }) => Promise<{ terminalId: string }>;
+      maestroMode?: boolean;
+    }) => Promise<{ terminalId: string; attached?: boolean }>;
+    setMaestroMode?: (terminalId: string, maestroMode: boolean) => Promise<any>;
     write: (terminalId: string, data: string) => Promise<void>;
     deliverPrompt: (terminalId: string, text: string) => Promise<{ ok: boolean }>;
     dims: (terminalId: string) => Promise<{ cols: number; rows: number }>;

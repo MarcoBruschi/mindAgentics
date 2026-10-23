@@ -6,7 +6,7 @@ export interface CanvasOffset {
   zoom: number;
 }
 
-export type CanvasMode = 'select' | 'pan' | 'draw' | 'connect';
+export type CanvasMode = 'select' | 'pan' | 'draw' | 'erase' | 'connect';
 
 export interface MarqueeBox {
   startX: number;
@@ -36,4 +36,6 @@ export const isSpacePressedAtom = atom<boolean>(false);
 export const isDrawingAtom = atom<boolean>(false);
 
 export const activeDrawColorAtom = atom<string>('#3b82f6');
-export const activeDrawWidthAtom = atom<number>(3);
+export const activeDrawWidthAtom = atom<number>(4);
+export const activeBrushTypeAtom = atom<'pen' | 'highlighter' | 'dashed' | 'neon'>('pen');
+export const activeBrushSizeAtom = atom<number>(4);
