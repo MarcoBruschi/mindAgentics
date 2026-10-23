@@ -117,7 +117,7 @@ Ao contrário dos ambientes de desenvolvimento tradicionais baseados em abas iso
 
 ## ⚡ CLI & Modo Maestro
 
-Todos os agentes em execução no terminal recebem variáveis de ambiente (`MAESTRI_PIPE`, `MAESTRI_TERMINAL_ID`) que fornecem acesso imediato à CLI do **mindAgentics** (`mindagentics` ou `maestri`):
+Todos os agentes em execução no terminal recebem variáveis de ambiente (`MINDAGENTICS_PIPE`, `MINDAGENTICS_TERMINAL_ID`, etc.) que fornecem acesso imediato à CLI do **mindAgentics** (`mindagentics`):
 
 ```bash
 # Listar todos os nós, agentes, notas e portais ativos no canvas
@@ -154,7 +154,7 @@ mindAgentics/
 │   ├── shared/            # Modelos de dados TypeScript, contratos de nós e canais IPC
 │   ├── core-daemon/       # Servidor de roteamento de mensagens, Named Pipe e CLI dispatcher
 │   ├── main/              # Processo principal Electron, supervisor PTY e armazenamento atômico
-│   ├── preload/           # Camada de isolamento de contexto (window.maestri / window.api)
+│   ├── preload/           # Camada de isolamento de contexto (window.mindagentics / window.api)
 │   └── renderer/          # Aplicação React 19 + Vite + Tailwind do Canvas Infinito
 ├── skills/                # Habilidades dos agentes (mindAgentics, Graphify, Portal, Routines)
 ├── docs/                  # Documentações técnicas e capturas de tela do sistema
@@ -244,5 +244,5 @@ npm start
 Este projeto é desenvolvido para uso em ambientes de engenharia de software aumentada por IA. Consulte o arquivo [LICENSE](LICENSE) para maiores detalhes sobre os termos de uso.
 
 <div align="center">
-  <sub>Construído com maestria para desenvolvedores e agentes autônomos.</sub>
+  <sub>Construído com excelência para desenvolvedores e agentes autônomos por mindAgentics.</sub>
 </div>
