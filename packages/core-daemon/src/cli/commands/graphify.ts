@@ -65,7 +65,7 @@ export const graphifyCommand: CommandHandler = async (req, state, router, schedu
 
       let summary = res.stdout;
       if (fs.existsSync(htmlPath)) {
-        summary += `\n\nKnowledge Graph generated successfully:\n- Interactive Visualizer: ${htmlPath}\n- Full Graph JSON: ${jsonPath}\n- Report: ${reportPath}\n\nTip: Run 'maestri graphify open' to view the interactive graph on your Maestri canvas!`;
+        summary += `\n\nKnowledge Graph generated successfully:\n- Interactive Visualizer: ${htmlPath}\n- Full Graph JSON: ${jsonPath}\n- Report: ${reportPath}\n\nTip: Run 'mindagentics graphify open' to view the interactive graph on your mindAgentics canvas!`;
       }
       return { output: summary, exitCode: 0 };
     }
@@ -73,7 +73,7 @@ export const graphifyCommand: CommandHandler = async (req, state, router, schedu
     case 'query': {
       const question = restArgs.join(' ') || (req.options?.q as string);
       if (!question) {
-        return { error: 'maestri graphify query: question required. Usage: maestri graphify query "<question>"', exitCode: 1 };
+        return { error: 'mindagentics graphify query: question required. Usage: mindagentics graphify query "<question>"', exitCode: 1 };
       }
       const flags: string[] = ['query', question];
       if (req.options?.dfs) flags.push('--dfs');
@@ -89,7 +89,7 @@ export const graphifyCommand: CommandHandler = async (req, state, router, schedu
     case 'explain': {
       const concept = restArgs.join(' ');
       if (!concept) {
-        return { error: 'maestri graphify explain: concept/symbol required. Usage: maestri graphify explain "<symbol>"', exitCode: 1 };
+        return { error: 'mindagentics graphify explain: concept/symbol required. Usage: mindagentics graphify explain "<symbol>"', exitCode: 1 };
       }
       const flags: string[] = ['explain', concept];
       if (req.options?.all) flags.push('--all');
@@ -104,7 +104,7 @@ export const graphifyCommand: CommandHandler = async (req, state, router, schedu
     case 'path': {
       const [nodeA, nodeB] = restArgs;
       if (!nodeA || !nodeB) {
-        return { error: 'maestri graphify path: two nodes required. Usage: maestri graphify path "<nodeA>" "<nodeB>"', exitCode: 1 };
+        return { error: 'mindagentics graphify path: two nodes required. Usage: mindagentics graphify path "<nodeA>" "<nodeB>"', exitCode: 1 };
       }
       const flags: string[] = ['path', nodeA, nodeB];
       if (req.options?.undirected) flags.push('--undirected');
@@ -122,7 +122,7 @@ export const graphifyCommand: CommandHandler = async (req, state, router, schedu
       const htmlPath = path.join(dir, 'graphify-out', 'graph.html');
       if (!fs.existsSync(htmlPath)) {
         return {
-          error: `No graph.html found in ${path.join(dir, 'graphify-out')}. Run 'maestri graphify build' first.`,
+          error: `No graph.html found in ${path.join(dir, 'graphify-out')}. Run 'mindagentics graphify build' first.`,
           exitCode: 1,
         };
       }
@@ -186,21 +186,21 @@ export const graphifyCommand: CommandHandler = async (req, state, router, schedu
     default: {
       return {
         output: [
-          'Graphify Knowledge Graph CLI for Maestri:',
+          'Graphify Knowledge Graph CLI for mindAgentics:',
           '',
           'Commands:',
-          '  maestri graphify build [path] [--mode deep] [--update]  Parse codebase AST and build graph',
-          '  maestri graphify query "<pergunta>" [--dfs]            Query architecture or relationships',
-          '  maestri graphify explain "<symbol>"                     Explain symbol and its connections',
-          '  maestri graphify path "<nodeA>" "<nodeB>"              Find shortest path between 2 concepts',
-          '  maestri graphify open [path]                            Open interactive HTML graph in Portal',
-          '  maestri graphify status                                 Check knowledge graph health & stats',
+          '  mindagentics graphify build [path] [--mode deep] [--update]  Parse codebase AST and build graph',
+          '  mindagentics graphify query "<pergunta>" [--dfs]            Query architecture or relationships',
+          '  mindagentics graphify explain "<symbol>"                     Explain symbol and its connections',
+          '  mindagentics graphify path "<nodeA>" "<nodeB>"              Find shortest path between 2 concepts',
+          '  mindagentics graphify open [path]                            Open interactive HTML graph in Portal',
+          '  mindagentics graphify status                                 Check knowledge graph health & stats',
           '',
           'Examples:',
-          '  maestri graphify build .',
-          '  maestri graphify open',
-          '  maestri graphify query "Como funciona a comunicação entre agentes?"',
-          '  maestri graphify explain "pipeServer"',
+          '  mindagentics graphify build .',
+          '  mindagentics graphify open',
+          '  mindagentics graphify query "Como funciona a comunicação entre agentes?"',
+          '  mindagentics graphify explain "pipeServer"',
         ].join('\n'),
         exitCode: 0,
       };

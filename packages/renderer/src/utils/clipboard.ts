@@ -2,7 +2,7 @@ import { CanvasNode, CableTie, Band } from '@mindagentics/shared';
 import { snapToGrid } from './layout';
 
 export const PARTITURA_MIME = 'application/x-mindagentics-partitura';
-export const PARTITURA_LEGACY_MIME = 'application/x-maestri-partitura';
+export const PARTITURA_LEGACY_MIME = 'application/x-mindagentics-partitura';
 export const PASTE_CASCADE_PX = 30;
 
 export interface PartituraV2ClipboardPayload {

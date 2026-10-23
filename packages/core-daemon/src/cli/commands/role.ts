@@ -47,7 +47,7 @@ export const roleCommand: CommandHandler = async (req, state) => {
 
       if (!name || !prompt) {
         return {
-          error: 'maestri role create: name and prompt required. Usage: maestri role create "Name" "Prompt" [--scope current|global]',
+          error: 'mindagentics role create: name and prompt required. Usage: mindagentics role create "Name" "Prompt" [--scope current|global]',
           exitCode: 1,
         };
       }
@@ -112,7 +112,7 @@ export const roleCommand: CommandHandler = async (req, state) => {
         return { output: `Cleared role on recruit "${target.title}".`, exitCode: 0 };
       }
 
-      if (!roleName) return { error: 'maestri role assign: role name required.', exitCode: 1 };
+      if (!roleName) return { error: 'mindagentics role assign: role name required.', exitCode: 1 };
       const r = state.roles.get(roleName);
       if (!r) return { error: `Role "${roleName}" not found.`, exitCode: 1 };
 

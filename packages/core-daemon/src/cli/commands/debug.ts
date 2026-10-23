@@ -4,7 +4,7 @@ import type { CommandHandler } from '../../daemon/pipeServer.js';
 export const debugCommand: CommandHandler = async (req, state) => {
   return {
     output: [
-      '=== Maestri Diagnostic Report ===',
+      '=== mindAgentics Diagnostic Report ===',
       `OS:              ${os.type()} ${os.release()} (${os.arch()})`,
       `Node Version:    ${process.version}`,
       `Process PID:     ${process.pid}`,

@@ -27,7 +27,7 @@ export const recruitCommand: CommandHandler = async (req, state, router, schedul
 
   if (!name) {
     return {
-      error: 'maestri recruit: name required. Usage: maestri recruit "Name" [--preset "..."] [--role "..."]',
+      error: 'mindagentics recruit: name required. Usage: mindagentics recruit "Name" [--preset "..."] [--role "..."]',
       exitCode: 1,
     };
   }

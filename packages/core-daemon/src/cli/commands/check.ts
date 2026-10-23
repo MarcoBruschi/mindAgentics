@@ -4,7 +4,7 @@ export const checkCommand: CommandHandler = async (req, state) => {
   const targetName = req.args[0];
   if (!targetName) {
     return {
-      error: 'maestri check: agent name required. Usage: maestri check "Agent Name"',
+      error: 'mindagentics check: agent name required. Usage: mindagentics check "Agent Name"',
       exitCode: 1,
     };
   }

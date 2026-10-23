@@ -97,7 +97,7 @@ export class NamedPipeServer {
       return {
         id: req.id,
         ok: false,
-        error: `Unknown command: "${req.command}". Run "maestri --help" for available commands.`,
+        error: `Unknown command: "${req.command}". Run "mindagentics --help" for available commands.`,
         exitCode: 1,
       };
     }
@@ -123,7 +123,7 @@ export class NamedPipeServer {
       return {
         id: req.id,
         ok: false,
-        error: `maestri: error: ${err.message || String(err)}`,
+        error: `mindagentics: error: ${err.message || String(err)}`,
         exitCode: 1,
       };
     }

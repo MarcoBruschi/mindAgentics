@@ -54,10 +54,10 @@ export class CoreDaemonSupervisor extends EventEmitter {
       path.resolve(__dirname, '../../../core-daemon/bin/mindagentics.js'),
       path.resolve(process.cwd(), 'packages/core-daemon/bin/mindagentics.js'),
       path.resolve(process.cwd(), 'clone/packages/core-daemon/bin/mindagentics.js'),
-      path.resolve(__dirname, '../../core-daemon/bin/maestri.js'),
-      path.resolve(__dirname, '../../../core-daemon/bin/maestri.js'),
-      path.resolve(process.cwd(), 'packages/core-daemon/bin/maestri.js'),
-      path.resolve(process.cwd(), 'clone/packages/core-daemon/bin/maestri.js')
+      path.resolve(__dirname, '../../core-daemon/bin/mindagentics.js'),
+      path.resolve(__dirname, '../../../core-daemon/bin/mindagentics.js'),
+      path.resolve(process.cwd(), 'packages/core-daemon/bin/mindagentics.js'),
+      path.resolve(process.cwd(), 'clone/packages/core-daemon/bin/mindagentics.js')
     ];
 
     for (const p of candidates) {
@@ -77,8 +77,7 @@ export class CoreDaemonSupervisor extends EventEmitter {
         env: {
           ...process.env,
           ELECTRON_RUN_AS_NODE: '1',
-          MINDAGENTICS_SECRET_STORE: 'file',
-          MAESTRI_SECRET_STORE: 'file'
+          MINDAGENTICS_SECRET_STORE: 'file'
         }
       });
 

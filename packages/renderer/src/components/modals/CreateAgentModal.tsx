@@ -72,7 +72,7 @@ export const CreateAgentModal: React.FC = () => {
       try {
         const getLimitsFn =
           window.mindAgentics?.terminal?.getAgentLimits ||
-          window.maestri?.terminal?.getAgentLimits ||
+          (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits || window.maestri?.terminal?.getAgentLimits) ||
           window.api?.terminal?.getAgentLimits;
 
         if (typeof getLimitsFn === 'function') {
@@ -82,7 +82,7 @@ export const CreateAgentModal: React.FC = () => {
           }
         }
 
-        const detectFn = window.mindAgentics?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents;
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents);
         if (detectFn) {
           const agents = await detectFn();
           if (Array.isArray(agents)) {
@@ -145,8 +145,10 @@ export const CreateAgentModal: React.FC = () => {
           finalCmd += ' --dangerously-skip-permissions --mode auto';
         }
       } else if (finalCmd.startsWith('codex')) {
+        // Codex CLI forbids using --dangerously-bypass-approvals-and-sandbox together with --ask-for-approval
+        finalCmd = finalCmd.replace(/--ask-for-approval\s+[^\s]+/g, '').trim();
         if (!finalCmd.includes('--dangerously-bypass-approvals-and-sandbox')) {
-          finalCmd += ' --dangerously-bypass-approvals-and-sandbox --ask-for-approval never';
+          finalCmd += ' --dangerously-bypass-approvals-and-sandbox';
         }
       } else if (finalCmd.startsWith('claude')) {
         if (!finalCmd.includes('--dangerously-skip-permissions')) {

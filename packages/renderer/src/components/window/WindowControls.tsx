@@ -5,7 +5,7 @@ export const WindowControls: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
-    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || window.maestri?.windowControls;
+    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || (window.mindAgentics?.windowControls || window.api?.windowControls || window.maestri?.windowControls);
     if (!controls) return;
 
     if (controls.state) {
@@ -29,17 +29,17 @@ export const WindowControls: React.FC = () => {
   }, []);
 
   const handleMinimize = () => {
-    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || window.maestri?.windowControls;
+    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || (window.mindAgentics?.windowControls || window.api?.windowControls || window.maestri?.windowControls);
     controls?.minimize?.();
   };
 
   const handleToggleMaximize = () => {
-    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || window.maestri?.windowControls;
+    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || (window.mindAgentics?.windowControls || window.api?.windowControls || window.maestri?.windowControls);
     controls?.toggleMaximize?.();
   };
 
   const handleClose = () => {
-    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || window.maestri?.windowControls;
+    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || (window.mindAgentics?.windowControls || window.api?.windowControls || window.maestri?.windowControls);
     controls?.close?.();
   };
 

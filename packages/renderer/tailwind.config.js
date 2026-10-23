@@ -10,7 +10,7 @@ export default {
           dot: '#2d2e33',
           line: '#1c1d22',
         },
-        maestri: {
+        mindagentics: {
           dark: '#0f1012',
           surface: '#18191c',
           border: '#2a2b30',

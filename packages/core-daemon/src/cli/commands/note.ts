@@ -94,7 +94,7 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
       const noteName = restArgs[0];
       if (!noteName) {
         return {
-          error: 'maestri note read: note name required. Usage: maestri note read "Note Name" [startLine] [count]',
+          error: 'mindagentics note read: note name required. Usage: mindagentics note read "Note Name" [startLine] [count]',
           exitCode: 1,
         };
       }
@@ -102,7 +102,7 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
       const note = findNote(state, noteName);
       if (!note) {
         return {
-          error: `Note "${noteName}" not found. Run "maestri list" to see connected notes.`,
+          error: `Note "${noteName}" not found. Run "mindagentics list" to see connected notes.`,
           exitCode: 1,
         };
       }
@@ -131,7 +131,7 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
 
       if (!noteName) {
         return {
-          error: 'maestri note write: note name required. Usage: maestri note write "Note Name" "content"',
+          error: 'mindagentics note write: note name required. Usage: mindagentics note write "Note Name" "content"',
           exitCode: 1,
         };
       }
@@ -178,7 +178,7 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
 
       if (!noteName || oldText === undefined) {
         return {
-          error: 'maestri note edit: required args missing. Usage: maestri note edit "Note Name" "old text" "new text"',
+          error: 'mindagentics note edit: required args missing. Usage: mindagentics note edit "Note Name" "old text" "new text"',
           exitCode: 1,
         };
       }
@@ -222,7 +222,7 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
 
       if (!noteName) {
         return {
-          error: 'maestri note stack: note name required. Usage: maestri note stack "Note Name" ["Fichário"]',
+          error: 'mindagentics note stack: note name required. Usage: mindagentics note stack "Note Name" ["Fichário"]',
           exitCode: 1,
         };
       }
@@ -246,7 +246,7 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
       const noteName = restArgs[0];
       if (!noteName) {
         return {
-          error: 'maestri note unstack: note name required. Usage: maestri note unstack "Note Name"',
+          error: 'mindagentics note unstack: note name required. Usage: mindagentics note unstack "Note Name"',
           exitCode: 1,
         };
       }
@@ -272,7 +272,7 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
       const noteName = restArgs[0];
       if (!noteName) {
         return {
-          error: 'maestri note delete: note name required. Usage: maestri note delete "Note Name"',
+          error: 'mindagentics note delete: note name required. Usage: mindagentics note delete "Note Name"',
           exitCode: 1,
         };
       }

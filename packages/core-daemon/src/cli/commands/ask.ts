@@ -19,7 +19,7 @@ export const askCommand: CommandHandler = async (req, state, router) => {
         : req.options.batch;
     } catch (e: any) {
       return {
-        error: `maestri ask: invalid JSON for --batch: ${e.message}`,
+        error: `mindagentics ask: invalid JSON for --batch: ${e.message}`,
         exitCode: 1,
       };
     }
@@ -41,7 +41,7 @@ export const askCommand: CommandHandler = async (req, state, router) => {
 
   if (!targetName) {
     return {
-      error: 'maestri ask: target agent name required. Usage: maestri ask "Agent Name" "prompt"',
+      error: 'mindagentics ask: target agent name required. Usage: mindagentics ask "Agent Name" "prompt"',
       exitCode: 1,
     };
   }
@@ -53,7 +53,7 @@ export const askCommand: CommandHandler = async (req, state, router) => {
 
   if (!rawPrompt) {
     return {
-      error: 'maestri ask: prompt or --raw input required.',
+      error: 'mindagentics ask: prompt or --raw input required.',
       exitCode: 1,
     };
   }
@@ -70,7 +70,7 @@ export const askCommand: CommandHandler = async (req, state, router) => {
     };
   } catch (err: any) {
     return {
-      error: `maestri ask error: ${err.message}`,
+      error: `mindagentics ask error: ${err.message}`,
       exitCode: 1,
     };
   }

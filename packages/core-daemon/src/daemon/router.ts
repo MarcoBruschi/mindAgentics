@@ -1,6 +1,6 @@
 /**
  * Inter-Agent Message Router
- * Routes `maestri ask` messages from source terminal to destination terminal,
+ * Routes `mindagentics ask` messages from source terminal to destination terminal,
  * tracks active asksInFlight, and settles turn outputs.
  */
 

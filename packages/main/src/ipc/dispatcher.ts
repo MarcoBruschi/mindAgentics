@@ -248,10 +248,13 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   });
   handle(C.workspaceGetActiveId, async () => {
     const state = await dataService.getAppState();
-    return state.payload.recentWorkspaceIds[0] || null;
+    return (state.payload as any)?.activeWorkspaceId || state.payload.recentWorkspaceIds[0] || null;
   });
   handle(C.workspaceSwitch, async (id: string) => {
-    await dataService.saveAppState({ recentWorkspaceIds: [id] });
+    await dataService.saveAppState({
+      activeWorkspaceId: id,
+      recentWorkspaceIds: [id]
+    } as any);
     return { ok: true };
   });
 

@@ -123,8 +123,6 @@ export class RoutineScheduler {
             ...process.env,
             MINDAGENTICS_ROUTINE_NAME: routine.name,
             MINDAGENTICS_WORKSPACE_DIR: cwd,
-            MAESTRI_ROUTINE_NAME: routine.name,
-            MAESTRI_WORKSPACE_DIR: cwd,
           },
         });
         scriptOutput = stdout.trim();

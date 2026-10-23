@@ -70,7 +70,7 @@ export class TerminalManager extends EventEmitter {
   private resolveCliPath(): { cliPath: string; cliDir: string } {
     const isWin = process.platform === 'win32';
     const binName = isWin ? 'mindagentics.cmd' : 'mindagentics.js';
-    const fallbackBinName = isWin ? 'maestri.cmd' : 'maestri.js';
+    const fallbackBinName = isWin ? 'mindagentics.cmd' : 'mindagentics.js';
 
     const candidates = [
       path.resolve(__dirname, '../../core-daemon/bin', binName),
@@ -102,7 +102,7 @@ export class TerminalManager extends EventEmitter {
     }
     try {
       const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : path.join(os.homedir(), '.config'));
-      const pointerFile = path.join(appData, 'Maestri', 'storage-location.json');
+      const pointerFile = path.join(appData, 'mindAgentics', 'storage-location.json');
       if (fs.existsSync(pointerFile)) {
         const content = JSON.parse(fs.readFileSync(pointerFile, 'utf-8'));
         if (content && typeof content.path === 'string' && content.path.trim().length > 0) {
@@ -112,7 +112,7 @@ export class TerminalManager extends EventEmitter {
     } catch {
       // ignore
     }
-    return path.join(os.homedir(), '.maestri', 'terminals');
+    return path.join(os.homedir(), '.mindagentics', 'terminals');
   }
 
   private ensureStorageDir(): string {
@@ -277,8 +277,12 @@ export class TerminalManager extends EventEmitter {
         if (isAutonomous) {
           if (cmdToRun.startsWith('agy') && !cmdToRun.includes('--dangerously-skip-permissions')) {
             cmdToRun += ' --dangerously-skip-permissions --mode auto';
-          } else if (cmdToRun.startsWith('codex') && !cmdToRun.includes('--dangerously-bypass-approvals-and-sandbox')) {
-            cmdToRun += ' --dangerously-bypass-approvals-and-sandbox --ask-for-approval never';
+          } else if (cmdToRun.startsWith('codex')) {
+            // Codex CLI forbids using --dangerously-bypass-approvals-and-sandbox together with --ask-for-approval
+            cmdToRun = cmdToRun.replace(/--ask-for-approval\s+[^\s]+/g, '').trim();
+            if (!cmdToRun.includes('--dangerously-bypass-approvals-and-sandbox')) {
+              cmdToRun += ' --dangerously-bypass-approvals-and-sandbox';
+            }
           } else if (cmdToRun.startsWith('claude') && !cmdToRun.includes('--dangerously-skip-permissions')) {
             cmdToRun += ' --dangerously-skip-permissions';
           } else if (cmdToRun.startsWith('opencode') && !cmdToRun.includes('--dangerously-skip-permissions')) {

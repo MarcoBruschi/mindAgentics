@@ -2,7 +2,7 @@ import type { CommandHandler } from '../../daemon/pipeServer.js';
 
 export const dismissCommand: CommandHandler = async (req, state) => {
   const name = req.args[0];
-  if (!name) return { error: 'maestri dismiss: agent name required. Usage: maestri dismiss "Name"', exitCode: 1 };
+  if (!name) return { error: 'mindagentics dismiss: agent name required. Usage: mindagentics dismiss "Name"', exitCode: 1 };
 
   const target = state.getTerminalByNameOrId(name, req.workspaceId);
   if (!target) return { error: `Agent "${name}" not found.`, exitCode: 1 };

@@ -24,7 +24,7 @@ import {
 
 export const App: React.FC = () => {
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom);
-  const [activeWorkspaceId] = useAtom(activeWorkspaceIdAtom);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useAtom(activeWorkspaceIdAtom);
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
   const [, setIsSidebarOpen] = useAtom(isSidebarOpenAtom);
   const [, undo] = useAtom(undoAtom);
@@ -45,11 +45,23 @@ export const App: React.FC = () => {
     }
 
     if (window.api?.workspace?.list) {
-      window.api.workspace
-        .list()
-        .then((backendWorkspaces: any[]) => {
+      Promise.all([
+        window.api.workspace.list(),
+        window.api.workspace.getActiveId ? window.api.workspace.getActiveId() : Promise.resolve(null),
+      ])
+        .then(([backendWorkspaces, activeId]: [any[], string | null]) => {
           if (Array.isArray(backendWorkspaces) && backendWorkspaces.length > 0) {
-            setWorkspaces(backendWorkspaces.map(normalizeWorkspace));
+            const normalized = backendWorkspaces.map(normalizeWorkspace);
+            setWorkspaces(normalized);
+
+            const targetId =
+              (activeId && normalized.some((w) => w.id === activeId) ? activeId : null) ||
+              (activeWorkspaceId && normalized.some((w) => w.id === activeWorkspaceId) ? activeWorkspaceId : null) ||
+              normalized[0].id;
+
+            if (targetId) {
+              setActiveWorkspaceId(targetId);
+            }
           }
         })
         .catch(() => {});
@@ -61,8 +73,8 @@ export const App: React.FC = () => {
     try {
       localStorage.setItem('mindagentics_workspaces', JSON.stringify(workspaces));
       localStorage.setItem('mindagentics_active_ws', activeWorkspaceId);
-      localStorage.setItem('maestri_workspaces', JSON.stringify(workspaces));
-      localStorage.setItem('maestri_active_ws', activeWorkspaceId);
+      localStorage.setItem('mindagentics_workspaces', JSON.stringify(workspaces));
+      localStorage.setItem('mindagentics_active_ws', activeWorkspaceId);
     } catch {
       // quota or local storage error
     }
@@ -70,6 +82,7 @@ export const App: React.FC = () => {
     const timer = setTimeout(() => {
       if (activeWorkspace && window.api?.workspace?.patch) {
         window.api.workspace.patch(activeWorkspace.id, activeWorkspace).catch(() => {});
+        window.api?.workspace?.switch?.(activeWorkspace.id)?.catch?.(() => {});
       }
     }, 400);
 
@@ -78,7 +91,7 @@ export const App: React.FC = () => {
 
   // Listen for canvas placement and cable tie events from CoreDaemon / CLI
   useEffect(() => {
-    const api = window.api || window.mindAgentics || window.maestri;
+    const api = window.api || window.mindAgentics || (window.mindAgentics || window.api || window.maestri);
     if (!api) return;
 
     const unsubs: Array<() => void> = [];

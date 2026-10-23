@@ -23,7 +23,7 @@ export const workspaceCommand: CommandHandler = async (req, state, router, sched
       const dir = req.options.dir as string;
       if (!name || !dir) {
         return {
-          error: 'maestri workspace create: name and --dir required. Usage: maestri workspace create "Name" --dir PATH',
+          error: 'mindagentics workspace create: name and --dir required. Usage: mindagentics workspace create "Name" --dir PATH',
           exitCode: 1,
         };
       }
@@ -59,7 +59,7 @@ export const workspaceCommand: CommandHandler = async (req, state, router, sched
       const [currentName, newName] = restArgs;
       if (!currentName || !newName) {
         return {
-          error: 'maestri workspace rename: current and new names required.',
+          error: 'mindagentics workspace rename: current and new names required.',
           exitCode: 1,
         };
       }

@@ -77,7 +77,7 @@ export const routineCommand: CommandHandler = async (req, state, router, schedul
       const command = (req.options.command as string) || restArgs.slice(1).join(' ');
       if (!name || !command) {
         return {
-          error: 'maestri routine create: name and --command required.',
+          error: 'mindagentics routine create: name and --command required.',
           exitCode: 1,
         };
       }

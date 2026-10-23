@@ -29,7 +29,7 @@ export const presetCommand: CommandHandler = async (req, state) => {
 
     case 'create': {
       const name = restArgs[0];
-      if (!name) return { error: 'maestri preset create: name required.', exitCode: 1 };
+      if (!name) return { error: 'mindagentics preset create: name required.', exitCode: 1 };
       const command = (req.options.command as string) || '';
       const account = req.options.account as string | undefined;
 

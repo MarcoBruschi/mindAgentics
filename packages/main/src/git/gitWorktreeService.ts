@@ -52,7 +52,7 @@ export class GitWorktreeService {
   }): Promise<FloorDescriptor> {
     const repoRoot = await this.getRepoRoot(options.repoDir);
     const commonDir = await this.getCommonDir(options.repoDir);
-    const worktreePath = path.join(repoRoot, '.maestri', 'floors', options.floorId);
+    const worktreePath = path.join(repoRoot, '.mindagentics', 'floors', options.floorId);
 
     await fs.promises.mkdir(path.dirname(worktreePath), { recursive: true });
 
@@ -75,13 +75,13 @@ export class GitWorktreeService {
       repoRoot,
       worktreePath,
       branch: options.branch,
-      branchCreatedByMaestri: !branchExists,
+      branchCreatedByMindAgentics: !branchExists,
       createdAt: new Date().toISOString(),
       state: 'ready'
     };
 
     // Save descriptor in the worktree
-    const descPath = path.join(worktreePath, '.maestri-floor.json');
+    const descPath = path.join(worktreePath, '.mindagentics-floor.json');
     await fs.promises.writeFile(descPath, JSON.stringify(descriptor, null, 2), 'utf-8');
 
     return descriptor;

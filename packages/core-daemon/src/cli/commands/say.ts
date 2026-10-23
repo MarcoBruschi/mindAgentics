@@ -4,7 +4,7 @@ export const sayCommand: CommandHandler = async (req, state, router, scheduler, 
   const message = req.args.join(' ') || req.options.message;
   if (!message) {
     return {
-      error: 'maestri say: message required. Usage: maestri say "message"',
+      error: 'mindagentics say: message required. Usage: mindagentics say "message"',
       exitCode: 1,
     };
   }

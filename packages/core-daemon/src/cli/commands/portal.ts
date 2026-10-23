@@ -271,7 +271,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       const portalName = restArgs[0];
       if (!portalName) {
         return {
-          error: `maestri portal ${action}: portal name required. Usage: maestri portal ${action} "Portal"`,
+          error: `mindagentics portal ${action}: portal name required. Usage: mindagentics portal ${action} "Portal"`,
           exitCode: 1,
         };
       }
@@ -291,7 +291,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
         return {
           output: [
             `app: com.example.app  screen: ${vp.width}x${vp.height}pt  elements: 4`,
-            '@e1 text "Welcome to Maestri Mobile" [40,80 320x40]',
+            '@e1 text "Welcome to mindAgentics Mobile" [40,80 320x40]',
             '@e2 field "Search products or features" [40,140 310x50] *focused*',
             '@e3 button "Explore Canvas" [40,210 310x48]',
             '@e4 button "Settings" [40,280 310x48]',
@@ -327,7 +327,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
           };
         } catch (fetchErr: any) {
           return {
-            output: `viewport: ${vp.width}x${vp.height}  url: ${url}  title: ${portal.content.title || 'Maestri Portal'}\n(Could not fetch online content: ${fetchErr.message})`,
+            output: `viewport: ${vp.width}x${vp.height}  url: ${url}  title: ${portal.content.title || 'mindAgentics Portal'}\n(Could not fetch online content: ${fetchErr.message})`,
             exitCode: 0,
           };
         }
@@ -335,7 +335,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
 
       return {
         output: [
-          `viewport: ${vp.width}x${vp.height}  url: ${portal.content.url || 'about:blank'}  title: ${portal.content.title || 'Maestri Portal'}`,
+          `viewport: ${vp.width}x${vp.height}  url: ${portal.content.url || 'about:blank'}  title: ${portal.content.title || 'mindAgentics Portal'}`,
           '@e1 div "Portal Container"',
           '(No web content loaded or URL is blank)',
         ].join('\n'),
@@ -349,7 +349,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       const target = restArgs[1];
       if (!portalName || !target) {
         return {
-          error: 'maestri portal click: required args missing. Usage: maestri portal click "Portal" <selector>',
+          error: 'mindagentics portal click: required args missing. Usage: mindagentics portal click "Portal" <selector>',
           exitCode: 1,
         };
       }
@@ -365,7 +365,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       const val = restArgs.slice(2).join(' ');
       if (!portalName || !target) {
         return {
-          error: 'maestri portal fill: required args missing. Usage: maestri portal fill "Portal" <selector> <value>',
+          error: 'mindagentics portal fill: required args missing. Usage: mindagentics portal fill "Portal" <selector> <value>',
           exitCode: 1,
         };
       }
@@ -396,7 +396,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       const keyName = restArgs[1];
       if (!portalName || !keyName) {
         return {
-          error: 'maestri portal key: key required. Usage: maestri portal key "Portal" <key>',
+          error: 'mindagentics portal key: key required. Usage: mindagentics portal key "Portal" <key>',
           exitCode: 1,
         };
       }
@@ -453,7 +453,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
 
     case 'screenshot': {
       const portalName = restArgs[0];
-      const tempPath = `C:\\Users\\mabru\\AppData\\Local\\Temp\\maestri-screenshot-${randomUUID().slice(0, 8)}.png`;
+      const tempPath = `C:\\Users\\mabru\\AppData\\Local\\Temp\\mindagentics-screenshot-${randomUUID().slice(0, 8)}.png`;
       return {
         output: tempPath,
         exitCode: 0,
@@ -510,7 +510,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
         portal.content.url = url;
         return { output: `Updated "${portalName}" URL to ${url}`, exitCode: 0 };
       }
-      return { error: 'maestri portal edit: --url required.', exitCode: 1 };
+      return { error: 'mindagentics portal edit: --url required.', exitCode: 1 };
     }
 
     case 'close': {
@@ -532,7 +532,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
         portal.height = h;
         return { output: `viewport: ${w}x${h}`, exitCode: 0 };
       }
-      return { error: 'maestri portal resize: width and height required.', exitCode: 1 };
+      return { error: 'mindagentics portal resize: width and height required.', exitCode: 1 };
     }
 
     case 'ua': {
@@ -614,7 +614,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
 
     default:
       return {
-        error: `Unknown portal action: "${action}". Run "maestri portal --help" for details.`,
+        error: `Unknown portal action: "${action}". Run "mindagentics portal --help" for details.`,
         exitCode: 1,
       };
   }

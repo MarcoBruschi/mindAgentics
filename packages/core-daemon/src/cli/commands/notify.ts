@@ -4,7 +4,7 @@ export const notifyCommand: CommandHandler = async (req, state, router, schedule
   const message = req.args.join(' ') || req.options.message;
   if (!message) {
     return {
-      error: 'maestri notify: message required. Usage: maestri notify "message"',
+      error: 'mindagentics notify: message required. Usage: mindagentics notify "message"',
       exitCode: 1,
     };
   }

@@ -59,7 +59,7 @@ export const connectCommand: CommandHandler = async (req, state, router, schedul
   const [fromName, toName] = req.args;
   if (!fromName || !toName) {
     return {
-      error: 'maestri connect: both endpoints required. Usage: maestri connect "From" "To" [--label "..."]',
+      error: 'mindagentics connect: both endpoints required. Usage: mindagentics connect "From" "To" [--label "..."]',
       exitCode: 1,
     };
   }

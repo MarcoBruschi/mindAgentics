@@ -9,7 +9,7 @@ export const bandCommand: CommandHandler = async (req, state) => {
   switch (action) {
     case 'create': {
       const name = restArgs[0];
-      if (!name) return { error: 'maestri band create: name required.', exitCode: 1 };
+      if (!name) return { error: 'mindagentics band create: name required.', exitCode: 1 };
       const explicitMembers = restArgs.slice(1);
       const withoutMe = Boolean(req.options['without-me']);
 

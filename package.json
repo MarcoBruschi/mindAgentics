@@ -18,7 +18,7 @@
     "setup:graphify": "python -m pip install graphifyy",
     "graphify": "python -m graphify",
     "graphify:build": "python -m graphify .",
-    "graphify:open": "node packages/core-daemon/bin/maestri.js graphify open"
+    "graphify:open": "node packages/core-daemon/bin/mindagentics.js graphify open"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

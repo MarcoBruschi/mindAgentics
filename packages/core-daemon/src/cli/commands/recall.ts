@@ -4,7 +4,7 @@ export const recallCommand: CommandHandler = async (req, state) => {
   const query = req.args.join(' ').toLowerCase();
   if (!query) {
     return {
-      error: 'maestri recall: search query required. Usage: maestri recall "query"',
+      error: 'mindagentics recall: search query required. Usage: mindagentics recall "query"',
       exitCode: 1,
     };
   }

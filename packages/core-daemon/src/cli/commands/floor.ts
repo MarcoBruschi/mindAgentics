@@ -63,7 +63,7 @@ export const floorCommand: CommandHandler = async (req, state, router, scheduler
 
     case 'land': {
       const name = restArgs[0];
-      if (!name) return { error: 'maestri floor land: floor name required.', exitCode: 1 };
+      if (!name) return { error: 'mindagentics floor land: floor name required.', exitCode: 1 };
       const into = req.options.into || 'main';
 
       return {
@@ -74,7 +74,7 @@ export const floorCommand: CommandHandler = async (req, state, router, scheduler
 
     case 'delete': {
       const name = restArgs[0];
-      if (!name) return { error: 'maestri floor delete: floor name required.', exitCode: 1 };
+      if (!name) return { error: 'mindagentics floor delete: floor name required.', exitCode: 1 };
 
       for (const [id, f] of state.floors.entries()) {
         if (f.name.toLowerCase() === name.toLowerCase()) {

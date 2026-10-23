@@ -62,7 +62,7 @@ export const CanvasToolbar: React.FC = () => {
       try {
         const getLimits =
           window.mindAgentics?.terminal?.getAgentLimits ||
-          window.maestri?.terminal?.getAgentLimits ||
+          (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits || window.maestri?.terminal?.getAgentLimits) ||
           window.api?.terminal?.getAgentLimits;
 
         if (typeof getLimits === 'function') {
@@ -73,7 +73,7 @@ export const CanvasToolbar: React.FC = () => {
           }
         }
 
-        const detectFn = window.mindAgentics?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents;
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents);
         if (detectFn) {
           const detected = await detectFn();
           if (Array.isArray(detected)) {

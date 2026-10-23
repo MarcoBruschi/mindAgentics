@@ -24,7 +24,7 @@ export const initialWorkspace: Workspace = {
 };
 
 /**
- * Normalizes any workspace payload (including original Maestri disk format)
+ * Normalizes any workspace payload (including original mindAgentics disk format)
  * so that it always has a valid `floors` array and never throws undefined errors.
  */
 export function normalizeWorkspace(raw: any): Workspace {
@@ -37,6 +37,88 @@ export function normalizeWorkspace(raw: any): Workspace {
   const workingDirectory = raw.workingDirectory || 'C:\\Users\\mabru\\Documents\\mindAgentics';
   const preferredIde = raw.preferredIde || 'vscode';
 
+  // Extract saved canvasOffset or convert from legacy canvasOrigin
+  let canvasOffset: { x: number; y: number; zoom: number } | undefined = raw.canvasOffset || raw.viewport;
+  if (!canvasOffset && Array.isArray(raw.canvasOrigin) && raw.canvasOrigin.length >= 2) {
+    const origX = raw.canvasOrigin[0];
+    const origY = raw.canvasOrigin[1];
+    const zoom = raw.canvasZoom || 1.0;
+    canvasOffset = {
+      x: Math.round(-origX * zoom + 600),
+      y: Math.round(-origY * zoom + 350),
+      zoom: Number(zoom.toFixed(2)),
+    };
+  }
+
+  const normalizeNode = (n: any): CanvasNode => {
+    let x = n.x ?? 100;
+    let y = n.y ?? 100;
+    let width = n.width ?? 680;
+    let height = n.height ?? 480;
+
+    if (Array.isArray(n.frame)) {
+      x = n.frame[0]?.[0] ?? x;
+      y = n.frame[0]?.[1] ?? y;
+      width = n.frame[1]?.[0] ?? width;
+      height = n.frame[1]?.[1] ?? height;
+    }
+
+    let kind = n.kind || 'terminal';
+    let content = n.content || {};
+
+    if (n.content?.terminal) {
+      kind = 'terminal';
+      const t = n.content.terminal._0 || n.content.terminal;
+      content = {
+        terminalId: t.id || n.id,
+        title: t.name || 'Terminal',
+        command: t.command || '',
+        workingDirectory: t.workingDirectory || workingDirectory,
+        status: t.status,
+        color: t.color,
+        fontSize: t.fontSize,
+        isAutonomous: true,
+        agentRole: t.agentType || 'Developer',
+        maestroMode: Boolean(t.maestroMode),
+      };
+    } else if (n.content?.stickyNote) {
+      kind = 'note';
+      const s = n.content.stickyNote._0 || n.content.stickyNote;
+      content = {
+        noteId: n.id,
+        title: s.fileName || 'Note',
+        color: s.color || 'yellow',
+        body: s.text || '',
+      };
+    } else if (n.content?.browser) {
+      kind = 'portal';
+      const b = n.content.browser._0 || n.content.browser;
+      content = {
+        portalKind: 'browser',
+        url: b.url || '',
+        viewport: { width: 1280, height: 800 },
+        actionTags: [],
+      };
+    } else if (kind === 'terminal') {
+      if (!content.terminalId) {
+        content.terminalId = n.id;
+      }
+    }
+
+    return {
+      id: n.id || `node-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      kind,
+      x,
+      y,
+      width,
+      height,
+      zIndex: n.zIndex ?? 10,
+      content,
+    };
+  };
+
+  const rawLegacyNodes = Array.isArray(raw.nodes) ? raw.nodes.map(normalizeNode) : [];
+
   if (Array.isArray(raw.floors) && raw.floors.length > 0) {
     return {
       ...raw,
@@ -44,74 +126,41 @@ export function normalizeWorkspace(raw: any): Workspace {
       name,
       workingDirectory,
       preferredIde,
-      floors: raw.floors.map((f: any, idx: number) => ({
-        id: f?.id || `floor-${idx}`,
-        name: f?.name || (idx === 0 ? 'Canvas' : `Floor ${idx + 1}`),
-        isGround: f?.isGround ?? idx === 0,
-        workingDirectory: f?.workingDirectory || workingDirectory,
-        gitBranch: f?.gitBranch || 'main',
-        status: f?.status || null,
-        nodes: Array.isArray(f?.nodes) ? f.nodes : [],
-        cableTies: Array.isArray(f?.cableTies) ? f.cableTies : [],
-        bands: Array.isArray(f?.bands) ? f.bands : [],
-        drawings: Array.isArray(f?.drawings) ? f.drawings : [],
-      })),
+      canvasOffset,
+      floors: raw.floors.map((f: any, idx: number) => {
+        let fNodes: CanvasNode[] = [];
+        if (Array.isArray(f?.nodes) && f.nodes.length > 0) {
+          fNodes = f.nodes.map(normalizeNode);
+        } else if (idx === 0 && rawLegacyNodes.length > 0) {
+          fNodes = rawLegacyNodes;
+        }
+
+        let fTies: CableTie[] = [];
+        if (Array.isArray(f?.cableTies) && f.cableTies.length > 0) {
+          fTies = f.cableTies;
+        } else if (idx === 0 && Array.isArray(raw.connections)) {
+          fTies = raw.connections.map((c: any) => ({
+            id: c.id || `tie-${Date.now()}`,
+            fromNodeId: c.terminalIdA || c.fromNodeId || '',
+            toNodeId: c.terminalIdB || c.toNodeId || '',
+            label: c.label || '',
+          }));
+        }
+
+        return {
+          id: f?.id || `floor-${idx}`,
+          name: f?.name || (idx === 0 ? 'Canvas' : `Floor ${idx + 1}`),
+          isGround: f?.isGround ?? idx === 0,
+          workingDirectory: f?.workingDirectory || workingDirectory,
+          gitBranch: f?.gitBranch || 'main',
+          status: f?.status || null,
+          nodes: fNodes,
+          cableTies: fTies,
+          bands: Array.isArray(f?.bands) ? f.bands : [],
+          drawings: Array.isArray(f?.drawings) ? f.drawings : [],
+        };
+      }),
     };
-  }
-
-  // Convert raw Maestri disk workspace format (nodes and connections directly on payload)
-  let nodes: any[] = [];
-  if (Array.isArray(raw.nodes)) {
-    nodes = raw.nodes.map((n: any) => {
-      let x = n.x ?? 100;
-      let y = n.y ?? 100;
-      let width = n.width ?? 680;
-      let height = n.height ?? 480;
-
-      if (Array.isArray(n.frame)) {
-        x = n.frame[0]?.[0] ?? x;
-        y = n.frame[0]?.[1] ?? y;
-        width = n.frame[1]?.[0] ?? width;
-        height = n.frame[1]?.[1] ?? height;
-      }
-
-      let kind = n.kind || 'terminal';
-      let content = n.content || {};
-
-      if (n.content?.terminal) {
-        kind = 'terminal';
-        const t = n.content.terminal._0 || n.content.terminal;
-        content = {
-          terminalId: t.id || n.id,
-          title: t.name || 'Terminal',
-          command: t.command || '',
-          workingDirectory: t.workingDirectory || workingDirectory,
-          status: t.status,
-          color: t.color,
-          fontSize: t.fontSize,
-        };
-      } else if (n.content?.stickyNote) {
-        kind = 'note';
-        const s = n.content.stickyNote._0 || n.content.stickyNote;
-        content = {
-          noteId: n.id,
-          title: s.fileName || 'Note',
-          color: s.color || 'yellow',
-          content: '',
-        };
-      }
-
-      return {
-        id: n.id || `node-${Date.now()}`,
-        kind,
-        x,
-        y,
-        width,
-        height,
-        zIndex: n.zIndex ?? 10,
-        content,
-      };
-    });
   }
 
   let cableTies: any[] = [];
@@ -131,7 +180,7 @@ export function normalizeWorkspace(raw: any): Workspace {
     workingDirectory,
     gitBranch: 'main',
     status: null,
-    nodes,
+    nodes: rawLegacyNodes,
     cableTies,
     bands: Array.isArray(raw.bands) ? raw.bands : [],
     drawings: Array.isArray(raw.drawings) ? raw.drawings : [],
@@ -142,6 +191,7 @@ export function normalizeWorkspace(raw: any): Workspace {
     name,
     workingDirectory,
     preferredIde,
+    canvasOffset,
     floors: [groundFloor],
   };
 }
@@ -180,7 +230,7 @@ export const activeFloorIdAtom = atom<string>('floor-main');
 
 // ==========================================
 // Undo / Redo History Atoms & Transactional Groups
-// Section 4 of Maestri Interaction Model
+// Section 4 of mindAgentics Interaction Model
 // ==========================================
 export const MAX_UNDO_LEVELS = 50;
 

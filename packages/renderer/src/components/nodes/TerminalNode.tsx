@@ -132,6 +132,25 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
 
+    // Intercept keyboard events in terminal so Escape returns control to canvas
+    // and global shortcuts (Ctrl+P, Ctrl+K, Ctrl+0, Ctrl+\) continue working
+    term.attachCustomKeyEventHandler((arg: KeyboardEvent) => {
+      if (arg.key === 'Escape') {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        return false;
+      }
+      const isMod = arg.ctrlKey || arg.metaKey;
+      if (isMod) {
+        const k = arg.key.toLowerCase();
+        if (k === 'p' || k === 'k' || k === '0' || k === '\\' || k === 'v' || k === 'h') {
+          return false;
+        }
+      }
+      return true;
+    });
+
     term.open(terminalRef.current);
 
     try {
@@ -153,7 +172,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     let unsubscribeData: (() => void) | undefined;
     let unsubscribeStatus: (() => void) | undefined;
 
-    const termBridge = window.mindAgentics?.terminal || window.maestri?.terminal;
+    const termBridge = window.mindAgentics?.terminal || (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal);
     if (termBridge) {
       let scrollbackRestored = false;
       const pendingDataQueue: string[] = [];
@@ -260,7 +279,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     const handleResize = () => {
       try {
         fitAddon.fit();
-        const termResize = window.mindAgentics?.terminal?.resize || window.maestri?.terminal?.resize;
+        const termResize = window.mindAgentics?.terminal?.resize || (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.resize;
         if (termResize) {
           termResize(termId, term.cols, term.rows);
         }
@@ -274,12 +293,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       resizeObserver.observe(terminalRef.current);
     }
 
-    // Auto-focus terminal cursor
-    setTimeout(() => {
-      try {
-        term.focus();
-      } catch {}
-    }, 150);
+    // Terminals do not steal focus on initial mount so canvas tools and shortcuts remain active
 
     return () => {
       isDisposed = true;
@@ -311,7 +325,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         maestroMode: nextMaestro,
       },
     });
-    const setMaestroFn = window.mindAgentics?.terminal?.setMaestroMode || window.maestri?.terminal?.setMaestroMode;
+    const setMaestroFn = window.mindAgentics?.terminal?.setMaestroMode || (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.setMaestroMode;
     if (setMaestroFn) {
       setMaestroFn(node.content.terminalId, nextMaestro).catch(() => {});
     }
@@ -333,7 +347,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       refCommand = `mindagentics ask "${termTitle}" "Hello from ${agentName}"`;
     }
 
-    const termWrite = window.mindAgentics?.terminal?.write || window.maestri?.terminal?.write;
+    const termWrite = window.mindAgentics?.terminal?.write || (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.write;
     if (refCommand && termWrite) {
       termWrite(node.content.terminalId, refCommand + '\r');
     } else if (refCommand) {
@@ -376,6 +390,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     >
       {/* Node Header */}
       <div
+        onPointerDown={() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}
         className={`node-drag-handle flex items-center justify-between px-3 py-2 border-b cursor-move transition-colors ${
           isMaestro
             ? 'bg-[#16181d] border-amber-500/20'

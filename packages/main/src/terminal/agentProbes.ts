@@ -224,7 +224,7 @@ export async function probeCodex(agentPath: string): Promise<Partial<AgentUsageR
     proc.stdin.write(JSON.stringify({
       id: 1,
       method: 'initialize',
-      params: { clientInfo: { name: 'maestri', title: 'Maestri', version: '1' } }
+      params: { clientInfo: { name: 'mindagentics', title: 'mindAgentics', version: '1' } }
     }) + '\n');
   });
 }

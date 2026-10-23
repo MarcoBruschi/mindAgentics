@@ -25,7 +25,8 @@ export interface FloorDescriptor {
   repoRoot: string;
   worktreePath: string;
   branch: string;
-  branchCreatedByMaestri: boolean;
+  branchCreatedByMindAgentics?: boolean;
+  branchCreatedByMaestri?: boolean;
   createdAt: string;
   state: FloorState;
 }
@@ -48,6 +49,7 @@ export interface WorkspacePayload {
   name: string;
   workingDirectory: string;
   preferredIde?: string;
+  canvasOffset?: { x: number; y: number; zoom: number };
   floors: Floor[];
 }
 
@@ -58,35 +60,4 @@ export interface WorkspaceDocument {
   schemaVersion: 1;
   type: 'workspace';
   payload: WorkspacePayload;
-}
-
-export interface SidebarWorkspaceItem {
-  id: string;
-  name: string;
-  path: string;
-  groupId?: string;
-  folderId?: string;
-  isPinned?: boolean;
-}
-
-export interface SidebarGroup {
-  id: string;
-  name: string;
-  icon?: string;
-  order: number;
-}
-
-export interface SidebarFolder {
-  id: string;
-  name: string;
-  groupId?: string;
-  order: number;
-}
-
-export interface SidebarLayout {
-  schemaVersion: 1;
-  groups: SidebarGroup[];
-  folders: SidebarFolder[];
-  workspaces: SidebarWorkspaceItem[];
-  pinnedWorkspaceIds: string[];
 }

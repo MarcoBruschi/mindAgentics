@@ -87,7 +87,7 @@ export const listCommand: CommandHandler = async (req, state) => {
       const name = p.title || (p.portalKind === 'device' ? (p.deviceName || 'Device') : 'Portal');
       const target = p.portalKind === 'device' ? `[device: ${p.deviceName || 'Android'}]` : (p.url || 'blank');
       const vp = p.viewport ? ` (${p.viewport.width}x${p.viewport.height})` : '';
-      lines.push(`  * "${name}" -> ${target}${vp} [read with: maestri portal read "${name}"]`);
+      lines.push(`  * "${name}" -> ${target}${vp} [read with: mindagentics portal read "${name}"]`);
     }
   }
   if (!hasPortals) {

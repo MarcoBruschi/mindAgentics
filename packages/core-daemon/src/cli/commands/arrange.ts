@@ -9,7 +9,7 @@ export const arrangeCommand: CommandHandler = async (req, state) => {
         'Canvas Visual Styles:',
         'Available colors: yellow, blue, green, pink, purple, gray, cyan, orange',
         'Available icons: seal, brain, sparkle, rectangle.portrait, terminal, eye, gear',
-        'Usage: maestri arrange "Name" [--name N] [--icon I] [--color C]',
+        'Usage: mindagentics arrange "Name" [--name N] [--icon I] [--color C]',
       ].join('\n'),
       exitCode: 0,
     };

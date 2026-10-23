@@ -18,6 +18,7 @@ import {
   bandsAtom,
   drawingsAtom,
   activeWorkspaceAtom,
+  workspacesAtom,
   activeFloorAtom,
   beginUndoGroupAtom,
   endUndoGroupAtom,
@@ -70,6 +71,60 @@ export const InfiniteCanvas: React.FC = () => {
   const [drawings, setDrawings] = useAtom(drawingsAtom);
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
   const [activeFloor] = useAtom(activeFloorAtom);
+  const [, setWorkspaces] = useAtom(workspacesAtom);
+  const lastWsIdRef = useRef<string | null>(null);
+
+  // Sync canvas viewport when active workspace loads or switches
+  useEffect(() => {
+    if (!activeWorkspace) return;
+    const isDifferentWs = lastWsIdRef.current !== activeWorkspace.id;
+    lastWsIdRef.current = activeWorkspace.id;
+
+    if (isDifferentWs) {
+      if (activeWorkspace.canvasOffset) {
+        setOffset(activeWorkspace.canvasOffset);
+        return;
+      }
+
+      // If no saved offset and there are nodes, check if they need auto-framing
+      if (nodes.length > 0 && containerRef.current) {
+        const minX = Math.min(...nodes.map((n) => n.x));
+        const maxX = Math.max(...nodes.map((n) => n.x + n.width));
+        const minY = Math.min(...nodes.map((n) => n.y));
+        const maxY = Math.max(...nodes.map((n) => n.y + n.height));
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const selWidth = Math.max(maxX - minX, 400);
+        const selHeight = Math.max(maxY - minY, 300);
+
+        const fitZoom = Math.min(
+          1.0,
+          Math.max(0.3, Math.min((rect.width - 160) / selWidth, (rect.height - 160) / selHeight))
+        );
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        setOffset({
+          x: Math.round(rect.width / 2 - centerX * fitZoom),
+          y: Math.round(rect.height / 2 - centerY * fitZoom),
+          zoom: Number(fitZoom.toFixed(2)),
+        });
+      }
+    }
+  }, [activeWorkspace?.id, nodes.length, setOffset]);
+
+  // Persist current offset to active workspace
+  useEffect(() => {
+    if (!activeWorkspace) return;
+    const timer = setTimeout(() => {
+      setWorkspaces((prev) =>
+        prev.map((w) =>
+          w.id === activeWorkspace.id ? { ...w, canvasOffset: offset } : w
+        )
+      );
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [offset, activeWorkspace?.id, setWorkspaces]);
 
   const [, beginUndoGroup] = useAtom(beginUndoGroupAtom);
   const [, endUndoGroup] = useAtom(endUndoGroupAtom);
@@ -206,6 +261,16 @@ export const InfiniteCanvas: React.FC = () => {
       const inInput = isInputOrEditable(activeEl);
       const isMod = e.ctrlKey || e.metaKey;
 
+      // Escape key: unconditionally blur active terminal/input, clear selection, and return to select mode
+      if (e.key === 'Escape') {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        setSelectedIds([]);
+        setCanvasMode('select');
+        return;
+      }
+
       // 1. Reset Zoom: Ctrl+0 / Cmd+0
       if (isMod && e.key === '0') {
         e.preventDefault();
@@ -282,7 +347,7 @@ export const InfiniteCanvas: React.FC = () => {
                 window.api?.terminal?.kill?.(termId)?.catch?.(() => {});
                 window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
                 window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
-          window.maestri?.terminal?.kill?.(termId)?.catch?.(() => {});
+          (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.kill?.(termId)?.catch?.(() => {});
               }
             }
           }
@@ -515,6 +580,11 @@ export const InfiniteCanvas: React.FC = () => {
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!containerRef.current) return;
 
+    // Unfocus terminal or input when clicking canvas background
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     // Middle-click (1) or Spacebar + Left-click or CanvasMode 'pan'
     const isPanTrigger =
       e.button === 1 ||
@@ -650,7 +720,7 @@ export const InfiniteCanvas: React.FC = () => {
   // Synchronize canvas nodes and cable ties to core-daemon supervisor for CLI inter-agent access
   useEffect(() => {
     const timer = setTimeout(() => {
-      const syncFn = window.mindAgentics?.canvas?.sync || window.maestri?.canvas?.sync;
+      const syncFn = window.mindAgentics?.canvas?.sync || (window.mindAgentics?.canvas?.sync || window.api?.canvas?.sync || window.maestri?.canvas?.sync);
       if (syncFn) {
         syncFn({
           nodes,
@@ -699,7 +769,7 @@ export const InfiniteCanvas: React.FC = () => {
         if (termId) {
           window.api?.terminal?.kill?.(termId)?.catch?.(() => {});
           window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
-          window.maestri?.terminal?.kill?.(termId)?.catch?.(() => {});
+          (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.kill?.(termId)?.catch?.(() => {});
         }
       }
       return prev.filter((n) => n.id !== id);

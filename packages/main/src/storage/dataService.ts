@@ -41,7 +41,7 @@ export class DataService {
       let pointerPath = '';
       if (process.platform === 'win32') {
         const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-        pointerPath = path.join(appData, 'Maestri', 'storage-location.json');
+        pointerPath = path.join(appData, 'mindAgentics', 'storage-location.json');
       } else if (process.platform === 'darwin') {
         pointerPath = path.join(os.homedir(), 'Library', 'Application Support', 'Maestri', 'storage-location.json');
       } else {
@@ -59,7 +59,7 @@ export class DataService {
       // fallback
     }
 
-    return path.join(os.homedir(), '.maestri');
+    return path.join(os.homedir(), '.mindagentics');
   }
 
   public getDataDir(): string {
@@ -305,9 +305,13 @@ export class DataService {
     const manifest = await this.getManifest();
     const workspaces: any[] = [];
 
+    const seenWsIds = new Set<string>();
     for (const entry of manifest.workspaces || []) {
+      seenWsIds.add(entry.id);
       const ws = await this.getWorkspace(entry.id);
       if (ws) {
+        if (!ws.id) ws.id = entry.id;
+        if (!ws.name) ws.name = entry.name;
         workspaces.push(ws);
       } else {
         workspaces.push({
@@ -319,6 +323,24 @@ export class DataService {
         });
       }
     }
+
+    // Auto-discover any workspaces on disk not yet in manifest
+    try {
+      const wsParentDir = path.join(this.dataDir, 'workspaces');
+      if (fs.existsSync(wsParentDir)) {
+        const entries = await fsp.readdir(wsParentDir, { withFileTypes: true });
+        for (const dirent of entries) {
+          if (dirent.isDirectory() && !seenWsIds.has(dirent.name)) {
+            const discovered = await this.getWorkspace(dirent.name);
+            if (discovered) {
+              if (!discovered.id) discovered.id = dirent.name;
+              workspaces.push(discovered);
+              seenWsIds.add(dirent.name);
+            }
+          }
+        }
+      }
+    } catch {}
 
     if (workspaces.length === 0) {
       // Create initial workspace if none exist
@@ -335,7 +357,11 @@ export class DataService {
     try {
       const raw = await fsp.readFile(wsFile, 'utf-8');
       const doc = JSON.parse(raw);
-      return doc?.payload ? doc.payload : doc;
+      const payload = doc?.payload ? doc.payload : doc;
+      if (payload && typeof payload === 'object') {
+        if (!payload.id) payload.id = id;
+      }
+      return payload;
     } catch {
       return null;
     }
@@ -504,7 +530,7 @@ export class DataService {
         dest ||
         path.join(
           backupDir,
-          `maestri-backup-${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomUUID().slice(0, 8)}.zip`
+          `mindagentics-backup-${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomUUID().slice(0, 8)}.zip`
         );
 
       const filesToArchive: Record<string, Uint8Array> = {};
