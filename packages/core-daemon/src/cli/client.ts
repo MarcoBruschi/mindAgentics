@@ -34,6 +34,7 @@ Commands:
   connect <from> <to>                           Wire two nodes together on canvas
   band <create|add|remove|dissolve>             Gather agents into a synchronized canvas band
   arrange <name> [options]                      Style or restyle canvas nodes
+  graphify <build|query|explain|path|open>      Knowledge graph AST extraction, queries & visualizer
   status                                        Display current terminal status and health
   debug                                         Run diagnostics on named pipe and environment
 
@@ -111,3 +112,4 @@ export async function runCliClient(argv: string[]): Promise<void> {
     process.exit(1);
   });
 }
+

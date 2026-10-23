@@ -11,6 +11,7 @@
 - **Integrated Agent CLI Detection**: Built-in detection for GitHub Copilot, Antigravity (`agy`), Codex, OpenCode, and local shells.
 - **Agent Terminal Modals**: Quick-start templates, appearance customization, and autonomous execution modes.
 - **Browser Portals**: Embedded interactive web browsers with accessibility tree DOM inspection (`@e1`, `@e2`), text extraction, and automated browsing.
+- **Graphify Knowledge Graph Integration**: Deterministic AST codebase extraction, queryable architecture (`/graphify`, `maestri graphify`), community detection, and visual force-directed graph portal directly on the canvas.
 - **Freehand Canvas Painting**: Draw, annotate, and brainstorm directly on top of the canvas with real-time vector strokes.
 - **Undo / Redo (`Ctrl+Z` / `Ctrl+Y`)**: Complete state history management for all canvas actions.
 - **Continuous Workspace Auto-Save**: Persistent multi-workspace management with safe folder targeting and deletion safeguards.
@@ -23,6 +24,7 @@
 
 - Node.js >= 20.x
 - npm >= 10.x
+- Python >= 3.10 (for Graphify knowledge graph engine)
 
 ### Installation
 
@@ -30,6 +32,7 @@
 git clone https://github.com/MarcoBruschi/mindAgentics.git
 cd mindAgentics
 npm install
+npm run setup:graphify
 ```
 
 ### Build
@@ -46,6 +49,18 @@ npm start
 
 ---
 
+## 🧠 Graphify Knowledge Graph Commands
+
+You can build and query codebase knowledge graphs via CLI or agents on the canvas:
+
+- `maestri graphify build .`: Parse codebase AST and construct `graphify-out/` (interactive HTML, JSON, and report).
+- `maestri graphify open`: Open the interactive force-directed graph in a canvas portal node.
+- `maestri graphify query "<pergunta>"`: Traverse and query project architecture without loading entire files into context.
+- `maestri graphify explain "<simbolo>"`: Get explanation and degree connections of any symbol or module.
+- `maestri graphify path "<origem>" "<destino>"`: Find shortest architectural paths between concepts.
+
+---
+
 ## 🛠️ Monorepo Architecture
 
 - `packages/shared`: Shared TypeScript types, IPC channel contracts, and node schemas.
@@ -53,4 +68,4 @@ npm start
 - `packages/main`: Electron main supervisor, PTY terminal lifecycle manager, and atomic storage service.
 - `packages/preload`: Context-isolated secure bridge APIs.
 - `packages/renderer`: React + Vite + Tailwind CSS spatial infinite canvas interface.
-- `skills/`: Maestri and agent CLI skills.
+- `skills/`: Maestri and agent CLI skills (including Graphify).

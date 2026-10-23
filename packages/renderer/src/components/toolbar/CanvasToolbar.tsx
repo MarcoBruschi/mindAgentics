@@ -8,7 +8,7 @@ import {
   activeBrushSizeAtom,
   activeBrushTypeAtom,
 } from '@/atoms/canvas';
-import { nodesAtom, drawingsAtom } from '@/atoms/workspace';
+import { nodesAtom, drawingsAtom, activeWorkspaceAtom } from '@/atoms/workspace';
 import { agentPresetsAtom } from '@/atoms/presets';
 import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom } from '@/atoms/ui';
 import { framePlacedNextTo, DEFAULT_NODE_DIMENSIONS, snapToGrid } from '@/utils/layout';
@@ -19,6 +19,7 @@ import {
   Paperclip,
   Folder,
   Globe,
+  Network,
   Pencil,
   Eraser,
   Minus,
@@ -46,6 +47,7 @@ export const CanvasToolbar: React.FC = () => {
   const [, setSelectedIds] = useAtom(selectedNodeIdsAtom);
   const [presets] = useAtom(agentPresetsAtom);
   const [nodes, setNodes] = useAtom(nodesAtom);
+  const [activeWorkspace] = useAtom(activeWorkspaceAtom);
   const [, setDrawings] = useAtom(drawingsAtom);
   const [drawColor, setDrawColor] = useAtom(activeDrawColorAtom);
   const [brushSize, setBrushSize] = useAtom(activeBrushSizeAtom);
@@ -208,6 +210,35 @@ export const CanvasToolbar: React.FC = () => {
     setMode('select');
   };
 
+  const addKnowledgeGraph = () => {
+    const id = `node-portal-${Date.now()}`;
+    const placed = getViewportCenter(850, 560);
+    const targetDir = activeWorkspace?.workingDirectory || '';
+    const htmlUrl = targetDir ? `file:///${targetDir.replace(/\\/g, '/')}/graphify-out/graph.html` : 'https://graphify.com';
+
+    setNodes((prev) => [
+      ...prev,
+      {
+        id,
+        kind: 'portal',
+        x: placed.x,
+        y: placed.y,
+        width: 850,
+        height: 560,
+        zIndex: Math.max(...prev.map((n) => n.zIndex || 1), 10) + 1,
+        content: {
+          portalKind: 'browser',
+          title: 'Knowledge Graph (Graphify)',
+          url: htmlUrl,
+          viewport: { width: 1280, height: 800 },
+          actionTags: [],
+        },
+      },
+    ]);
+    setMode('select');
+  };
+
+
   // Tool Aa: add text block to workspace
   const addTextBlock = () => {
     const id = `node-text-${Date.now()}`;
@@ -342,6 +373,15 @@ export const CanvasToolbar: React.FC = () => {
             title="Adicionar Browser Portal"
           >
             <Globe className="w-[19px] h-[19px]" strokeWidth={1.75} />
+          </button>
+
+          {/* 6.1 Knowledge Graph (Graphify) */}
+          <button
+            onClick={addKnowledgeGraph}
+            className="p-2 rounded-full text-[#E5E5EA] hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
+            title="Visualizar Knowledge Graph (Graphify)"
+          >
+            <Network className="w-[19px] h-[19px]" strokeWidth={1.75} />
           </button>
 
           {/* 7. Tool Aa: Escrever no Workspace */}

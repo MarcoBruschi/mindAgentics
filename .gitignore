@@ -63,7 +63,8 @@ auth.json
 
 # Local data & backups
 backups
-storage
+/storage
+!packages/main/src/storage/
 workspaces
 .cache
 tmp

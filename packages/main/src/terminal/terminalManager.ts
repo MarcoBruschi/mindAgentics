@@ -417,7 +417,8 @@ export class TerminalManager extends EventEmitter {
         'maestri-portal',
         'maestri-portal-devices',
         'maestri-routines',
-        'maestri-workspace'
+        'maestri-workspace',
+        'graphify'
       ];
 
       // 1. Sync to ~/.codex/skills
@@ -459,6 +460,7 @@ Você tem à sua disposição a CLI do Maestri (\`maestri\`) e todas as skills i
 - **\`maestri connect "<De>" "<Para>"\`**: Conecta nós, agentes e referências no canvas.
 - **\`maestri note create --title "<Título>" --body "<Conteúdo>"\`**: Cria ou edita notas adesivas no canvas.
 - **\`maestri floor <action>\`**: Gerencia worktrees isoladas de trabalho (floors).
+- **\`maestri graphify <build|query|explain|path|open>\`**: Constrói e consulta o Knowledge Graph do projeto via AST determinístico, visualizando no Portal.
 
 ## Modo Maestro (Orquestração de Agentes)
 
