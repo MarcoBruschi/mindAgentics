@@ -10,7 +10,7 @@ import {
 } from '@/atoms/canvas';
 import { nodesAtom, drawingsAtom, activeWorkspaceAtom } from '@/atoms/workspace';
 import { agentPresetsAtom } from '@/atoms/presets';
-import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom } from '@/atoms/ui';
+import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom, isCreateGraphModalOpenAtom } from '@/atoms/ui';
 import { framePlacedNextTo, DEFAULT_NODE_DIMENSIONS, snapToGrid } from '@/utils/layout';
 import {
   MousePointer2,
@@ -55,6 +55,7 @@ export const CanvasToolbar: React.FC = () => {
 
   const [, setIsCreateAgentOpen] = useAtom(isCreateAgentModalOpenAtom);
   const [, setIsAgentLimitsOpen] = useAtom(isAgentLimitsModalOpenAtom);
+  const [, setIsCreateGraphOpen] = useAtom(isCreateGraphModalOpenAtom);
   const [installedAgents, setInstalledAgents] = useState<InstalledAgentReport[]>([]);
 
   useEffect(() => {
@@ -375,6 +376,15 @@ export const CanvasToolbar: React.FC = () => {
             title="Adicionar Browser Portal"
           >
             <Globe className="w-[19px] h-[19px]" strokeWidth={1.75} />
+          </button>
+
+          {/* 6.5 Knowledge Graph Tool (Graphify) */}
+          <button
+            onClick={() => setIsCreateGraphOpen(true)}
+            className="p-2 rounded-full text-[#E5E5EA] hover:text-white hover:bg-white/5 transition-all group relative"
+            title="Gerar Knowledge Graph (Graphify)"
+          >
+            <Network className="w-[19px] h-[19px] text-indigo-400 group-hover:scale-110 transition-transform" strokeWidth={1.75} />
           </button>
 
           {/* 7. Tool Aa: Escrever no Workspace */}

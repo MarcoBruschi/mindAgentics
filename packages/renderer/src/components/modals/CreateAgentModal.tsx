@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { isCreateAgentModalOpenAtom } from '@/atoms/ui';
-import { nodesAtom, activeWorkspaceAtom } from '@/atoms/workspace';
+import { nodesAtom, activeWorkspaceAtom, cableTiesAtom } from '@/atoms/workspace';
 import { canvasOffsetAtom } from '@/atoms/canvas';
-import { TerminalNode as TerminalNodeType } from '@mindagentics/shared';
+import { TerminalNode as TerminalNodeType, CableTie } from '@mindagentics/shared';
 import {
   Sparkles,
   Brain,
@@ -13,6 +13,7 @@ import {
   FolderOpen,
   Info,
   Wand2,
+  Network,
 } from 'lucide-react';
 
 interface PresetItem {
@@ -39,6 +40,8 @@ export const CreateAgentModal: React.FC = () => {
   const [workingDirectory, setWorkingDirectory] = useState('');
   const [monitorActivity, setMonitorActivity] = useState(true);
   const [isMaestro, setIsMaestro] = useState(false);
+  const [injectKnowledgeGraph, setInjectKnowledgeGraph] = useState(true);
+  const [, setCableTies] = useAtom(cableTiesAtom);
 
   // Appearance State
   const [fontFamily, setFontFamily] = useState("Cascadia Mono, Consolas, monospace");
@@ -133,7 +136,7 @@ export const CreateAgentModal: React.FC = () => {
     }
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const finalName = terminalName.trim() || 'Terminal';
     let finalCmd = command.trim();
     const finalDir = workingDirectory.trim() || activeWorkspace?.workingDirectory || 'C:\\Users\\mabru\\Documents\\mindAgentics';
@@ -170,6 +173,30 @@ export const CreateAgentModal: React.FC = () => {
     const viewportCenterY = -offset.y / offset.zoom + 120;
     const staggeredOffset = (nodes.length % 6) * 40;
 
+    let enrichedInstructions = customInstructions || '';
+    let graphPortalNodeId: string | null = null;
+
+    if (injectKnowledgeGraph) {
+      try {
+        const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
+        if (api?.graphify?.checkGraph) {
+          const check = await api.graphify.checkGraph(finalDir);
+          if (check?.hasGraph && check.reportContent) {
+            const summary = check.reportContent.slice(0, 2500);
+            const graphHeader = '## KNOWLEDGE GRAPH DO PROJETO\nVoce esta ancorado ao Knowledge Graph do projeto (' + check.projectName + ').\nDIRETRIZ DE ECONOMIA DE TOKENS: Consulte o grafo antes de ler arquivos.\n- mindagentics graphify query \"<pergunta>\" --budget 1500\n- mindagentics graphify path \"<Origem>\" \"<Destino>\"\n- mindagentics graphify explain \"<No>\"\n\nResumo Arquitetural:\n' + summary + '\n\n';
+            enrichedInstructions = graphHeader + enrichedInstructions;
+          }
+        }
+      } catch {}
+
+      const portal = nodes.find(
+        (n) => n.kind === 'portal' && (n.content?.title?.includes('Knowledge Graph') || n.content?.url?.includes('graph.html'))
+      );
+      if (portal) {
+        graphPortalNodeId = portal.id;
+      }
+    }
+
     const newTerminalId = `term-${Date.now()}`;
     const newNodeId = `node-${Date.now()}`;
 
@@ -194,11 +221,21 @@ export const CreateAgentModal: React.FC = () => {
         fontFamily,
         fontSize,
         color: themeColor,
-        instructions: customInstructions,
+        instructions: enrichedInstructions,
       },
     };
 
     setNodes((prev) => [...prev, newTerminalNode]);
+
+    if (graphPortalNodeId) {
+      const newCable: CableTie = {
+        id: `cable-${Date.now()}`,
+        fromNodeId: newNodeId,
+        toNodeId: graphPortalNodeId,
+        style: 'accent',
+      };
+      setCableTies((prev) => [...prev, newCable]);
+    }
 
     // Spawn PTY process if backend is connected
     if (window.api?.terminal?.spawn) {
@@ -421,6 +458,32 @@ export const CreateAgentModal: React.FC = () => {
                     <div
                       className={`w-5 h-5 rounded-full bg-white transition-transform ${
                         isMaestro ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Switch: Injetar contexto do projeto (Knowledge Graph) */}
+                <div className="flex items-start justify-between gap-3 pt-1">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-medium text-zinc-200">Injetar contexto do projeto (Knowledge Graph)</span>
+                      <Network className="w-3.5 h-3.5 text-indigo-400" />
+                    </div>
+                    <span className="text-[11px] text-zinc-500 leading-tight">
+                      Ancora o agente a arquitetura pre-computada e ativa GraphRAG, economizando ate 90% de tokens.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInjectKnowledgeGraph(!injectKnowledgeGraph)}
+                    className={`w-11 h-6 rounded-full transition-colors relative shrink-0 p-0.5 ${
+                      injectKnowledgeGraph ? 'bg-indigo-600' : 'bg-zinc-700'
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        injectKnowledgeGraph ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
                   </button>

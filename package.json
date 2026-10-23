@@ -8,16 +8,17 @@
   ],
   "scripts": {
     "build:shared": "npm run build --workspace=@mindagentics/shared",
+    "build:public": "npm run build --workspace=@mindagentics/public-api",
     "build:core": "npm run build --workspace=@mindagentics/core-daemon",
     "build:preload": "npm run build --workspace=@mindagentics/preload",
     "build:renderer": "npm run build --workspace=@mindagentics/renderer",
     "build:main": "npm run build --workspace=@mindagentics/main",
-    "build": "npm run build:shared && npm run build:core && npm run build:preload && npm run build:renderer && npm run build:main",
+    "build": "npm run build:shared && npm run build:public && npm run build:core && npm run build:preload && npm run build:renderer && npm run build:main",
     "dev:renderer": "npm run dev --workspace=@mindagentics/renderer",
     "start": "electron packages/main/dist/index.js",
     "setup:graphify": "python -m pip install graphifyy",
     "graphify": "python -m graphify",
-    "graphify:build": "python -m graphify .",
+    "graphify:build": "python -m graphify packages/public-api --code-only",
     "graphify:open": "node packages/core-daemon/bin/mindagentics.js graphify open"
   },
   "devDependencies": {

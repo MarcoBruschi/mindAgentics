@@ -470,6 +470,11 @@ export class TerminalManager extends EventEmitter {
         if (needsUpdate) {
           const content = `# mindAgentics Canvas - Instruções para Agentes de IA
 
+> [!IMPORTANT]
+> **DIRETRIZ ZERO-READ (NÃO RE-LEIA ESTE MANUAL):**
+> Você já possui todas as instruções do mindAgentics e o Knowledge Graph do projeto pré-carregados no seu contexto nativo.
+> NUNCA execute ferramentas de leitura (\`read_file\`, \`cat\`, etc.) para ler \`AGENTS.md\`, \`CLAUDE.md\` ou \`SKILL.md\` do disco. Inicie diretamente a ação necessária ou responda ao colega de equipe.
+
 Você está operando como um agente no canvas interativo **mindAgentics**.
 Você tem à sua disposição a CLI do mindAgentics (\`mindagentics\`, alias \`maestri\`) e todas as skills integradas:
 

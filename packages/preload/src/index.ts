@@ -1660,6 +1660,14 @@ app: {
   },
   onCableTieCreated(handler: (payload: any) => void) {
     return subscribe('maestri:canvas:cableTieCreated', handler);
+  },
+  graphify: {
+    buildGraph(params: any) {
+      return electron.ipcRenderer.invoke('mindagentics:graphify:build', params);
+    },
+    checkGraph(dir: string) {
+      return electron.ipcRenderer.invoke('mindagentics:graphify:check', dir);
+    }
   }
 };
 

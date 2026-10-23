@@ -23,6 +23,8 @@ out
 build
 *.tsbuildinfo
 .vite
+graphify-out/
+.mindagentics_graph.json
 
 # Environment Variables & Secrets
 .env

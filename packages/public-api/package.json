@@ -1,0 +1,13 @@
+{
+  "name": "@mindagentics/public-api",
+  "version": "0.26.0",
+  "description": "Public CLI API, Canvas Entity Schemas, and Agent Orchestration Interfaces for mindAgentics",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

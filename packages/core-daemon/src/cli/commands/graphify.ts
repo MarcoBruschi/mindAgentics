@@ -44,18 +44,34 @@ export const graphifyCommand: CommandHandler = async (req, state, router, schedu
   switch (action) {
     case 'build':
     case 'create': {
-      const dir = restArgs[0] || targetDir;
-      const flags: string[] = [dir];
-      if (req.options?.mode) flags.push('--mode', String(req.options.mode));
+      let dir = restArgs[0] || targetDir;
+      const isMindAgenticsRoot = fs.existsSync(path.join(dir, 'packages', 'public-api'));
+      const targetScanDir = isMindAgenticsRoot ? path.join(dir, 'packages', 'public-api') : dir;
+
+      const flags: string[] = [targetScanDir];
+      if (req.options?.mode) {
+        flags.push('--mode', String(req.options.mode));
+      } else if (isMindAgenticsRoot) {
+        flags.push('--code-only');
+      }
       if (req.options?.update) flags.push('--update');
       if (req.options?.mcp) flags.push('--mcp');
 
-      const res = await runGraphify(flags, dir);
+      const res = await runGraphify(flags, targetScanDir);
       if (res.code !== 0) {
         return {
           error: `Graphify build failed:\n${res.stderr || res.stdout}`,
           exitCode: res.code,
         };
+      }
+
+      // If we scanned public-api, copy the output to root graphify-out so queries and canvas portals find it
+      if (isMindAgenticsRoot) {
+        const srcOut = path.join(targetScanDir, 'graphify-out');
+        const destOut = path.join(dir, 'graphify-out');
+        if (fs.existsSync(srcOut)) {
+          fs.cpSync(srcOut, destOut, { recursive: true, force: true });
+        }
       }
 
       const outDir = path.join(dir, 'graphify-out');

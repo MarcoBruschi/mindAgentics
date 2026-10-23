@@ -19,7 +19,7 @@ export async function runDaemonServer(serveToken?: string): Promise<void> {
   const isWindows = os.platform() === 'win32';
   const token = serveToken || randomUUID().slice(0, 8);
   const pipePath = isWindows
-    ? `\\\.\pipe\mindagentics-${token}`
+    ? `\\\\.\\pipe\\mindagentics-${token}`
     : `/tmp/mindagentics-${token}.sock`;
   const envVarName = isWindows ? 'MINDAGENTICS_PIPE' : 'MINDAGENTICS_SOCKET';
 

@@ -2,7 +2,11 @@ import { ipcMain, dialog, shell, clipboard, app, BrowserWindow } from 'electron'
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { IPC_CHANNELS as C } from '@mindagentics/shared';
+
+const execAsync = promisify(exec);
 import { DataService } from '../storage/dataService.js';
 import { CoreDaemonSupervisor } from '../supervisor/coreDaemonSupervisor.js';
 import { TerminalManager } from '../terminal/terminalManager.js';
@@ -458,6 +462,98 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   handle(C.dataExportBackup, (dest?: string) => dataService.exportBackup(dest));
   handle(C.dataImportBackup, (zipPath: string) => dataService.importBackup(zipPath));
   handle(C.dataStorageLocation, () => dataService.getDataDir());
+
+  // Knowledge Graph (Graphify)
+  handle('mindagentics:graphify:build', async (params: { target: string; isGitUrl?: boolean; branch?: string; directed?: boolean }) => {
+    const target = params?.target?.trim() || '.';
+    const directed = params?.directed !== false;
+    let projectDir = target;
+
+    if (params?.isGitUrl || target.startsWith('http://') || target.startsWith('https://')) {
+      const cloneCmd = `graphify clone "${target}"` + (params.branch ? ` --branch "${params.branch}"` : '');
+      const { stdout } = await execAsync(cloneCmd);
+      const lines = stdout.trim().split(/\r?\n/);
+      projectDir = lines[lines.length - 1] || target;
+    }
+
+    projectDir = path.resolve(projectDir);
+
+    const graphifyCmd = `graphify "${projectDir}" ${directed ? '--directed' : ''}`;
+    try {
+      await execAsync(graphifyCmd, { cwd: projectDir });
+    } catch (err: any) {
+      const fallbackCmd = `${graphifyCmd} --code-only`;
+      await execAsync(fallbackCmd, { cwd: projectDir });
+    }
+
+    const outDir = path.join(projectDir, 'graphify-out');
+    const graphHtml = path.join(outDir, 'graph.html');
+    const graphJson = path.join(outDir, 'graph.json');
+    const graphReport = path.join(outDir, 'GRAPH_REPORT.md');
+
+    if (!fs.existsSync(graphReport) || !fs.existsSync(graphHtml)) {
+      try {
+        await execAsync(`graphify cluster-only "${projectDir}" --no-label`, { cwd: projectDir });
+      } catch {}
+      if (!fs.existsSync(graphHtml) && fs.existsSync(graphJson)) {
+        try {
+          await execAsync(`graphify export html --graph "${graphJson}"`, { cwd: projectDir });
+        } catch {}
+      }
+    }
+
+    let reportText = '';
+    if (fs.existsSync(graphReport)) {
+      reportText = fs.readFileSync(graphReport, 'utf-8');
+    }
+
+    let nodesCount = 0;
+    let edgesCount = 0;
+    if (fs.existsSync(graphJson)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(graphJson, 'utf-8'));
+        nodesCount = data.nodes?.length || 0;
+        edgesCount = (data.links || data.edges)?.length || 0;
+      } catch {}
+    }
+
+    const projectName = path.basename(projectDir);
+    const htmlUrl = 'file:///' + graphHtml.replace(/\\/g, '/');
+
+    return {
+      ok: true,
+      projectName,
+      projectDir,
+      htmlUrl,
+      graphHtmlPath: graphHtml,
+      graphReportPath: graphReport,
+      reportContent: reportText,
+      nodesCount,
+      edgesCount
+    };
+  });
+
+  handle('mindagentics:graphify:check', async (dir: string) => {
+    let curr = path.resolve(dir || process.cwd());
+    for (let i = 0; i < 4; i++) {
+      const rep = path.join(curr, 'graphify-out', 'GRAPH_REPORT.md');
+      const html = path.join(curr, 'graphify-out', 'graph.html');
+      const json = path.join(curr, 'graphify-out', 'graph.json');
+      if (fs.existsSync(rep) && fs.existsSync(json)) {
+        return {
+          hasGraph: true,
+          projectName: path.basename(curr),
+          projectDir: curr,
+          reportContent: fs.readFileSync(rep, 'utf-8'),
+          htmlUrl: 'file:///' + html.replace(/\\/g, '/')
+        };
+      }
+      const parent = path.dirname(curr);
+      if (parent === curr) break;
+      curr = parent;
+    }
+    return { hasGraph: false };
+  });
 
   // Fallback handler for all remaining unhandled channels
   for (const [key, channel] of Object.entries(C)) {

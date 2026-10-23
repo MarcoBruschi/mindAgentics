@@ -6,6 +6,7 @@ import { CanvasToolbar } from '@/components/toolbar/CanvasToolbar';
 import { WorkspaceSettingsModal } from '@/components/modals/WorkspaceSettingsModal';
 import { CommandPalette } from '@/components/modals/CommandPalette';
 import { CreateAgentModal } from '@/components/modals/CreateAgentModal';
+import { CreateGraphModal } from '@/components/modals/CreateGraphModal';
 import { CreateWorkspaceModal } from '@/components/modals/CreateWorkspaceModal';
 import { AgentLimitsModal } from '@/components/modals/AgentLimitsModal';
 import { TitleBar } from '@/components/window/TitleBar';
@@ -212,6 +213,7 @@ export const App: React.FC = () => {
       <WorkspaceSettingsModal />
       <CommandPalette />
       <CreateAgentModal />
+      <CreateGraphModal />
       <CreateWorkspaceModal />
       <AgentLimitsModal />
     </div>
