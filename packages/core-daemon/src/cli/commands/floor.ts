@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
-import type { FloorStatusState } from '@maestri/shared';
+import type { FloorStatusState } from '@mindagentics/shared';
 
 export const floorCommand: CommandHandler = async (req, state, router, scheduler, sendToMain) => {
   const [subaction, ...restArgs] = req.args;

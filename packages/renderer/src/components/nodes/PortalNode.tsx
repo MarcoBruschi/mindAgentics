@@ -3,7 +3,7 @@ import {
   PortalNode as PortalNodeType,
   PortalContent,
   ActionRefTag,
-} from '@maestri/shared';
+} from '@mindagentics/shared';
 import {
   Globe,
   Smartphone,

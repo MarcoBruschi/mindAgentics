@@ -51,7 +51,7 @@ import {
   Paperclip,
   Sidebar as SidebarIcon,
 } from 'lucide-react';
-import { CanvasNode, CableTie } from '@maestri/shared';
+import { CanvasNode, CableTie } from '@mindagentics/shared';
 
 interface PaletteAction {
   id: string;

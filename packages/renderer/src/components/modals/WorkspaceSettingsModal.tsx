@@ -3,7 +3,7 @@ import { useAtom } from 'jotai';
 import { isWorkspaceSettingsModalOpenAtom } from '@/atoms/ui';
 import { activeWorkspaceAtom, workspacesAtom, activeWorkspaceIdAtom } from '@/atoms/workspace';
 import { X, FolderOpen, Save, Trash2, AlertTriangle } from 'lucide-react';
-import { Workspace } from '@maestri/shared';
+import { Workspace } from '@mindagentics/shared';
 
 interface FormProps {
   workspace: Workspace;

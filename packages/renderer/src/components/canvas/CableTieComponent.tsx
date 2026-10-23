@@ -1,5 +1,5 @@
 import React from 'react';
-import { CableTie, CanvasNode } from '@maestri/shared';
+import { CableTie, CanvasNode } from '@mindagentics/shared';
 import { X } from 'lucide-react';
 
 interface CableTieProps {

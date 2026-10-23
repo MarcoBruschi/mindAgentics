@@ -1,4 +1,4 @@
-import { CanvasNode, Band, CableTie } from '@maestri/shared';
+import { CanvasNode, Band, CableTie } from '@mindagentics/shared';
 
 export const CANVAS_GRID_STEP = 20;
 

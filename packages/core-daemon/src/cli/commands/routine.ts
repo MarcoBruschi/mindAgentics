@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
-import type { Routine, RoutineSchedule } from '@maestri/shared';
+import type { Routine, RoutineSchedule } from '@mindagentics/shared';
 
 function parseSchedule(options: Record<string, any>): RoutineSchedule {
   if (options.every) {

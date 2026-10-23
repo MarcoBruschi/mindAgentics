@@ -3,7 +3,7 @@ import {
   NoteStackNode as NoteStackNodeType,
   NoteColor,
   NoteStackPage,
-} from '@maestri/shared';
+} from '@mindagentics/shared';
 import {
   BookOpen,
   Plus,

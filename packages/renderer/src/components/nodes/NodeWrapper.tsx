@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAtom } from 'jotai';
-import { CanvasNode } from '@maestri/shared';
+import { CanvasNode } from '@mindagentics/shared';
 import {
   selectedNodeIdsAtom,
   canvasModeAtom,

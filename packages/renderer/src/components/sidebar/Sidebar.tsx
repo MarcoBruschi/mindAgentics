@@ -21,7 +21,7 @@ import {
   Edit2,
   Terminal,
 } from 'lucide-react';
-import { Workspace } from '@maestri/shared';
+import { Workspace } from '@mindagentics/shared';
 
 const WORKSPACE_ICON_COLORS = [
   '#3B82F6', // Blue

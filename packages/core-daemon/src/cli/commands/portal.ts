@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
-import type { PortalNode, PortalContent } from '@maestri/shared';
+import type { PortalNode, PortalContent } from '@mindagentics/shared';
 import { placeNode } from '../../daemon/spatial.js';
 
 async function fetchPage(url: string, userAgent?: string): Promise<{ html: string; title: string; text: string; elements: Array<{ ref: string; type: string; label: string; href?: string }> }> {

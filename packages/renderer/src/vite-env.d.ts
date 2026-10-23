@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-interface MaestriWindowBridge {
+interface MindAgenticsWindowBridge {
   terminal: {
     detectAgents?: () => Promise<any[]>;
     spawn: (input: {
@@ -40,7 +40,10 @@ interface MaestriWindowBridge {
   };
 }
 
+type MaestriWindowBridge = MindAgenticsWindowBridge;
+
 interface Window {
+  mindAgentics?: typeof window.maestri;
   maestri?: any;
   api?: any;
 }

@@ -13,7 +13,7 @@ export const statusCommand: CommandHandler = async (req, state) => {
 
   return {
     output: [
-      'Maestri Terminal Status:',
+      'mindAgentics Terminal Status:',
       `  Terminal ID:   ${req.terminalId}`,
       `  Title:         ${callerTitle}`,
       `  Role:          ${role}`,

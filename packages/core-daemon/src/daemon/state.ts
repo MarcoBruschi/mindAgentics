@@ -11,7 +11,7 @@ import type {
   TerminalContent,
   NoteContent,
   PortalContent,
-} from '@maestri/shared';
+} from '@mindagentics/shared';
 
 export interface TerminalRuntime {
   id: string;

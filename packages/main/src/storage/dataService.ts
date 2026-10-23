@@ -17,7 +17,7 @@ import type {
   RoutineHistoryRecord,
   RoutinesDocument,
   RoutineHistoryDocument
-} from '@maestri/shared';
+} from '@mindagentics/shared';
 
 export class DataService {
   private dataDir: string;

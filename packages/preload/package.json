@@ -1,14 +1,14 @@
 {
-  "name": "@maestri/preload",
+  "name": "@mindagentics/preload",
   "version": "0.26.0",
-  "description": "Preload contextBridge API layer for Maestri",
+  "description": "Preload contextBridge API layer for mindAgentics",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --external:electron --outfile=dist/index.js && tsc --emitDeclarationOnly"
   },
   "dependencies": {
-    "@maestri/shared": "*"
+    "@mindagentics/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

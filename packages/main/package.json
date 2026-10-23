@@ -1,7 +1,7 @@
 {
-  "name": "@maestri/main",
+  "name": "@mindagentics/main",
   "version": "0.26.0",
-  "description": "Electron Main Process for Maestri spatial canvas workspace",
+  "description": "Electron Main Process for mindAgentics spatial canvas workspace",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
@@ -9,9 +9,9 @@
     "start": "electron dist/index.js"
   },
   "dependencies": {
-    "@maestri/shared": "*",
-    "@maestri/core-daemon": "*",
-    "@maestri/preload": "*",
+    "@mindagentics/shared": "*",
+    "@mindagentics/core-daemon": "*",
+    "@mindagentics/preload": "*",
     "node-pty": "1.2.0-beta.15",
     "fflate": "^0.8.3"
   },

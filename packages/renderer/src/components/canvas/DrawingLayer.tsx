@@ -1,5 +1,5 @@
 import React from 'react';
-import { DrawingStroke } from '@maestri/shared';
+import { DrawingStroke } from '@mindagentics/shared';
 
 interface DrawingLayerProps {
   drawings: DrawingStroke[];

@@ -2,7 +2,7 @@ import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { promisify } from 'util';
-import type { FloorDescriptor } from '@maestri/shared';
+import type { FloorDescriptor } from '@mindagentics/shared';
 
 const execFileAsync = promisify(execFile);
 

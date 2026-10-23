@@ -1,44 +1,41 @@
 import React from 'react';
 import { useAtom } from 'jotai';
-import { activeWorkspaceAtom } from '@/atoms/workspace';
+import { isSidebarOpenAtom } from '@/atoms/ui';
 import { WindowControls } from './WindowControls';
-import { Layers } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 export const TitleBar: React.FC = () => {
-  const [activeWorkspace] = useAtom(activeWorkspaceAtom);
+  const [isSidebarOpen, setIsSidebarOpen] = useAtom(isSidebarOpenAtom);
 
   return (
     <header
-      className="w-full h-8 bg-[#0d0e12] border-b border-white/5 flex items-center justify-between px-3 select-none shrink-0 relative z-50"
+      className="fixed top-0 left-0 right-0 h-14 flex items-center justify-between px-3 z-50 pointer-events-none select-none"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
-      {/* Left: Maestri Logo & Active Workspace Tab */}
+      {/* Left: Hamburger menu toggle button */}
       <div
-        className="flex items-center gap-2"
+        className={`flex items-center pointer-events-auto transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? 'ml-[268px]' : 'ml-0'
+        }`}
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
-        <div className="w-4 h-4 rounded bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-[10px]">
-          M
-        </div>
-
-        {/* Workspace Tab Indicator */}
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/[0.04] border border-white/10 text-xs text-zinc-300 shadow-sm">
-          <Layers className="w-3 h-3 text-blue-400" />
-          <span className="font-medium text-[11px] truncate max-w-[200px]">
-            {activeWorkspace?.name || 'Maestri'}
-          </span>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80 ml-0.5" />
-        </div>
-      </div>
-
-      {/* Center Draggable Spacer / App Title */}
-      <div className="flex-1 h-full flex items-center justify-center text-[11px] text-zinc-500 font-medium tracking-wide">
-        Maestri Canvas
+        <button
+          onClick={() => setIsSidebarOpen((prev: boolean) => !prev)}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-300 hover:text-white shadow-lg transition-all duration-200 cursor-pointer hover:bg-white/10"
+          style={{
+            backgroundColor: 'rgba(32, 32, 35, 0.85)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+          }}
+          title={isSidebarOpen ? 'Esconder barra lateral' : 'Mostrar barra lateral'}
+        >
+          <Menu className="w-4 h-4" strokeWidth={2} />
+        </button>
       </div>
 
       {/* Right: Window Controls */}
       <div
-        className="flex items-center"
+        className="flex items-center pointer-events-auto"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <WindowControls />

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
-import type { TerminalNode } from '@maestri/shared';
+import type { TerminalNode } from '@mindagentics/shared';
 import { placeNode } from '../../daemon/spatial.js';
 
 export const recruitCommand: CommandHandler = async (req, state, router, scheduler, sendToMain) => {

@@ -1,6 +1,6 @@
 /**
  * Keyboard Shortcuts & Resolution Pipeline
- * Section 2 of Maestri Interaction Model
+ * Section 2 of mindAgentics Interaction Model
  */
 
 export const isMac =

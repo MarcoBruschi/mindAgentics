@@ -6,7 +6,7 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { DaemonState } from './state.js';
-import type { Routine, RoutineSchedule } from '@maestri/shared';
+import type { Routine, RoutineSchedule } from '@mindagentics/shared';
 
 const execAsync = promisify(exec);
 
@@ -121,6 +121,8 @@ export class RoutineScheduler {
           cwd,
           env: {
             ...process.env,
+            MINDAGENTICS_ROUTINE_NAME: routine.name,
+            MINDAGENTICS_WORKSPACE_DIR: cwd,
             MAESTRI_ROUTINE_NAME: routine.name,
             MAESTRI_WORKSPACE_DIR: cwd,
           },

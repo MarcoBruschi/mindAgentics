@@ -1,5 +1,5 @@
 import { atom } from 'jotai';
-import { Routine } from '@maestri/shared';
+import { Routine } from '@mindagentics/shared';
 
 export const routinesAtom = atom<Routine[]>([
   {

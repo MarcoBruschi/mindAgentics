@@ -3,7 +3,7 @@ import { useAtom } from 'jotai';
 import { isCreateAgentModalOpenAtom } from '@/atoms/ui';
 import { nodesAtom, activeWorkspaceAtom } from '@/atoms/workspace';
 import { canvasOffsetAtom } from '@/atoms/canvas';
-import { TerminalNode as TerminalNodeType } from '@maestri/shared';
+import { TerminalNode as TerminalNodeType } from '@mindagentics/shared';
 import {
   Sparkles,
   Brain,
@@ -71,6 +71,7 @@ export const CreateAgentModal: React.FC = () => {
     const fetchLimits = async () => {
       try {
         const getLimitsFn =
+          window.mindAgentics?.terminal?.getAgentLimits ||
           window.maestri?.terminal?.getAgentLimits ||
           window.api?.terminal?.getAgentLimits;
 
@@ -81,8 +82,9 @@ export const CreateAgentModal: React.FC = () => {
           }
         }
 
-        if (window.maestri?.terminal?.detectAgents) {
-          const agents = await window.maestri.terminal.detectAgents();
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents;
+        if (detectFn) {
+          const agents = await detectFn();
           if (Array.isArray(agents)) {
             const map: Record<string, boolean> = {};
             for (const a of agents) {
@@ -134,7 +136,7 @@ export const CreateAgentModal: React.FC = () => {
   const handleCreate = () => {
     const finalName = terminalName.trim() || 'Terminal';
     let finalCmd = command.trim();
-    const finalDir = workingDirectory.trim() || activeWorkspace?.workingDirectory || 'C:\\Users\\mabru\\Documents\\maestri';
+    const finalDir = workingDirectory.trim() || activeWorkspace?.workingDirectory || 'C:\\Users\\mabru\\Documents\\mindAgentics';
 
     // Auto-approval in autonomous mode
     if (isAutonomous && finalCmd) {
@@ -515,7 +517,7 @@ export const CreateAgentModal: React.FC = () => {
                 <textarea
                   value={customInstructions}
                   onChange={(e) => setCustomInstructions(e.target.value)}
-                  placeholder="Diretrizes específicas para este agente quando for acionado via maestri ask..."
+                  placeholder="Diretrizes específicas para este agente quando for acionado via mindAgentics ask..."
                   rows={3}
                   className="w-full px-3 py-2 bg-[#121316] border border-white/10 rounded-xl text-xs text-white outline-none focus:border-blue-500"
                 />

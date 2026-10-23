@@ -61,6 +61,7 @@ export const CanvasToolbar: React.FC = () => {
     const fetchAgents = async () => {
       try {
         const getLimits =
+          window.mindAgentics?.terminal?.getAgentLimits ||
           window.maestri?.terminal?.getAgentLimits ||
           window.api?.terminal?.getAgentLimits;
 
@@ -72,8 +73,9 @@ export const CanvasToolbar: React.FC = () => {
           }
         }
 
-        if (window.maestri?.terminal?.detectAgents) {
-          const detected = await window.maestri.terminal.detectAgents();
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents;
+        if (detectFn) {
+          const detected = await detectFn();
           if (Array.isArray(detected)) {
             setInstalledAgents(detected.filter((a) => a.installed && !['powershell', 'cmd', 'bash'].includes(a.id)));
           }
@@ -299,7 +301,7 @@ export const CanvasToolbar: React.FC = () => {
   return (
     <>
       {/* Top Floating Centered Toolbar */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-40 select-none">
+      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-40 select-none pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
           style={{
@@ -375,15 +377,6 @@ export const CanvasToolbar: React.FC = () => {
             <Globe className="w-[19px] h-[19px]" strokeWidth={1.75} />
           </button>
 
-          {/* 6.1 Knowledge Graph (Graphify) */}
-          <button
-            onClick={addKnowledgeGraph}
-            className="p-2 rounded-full text-[#E5E5EA] hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
-            title="Visualizar Knowledge Graph (Graphify)"
-          >
-            <Network className="w-[19px] h-[19px]" strokeWidth={1.75} />
-          </button>
-
           {/* 7. Tool Aa: Escrever no Workspace */}
           <button
             onClick={addTextBlock}
@@ -404,19 +397,6 @@ export const CanvasToolbar: React.FC = () => {
             title="Pintar no Canvas (D)"
           >
             <Pencil className="w-[19px] h-[19px]" strokeWidth={1.75} />
-          </button>
-
-          {/* 9. Eraser Tool */}
-          <button
-            onClick={() => setMode(mode === 'erase' ? 'select' : 'erase')}
-            className={`p-2 rounded-full transition-all ${
-              mode === 'erase'
-                ? 'text-red-400 bg-red-500/10 ring-1 ring-red-500/30'
-                : 'text-[#E5E5EA] hover:text-white hover:bg-white/5'
-            }`}
-            title="Borracha (E)"
-          >
-            <Eraser className="w-[19px] h-[19px]" strokeWidth={1.75} />
           </button>
         </div>
 

@@ -4,7 +4,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { defaultKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { NoteNode as NoteNodeType, NoteContent, NoteColor } from '@maestri/shared';
+import { NoteNode as NoteNodeType, NoteContent, NoteColor } from '@mindagentics/shared';
 import { Pin, Eye, Edit3, X, Palette } from 'lucide-react';
 
 interface StickyNoteNodeProps {

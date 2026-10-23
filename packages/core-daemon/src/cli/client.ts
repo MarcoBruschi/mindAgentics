@@ -1,17 +1,17 @@
 /**
  * Terminal CLI Client
- * Connects to Named Pipe at MAESTRI_PIPE and dispatches commands.
+ * Connects to Named Pipe at MINDAGENTICS_PIPE (or MAESTRI_PIPE fallback) and dispatches commands.
  */
 
 import * as net from 'node:net';
 import { randomUUID } from 'node:crypto';
-import type { CliRequestEnvelope, CliResponseEnvelope } from '@maestri/shared';
+import type { CliRequestEnvelope, CliResponseEnvelope } from '@mindagentics/shared';
 import { parseCliArgs } from './parser.js';
 
 export function printHelpBanner() {
-  console.log(`Maestri CLI v0.26.0
+  console.log(`mindAgentics CLI v0.26.0
 
-Usage: maestri <command> [options]
+Usage: mindagentics <command> [options] (alias: maestri)
 
 Commands:
   list                                          List connected agents, notes, portals, and bands
@@ -38,7 +38,7 @@ Commands:
   status                                        Display current terminal status and health
   debug                                         Run diagnostics on named pipe and environment
 
-Run 'maestri <command> --help' for details on a specific command.`);
+Run 'mindagentics <command> --help' for details on a specific command.`);
 }
 
 export async function runCliClient(argv: string[]): Promise<void> {
@@ -49,16 +49,22 @@ export async function runCliClient(argv: string[]): Promise<void> {
     process.exit(0);
   }
 
-  const pipePath = process.env.MAESTRI_PIPE || process.env.MAESTRI_SOCKET;
-  const terminalId = process.env.MAESTRI_TERMINAL_ID;
+  const pipePath =
+    process.env.MINDAGENTICS_PIPE ||
+    process.env.MAESTRI_PIPE ||
+    process.env.MINDAGENTICS_SOCKET ||
+    process.env.MAESTRI_SOCKET;
+  const terminalId =
+    process.env.MINDAGENTICS_TERMINAL_ID ||
+    process.env.MAESTRI_TERMINAL_ID;
 
   let hasGuardErrors = false;
   if (!pipePath) {
-    console.error('maestri: only available inside Maestri terminals (MAESTRI_PIPE not set).');
+    console.error('mindagentics: only available inside mindAgentics terminals (MINDAGENTICS_PIPE not set).');
     hasGuardErrors = true;
   }
   if (!terminalId) {
-    console.error('maestri: only available inside Maestri terminals (MAESTRI_TERMINAL_ID not set).');
+    console.error('mindagentics: only available inside mindAgentics terminals (MINDAGENTICS_TERMINAL_ID not set).');
     hasGuardErrors = true;
   }
 
@@ -69,13 +75,15 @@ export async function runCliClient(argv: string[]): Promise<void> {
   const req: CliRequestEnvelope = {
     id: `req-${randomUUID().slice(0, 8)}`,
     terminalId: terminalId!,
-    workspaceId: process.env.MAESTRI_WORKSPACE_ID,
-    floorId: process.env.MAESTRI_FLOOR_ID,
+    workspaceId: process.env.MINDAGENTICS_WORKSPACE_ID || process.env.MAESTRI_WORKSPACE_ID,
+    floorId: process.env.MINDAGENTICS_FLOOR_ID || process.env.MAESTRI_FLOOR_ID,
     command: parsed.command,
     args: parsed.args,
     options: {
       ...parsed.options,
-      maestroMode: process.env.MAESTRI_MAESTRO_MODE === '1',
+      maestroMode:
+        process.env.MINDAGENTICS_MAESTRO_MODE === '1' ||
+        process.env.MAESTRI_MAESTRO_MODE === '1',
     },
   };
 
@@ -100,7 +108,7 @@ export async function runCliClient(argv: string[]): Promise<void> {
         client.end();
         process.exit(res.exitCode ?? (res.ok ? 0 : 1));
       } catch (err: any) {
-        console.error(`maestri: failed to parse response: ${err.message}`);
+        console.error(`mindagentics: failed to parse response: ${err.message}`);
         client.end();
         process.exit(1);
       }
@@ -108,8 +116,7 @@ export async function runCliClient(argv: string[]): Promise<void> {
   });
 
   client.on('error', (err) => {
-    console.error(`maestri: pipe connection error (${pipePath}): ${err.message}`);
+    console.error(`mindagentics: pipe connection error (${pipePath}): ${err.message}`);
     process.exit(1);
   });
 }
-

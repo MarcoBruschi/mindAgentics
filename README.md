@@ -68,4 +68,4 @@ You can build and query codebase knowledge graphs via CLI or agents on the canva
 - `packages/main`: Electron main supervisor, PTY terminal lifecycle manager, and atomic storage service.
 - `packages/preload`: Context-isolated secure bridge APIs.
 - `packages/renderer`: React + Vite + Tailwind CSS spatial infinite canvas interface.
-- `skills/`: Maestri and agent CLI skills (including Graphify).
+- `skills/`: mindAgentics and agent CLI skills (including Graphify).

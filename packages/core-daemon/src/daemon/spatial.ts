@@ -14,7 +14,7 @@ import type {
   TidyNodeResult,
   PlaceNodePayload,
   PlaceNodeResult,
-} from '@maestri/shared';
+} from '@mindagentics/shared';
 
 export function snapNode(payload: SnapNodePayload): SnapNodeResult {
   const { bounds, otherNodes, gridSize = 20, snapThreshold = 12 } = payload;

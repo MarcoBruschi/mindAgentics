@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAtom } from 'jotai';
 import { isRoutinesModalOpenAtom, routinesAtom } from '@/atoms/routines';
 import { nodesAtom, activeWorkspaceAtom } from '@/atoms/workspace';
-import { Routine, RoutineSchedule } from '@maestri/shared';
+import { Routine, RoutineSchedule } from '@mindagentics/shared';
 import {
   X,
   Clock,

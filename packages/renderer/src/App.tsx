@@ -9,7 +9,6 @@ import { CreateAgentModal } from '@/components/modals/CreateAgentModal';
 import { CreateWorkspaceModal } from '@/components/modals/CreateWorkspaceModal';
 import { AgentLimitsModal } from '@/components/modals/AgentLimitsModal';
 import { TitleBar } from '@/components/window/TitleBar';
-import { Menu } from 'lucide-react';
 import { isSidebarOpenAtom } from '@/atoms/ui';
 import { isInputOrEditable, hasPrimaryModifier } from '@/utils/keyboard';
 import {
@@ -27,7 +26,7 @@ export const App: React.FC = () => {
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom);
   const [activeWorkspaceId] = useAtom(activeWorkspaceIdAtom);
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
-  const [isSidebarOpen, setIsSidebarOpen] = useAtom(isSidebarOpenAtom);
+  const [, setIsSidebarOpen] = useAtom(isSidebarOpenAtom);
   const [, undo] = useAtom(undoAtom);
   const [, redo] = useAtom(redoAtom);
   const [, setNodes] = useAtom(nodesAtom);
@@ -35,7 +34,7 @@ export const App: React.FC = () => {
 
   // Initial backend load with normalization for existing disk workspaces
   useEffect(() => {
-    const api = (window as any).api || (window as any).maestri;
+    const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
     if (api?.app?.info) {
       api.app.info().then((info: any) => {
         document.documentElement.classList.toggle(
@@ -60,6 +59,8 @@ export const App: React.FC = () => {
   // Global Auto-save on every workspace change (Requirement 2)
   useEffect(() => {
     try {
+      localStorage.setItem('mindagentics_workspaces', JSON.stringify(workspaces));
+      localStorage.setItem('mindagentics_active_ws', activeWorkspaceId);
       localStorage.setItem('maestri_workspaces', JSON.stringify(workspaces));
       localStorage.setItem('maestri_active_ws', activeWorkspaceId);
     } catch {
@@ -77,7 +78,7 @@ export const App: React.FC = () => {
 
   // Listen for canvas placement and cable tie events from CoreDaemon / CLI
   useEffect(() => {
-    const api = window.api || window.maestri;
+    const api = window.api || window.mindAgentics || window.maestri;
     if (!api) return;
 
     const unsubs: Array<() => void> = [];
@@ -178,12 +179,12 @@ export const App: React.FC = () => {
   }, [undo, redo, setIsSidebarOpen]);
 
   return (
-    <div className="app-shell w-screen h-screen flex flex-col overflow-hidden bg-transparent text-zinc-100 select-none font-sans relative">
-      {/* Top Draggable Electron Titlebar / Tab Bar */}
+    <div className="app-shell w-screen h-screen overflow-hidden bg-[#1E1E1E] text-zinc-100 select-none font-sans relative">
+      {/* Top Floating Chrome Bar (Search, Hamburger, Right Utilities, Window Controls) */}
       <TitleBar />
 
-      {/* Main Workspace Body */}
-      <div className="flex-1 flex overflow-hidden relative">
+      {/* Main Workspace Body (Fills full viewport behind the floating chrome) */}
+      <div className="w-full h-full flex overflow-hidden relative">
         {/* Frosted Translucent Sidebar */}
         <Sidebar />
 
@@ -192,17 +193,6 @@ export const App: React.FC = () => {
           <InfiniteCanvas />
           <CanvasToolbar />
         </main>
-
-        {/* Canvas Hamburger Toggle Button (Round toggle button) */}
-        <button
-          onClick={() => setIsSidebarOpen((prev: boolean) => !prev)}
-          className={`absolute top-3 z-40 w-9 h-9 rounded-full bg-[#1c1d22]/80 hover:bg-[#282930] backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white shadow-lg transition-all duration-300 ease-in-out flex items-center justify-center cursor-pointer ${
-            isSidebarOpen ? 'left-[268px]' : 'left-3'
-          }`}
-          title={isSidebarOpen ? 'Esconder barra lateral' : 'Mostrar barra lateral'}
-        >
-          <Menu className="w-4 h-4" strokeWidth={2} />
-        </button>
       </div>
 
       {/* Modals */}

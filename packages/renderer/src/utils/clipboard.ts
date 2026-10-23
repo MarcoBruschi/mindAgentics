@@ -1,11 +1,12 @@
-import { CanvasNode, CableTie, Band } from '@maestri/shared';
+import { CanvasNode, CableTie, Band } from '@mindagentics/shared';
 import { snapToGrid } from './layout';
 
-export const PARTITURA_MIME = 'application/x-maestri-partitura';
+export const PARTITURA_MIME = 'application/x-mindagentics-partitura';
+export const PARTITURA_LEGACY_MIME = 'application/x-maestri-partitura';
 export const PASTE_CASCADE_PX = 30;
 
 export interface PartituraV2ClipboardPayload {
-  type: 'application/x-maestri-partitura';
+  type: string;
   version: 2;
   nodes: CanvasNode[];
   cableTies: CableTie[];
@@ -67,7 +68,7 @@ export function parsePartituraPayload(
     const parsed = JSON.parse(rawText);
     if (
       parsed &&
-      (parsed.type === PARTITURA_MIME || parsed.version === 2) &&
+      (parsed.type === PARTITURA_MIME || parsed.type === PARTITURA_LEGACY_MIME || parsed.version === 2) &&
       Array.isArray(parsed.nodes)
     ) {
       return parsed as PartituraV2ClipboardPayload;

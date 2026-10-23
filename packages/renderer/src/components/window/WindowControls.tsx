@@ -5,7 +5,7 @@ export const WindowControls: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
-    const controls = window.api?.windowControls || window.maestri?.windowControls;
+    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || window.maestri?.windowControls;
     if (!controls) return;
 
     if (controls.state) {
@@ -29,29 +29,29 @@ export const WindowControls: React.FC = () => {
   }, []);
 
   const handleMinimize = () => {
-    const controls = window.api?.windowControls || window.maestri?.windowControls;
+    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || window.maestri?.windowControls;
     controls?.minimize?.();
   };
 
   const handleToggleMaximize = () => {
-    const controls = window.api?.windowControls || window.maestri?.windowControls;
+    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || window.maestri?.windowControls;
     controls?.toggleMaximize?.();
   };
 
   const handleClose = () => {
-    const controls = window.api?.windowControls || window.maestri?.windowControls;
+    const controls = window.api?.windowControls || window.mindAgentics?.windowControls || window.maestri?.windowControls;
     controls?.close?.();
   };
 
   return (
     <div
-      className="flex items-center h-8 bg-transparent select-none -mr-3"
+      className="flex items-center select-none"
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
       {/* Minimize */}
       <button
         onClick={handleMinimize}
-        className="w-11 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+        className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors cursor-pointer"
         title="Minimizar"
       >
         <Minus className="w-3.5 h-3.5" />
@@ -60,7 +60,7 @@ export const WindowControls: React.FC = () => {
       {/* Maximize / Restore */}
       <button
         onClick={handleToggleMaximize}
-        className="w-11 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+        className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors cursor-pointer"
         title={isMaximized ? 'Restaurar' : 'Maximizar'}
       >
         {isMaximized ? (
@@ -73,7 +73,7 @@ export const WindowControls: React.FC = () => {
       {/* Close */}
       <button
         onClick={handleClose}
-        className="w-11 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#e81123] transition-colors"
+        className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#e81123] rounded transition-colors cursor-pointer"
         title="Fechar"
       >
         <X className="w-3.5 h-3.5" />

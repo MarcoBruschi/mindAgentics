@@ -51,7 +51,7 @@ export const AccountsPanelModal: React.FC = () => {
         {/* Content */}
         <div className="p-5 space-y-4 text-xs text-zinc-300">
           <div className="text-zinc-400 leading-relaxed">
-            API keys are securely stored in the local encrypted keystore (<code className="text-zinc-300 font-mono">~/.maestri/accounts/keystore.enc</code>) and injected into terminal agents.
+            API keys are securely stored in the local encrypted keystore (<code className="text-zinc-300 font-mono">~/.mindagentics/accounts/keystore.enc</code>) and injected into terminal agents.
           </div>
 
           <div className="space-y-3 mt-2">

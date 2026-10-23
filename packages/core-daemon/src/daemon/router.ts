@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { DaemonState, AskSession } from './state.js';
-import type { DeliverPromptPayload } from '@maestri/shared';
+import type { DeliverPromptPayload } from '@mindagentics/shared';
 
 export class MessageRouter {
   constructor(

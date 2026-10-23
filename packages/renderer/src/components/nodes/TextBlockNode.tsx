@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAtom } from 'jotai';
-import { TextBlockNode as TextBlockNodeType } from '@maestri/shared';
+import { TextBlockNode as TextBlockNodeType } from '@mindagentics/shared';
 import { selectedNodeIdsAtom } from '@/atoms/canvas';
 import {
   Type,

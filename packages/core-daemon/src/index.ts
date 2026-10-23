@@ -1,5 +1,5 @@
 /**
- * Maestri Core Daemon & CLI Entry Point
+ * mindAgentics Core Daemon & CLI Entry Point
  * Dispatches between Daemon mode (--serve <token>) and Terminal CLI mode.
  */
 
@@ -19,6 +19,6 @@ export async function main() {
 }
 
 main().catch((err) => {
-  console.error(`maestri: fatal error: ${err.message || String(err)}`);
+  console.error(`mindagentics: fatal error: ${err.message || String(err)}`);
   process.exit(1);
 });

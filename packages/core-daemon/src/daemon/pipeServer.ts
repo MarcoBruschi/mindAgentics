@@ -8,7 +8,7 @@ import * as net from 'node:net';
 import type { DaemonState } from './state.js';
 import type { MessageRouter } from './router.js';
 import type { RoutineScheduler } from './scheduler.js';
-import type { CliRequestEnvelope, CliResponseEnvelope } from '@maestri/shared';
+import type { CliRequestEnvelope, CliResponseEnvelope } from '@mindagentics/shared';
 
 export type CommandHandler = (
   req: CliRequestEnvelope,

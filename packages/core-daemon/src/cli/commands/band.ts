@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
-import type { BandNode } from '@maestri/shared';
+import type { BandNode } from '@mindagentics/shared';
 
 export const bandCommand: CommandHandler = async (req, state) => {
   const [subaction, ...restArgs] = req.args;

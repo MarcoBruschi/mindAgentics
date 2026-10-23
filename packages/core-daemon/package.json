@@ -1,11 +1,12 @@
 {
-  "name": "@maestri/core-daemon",
+  "name": "@mindagentics/core-daemon",
   "version": "0.26.0",
-  "description": "Core Daemon and Maestri CLI runtime for spatial canvas workspace",
+  "description": "Core Daemon and mindAgentics CLI runtime for spatial canvas workspace",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
   "bin": {
+    "mindagentics": "./bin/mindagentics.js",
     "maestri": "./bin/maestri.js"
   },
   "scripts": {
@@ -13,7 +14,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@maestri/shared": "*"
+    "@mindagentics/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

@@ -4,7 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { CanvasAddon } from '@xterm/addon-canvas';
 import {
   TerminalNode as TerminalNodeType,
-} from '@maestri/shared';
+} from '@mindagentics/shared';
 import {
   Sparkles,
   Brain,
@@ -153,11 +153,12 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     let unsubscribeData: (() => void) | undefined;
     let unsubscribeStatus: (() => void) | undefined;
 
-    if (window.maestri?.terminal) {
+    const termBridge = window.mindAgentics?.terminal || window.maestri?.terminal;
+    if (termBridge) {
       let scrollbackRestored = false;
       const pendingDataQueue: string[] = [];
 
-      unsubscribeData = window.maestri.terminal.onData((receivedId: string, data: string) => {
+      unsubscribeData = termBridge.onData((receivedId: string, data: string) => {
         if (receivedId === termId && data) {
           if (!scrollbackRestored) {
             pendingDataQueue.push(data);
@@ -167,7 +168,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         }
       });
 
-      unsubscribeStatus = window.maestri.terminal.onStatus?.((receivedId: string, st: any) => {
+      unsubscribeStatus = termBridge.onStatus?.((receivedId: string, st: any) => {
         if (receivedId === termId) {
           onUpdate({
             ...nodeRef.current,
@@ -181,14 +182,14 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       });
 
       term.onData((data) => {
-        window.maestri?.terminal.write(termId, data);
+        termBridge?.write(termId, data);
       });
 
       // Restore scrollback first so previous conversations remain visible, then spawn or attach backend PTY session
       const restoreAndSpawn = async () => {
         try {
-          if (window.maestri.terminal.getScrollback) {
-            const sb = await window.maestri.terminal.getScrollback(termId);
+          if (termBridge.getScrollback) {
+            const sb = await termBridge.getScrollback(termId);
             if (!isDisposed && sb && term) {
               term.write(sb);
             }
@@ -206,7 +207,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           }
 
           try {
-            await window.maestri.terminal.spawn({
+            await termBridge.spawn({
               id: termId,
               command: agentCommand,
               cols: term.cols || 80,
@@ -225,7 +226,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       restoreAndSpawn();
     } else {
       // Fallback shell
-      term.writeln(`\x1b[1;34m=== Maestri Agent Terminal ===\x1b[0m`);
+      term.writeln(`\x1b[1;34m=== mindAgentics Agent Terminal ===\x1b[0m`);
       term.writeln(`\x1b[90mSession: ${termId} | Agent: ${agentName}\x1b[0m`);
       term.writeln(`\x1b[32mInteractive fallback shell ready.\x1b[0m\r\n`);
       term.write(`\x1b[1;36m${agentName.toLowerCase().replace(/\\s+/g, '-')}@canvas:~$ \x1b[0m`);
@@ -259,8 +260,9 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     const handleResize = () => {
       try {
         fitAddon.fit();
-        if (window.maestri?.terminal?.resize) {
-          window.maestri.terminal.resize(termId, term.cols, term.rows);
+        const termResize = window.mindAgentics?.terminal?.resize || window.maestri?.terminal?.resize;
+        if (termResize) {
+          termResize(termId, term.cols, term.rows);
         }
       } catch {}
     };
@@ -309,8 +311,9 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         maestroMode: nextMaestro,
       },
     });
-    if (window.maestri?.terminal?.setMaestroMode) {
-      window.maestri.terminal.setMaestroMode(node.content.terminalId, nextMaestro).catch(() => {});
+    const setMaestroFn = window.mindAgentics?.terminal?.setMaestroMode || window.maestri?.terminal?.setMaestroMode;
+    if (setMaestroFn) {
+      setMaestroFn(node.content.terminalId, nextMaestro).catch(() => {});
     }
   };
 
@@ -321,17 +324,18 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     let refCommand = '';
     if (targetNode.kind === 'note') {
       const noteTitle = targetNode.content?.title || 'Note';
-      refCommand = `maestri note read "${noteTitle}"`;
+      refCommand = `mindagentics note read "${noteTitle}"`;
     } else if (targetNode.kind === 'portal') {
       const url = targetNode.content?.url || '';
-      refCommand = `maestri portal read "${url}"`;
+      refCommand = `mindagentics portal read "${url}"`;
     } else if (targetNode.kind === 'terminal') {
       const termTitle = targetNode.content?.title || 'Peer Agent';
-      refCommand = `maestri ask "${termTitle}" "Hello from ${agentName}"`;
+      refCommand = `mindagentics ask "${termTitle}" "Hello from ${agentName}"`;
     }
 
-    if (refCommand && window.maestri?.terminal?.write) {
-      window.maestri.terminal.write(node.content.terminalId, refCommand + '\r');
+    const termWrite = window.mindAgentics?.terminal?.write || window.maestri?.terminal?.write;
+    if (refCommand && termWrite) {
+      termWrite(node.content.terminalId, refCommand + '\r');
     } else if (refCommand) {
       term.write(refCommand + '\r\n');
     }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
-import type { NoteNode, NoteContent, NoteColor } from '@maestri/shared';
+import type { NoteNode, NoteContent, NoteColor } from '@mindagentics/shared';
 
 function findNote(state: any, nameOrId: string): NoteNode | undefined {
   const norm = (nameOrId || '').toLowerCase().trim();

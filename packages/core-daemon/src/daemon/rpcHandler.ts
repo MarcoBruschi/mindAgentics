@@ -16,7 +16,7 @@ import type {
   PlaceNodePayload,
   FloorCreateKindPayload,
   FloorStatusPayload,
-} from '@maestri/shared';
+} from '@mindagentics/shared';
 
 export class RpcHandler {
   constructor(

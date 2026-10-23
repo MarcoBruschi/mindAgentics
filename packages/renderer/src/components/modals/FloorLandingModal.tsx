@@ -7,7 +7,7 @@ import {
   workspacesAtom,
   activeFloorIdAtom,
 } from '@/atoms/workspace';
-import { Floor } from '@maestri/shared';
+import { Floor } from '@mindagentics/shared';
 import {
   X,
   GitMerge,

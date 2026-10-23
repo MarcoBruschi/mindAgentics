@@ -14,7 +14,7 @@ export class CoreDaemonSupervisor extends EventEmitter {
   public token: string;
   public daemonReady = false;
   public pipeAddress = '';
-  public pipeEnvVar = 'MAESTRI_PIPE';
+  public pipeEnvVar = 'MINDAGENTICS_PIPE';
 
   private child: ChildProcess | null = null;
   private stdoutBuffer = '';
@@ -50,6 +50,10 @@ export class CoreDaemonSupervisor extends EventEmitter {
 
   private resolveDaemonScript(): string {
     const candidates = [
+      path.resolve(__dirname, '../../core-daemon/bin/mindagentics.js'),
+      path.resolve(__dirname, '../../../core-daemon/bin/mindagentics.js'),
+      path.resolve(process.cwd(), 'packages/core-daemon/bin/mindagentics.js'),
+      path.resolve(process.cwd(), 'clone/packages/core-daemon/bin/mindagentics.js'),
       path.resolve(__dirname, '../../core-daemon/bin/maestri.js'),
       path.resolve(__dirname, '../../../core-daemon/bin/maestri.js'),
       path.resolve(process.cwd(), 'packages/core-daemon/bin/maestri.js'),
@@ -73,6 +77,7 @@ export class CoreDaemonSupervisor extends EventEmitter {
         env: {
           ...process.env,
           ELECTRON_RUN_AS_NODE: '1',
+          MINDAGENTICS_SECRET_STORE: 'file',
           MAESTRI_SECRET_STORE: 'file'
         }
       });
@@ -143,7 +148,7 @@ export class CoreDaemonSupervisor extends EventEmitter {
     // 1. Ready frame
     if (frame.type === 'ready' && frame.payload) {
       this.pipeAddress = frame.payload.address || '';
-      this.pipeEnvVar = frame.payload.envVarName || 'MAESTRI_PIPE';
+      this.pipeEnvVar = frame.payload.envVarName || 'MINDAGENTICS_PIPE';
       this.daemonReady = true;
       this.respawnDelay = 1000;
       this.emit('ready', { address: this.pipeAddress, envVar: this.pipeEnvVar });

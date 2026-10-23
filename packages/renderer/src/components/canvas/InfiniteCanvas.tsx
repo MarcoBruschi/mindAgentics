@@ -23,7 +23,7 @@ import {
   endUndoGroupAtom,
   patchFramesAtom,
 } from '@/atoms/workspace';
-import { CanvasNode, Band, CableTie, DrawingStroke } from '@maestri/shared';
+import { CanvasNode, Band, CableTie, DrawingStroke } from '@mindagentics/shared';
 import { GridBackground } from './GridBackground';
 import { MarqueeSelection } from './MarqueeSelection';
 import { BandComponent } from './BandComponent';
@@ -280,7 +280,9 @@ export const InfiniteCanvas: React.FC = () => {
               const termId = (target as any).content?.terminalId;
               if (termId) {
                 window.api?.terminal?.kill?.(termId)?.catch?.(() => {});
-                window.maestri?.terminal?.kill?.(termId)?.catch?.(() => {});
+                window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
+                window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
+          window.maestri?.terminal?.kill?.(termId)?.catch?.(() => {});
               }
             }
           }
@@ -648,8 +650,9 @@ export const InfiniteCanvas: React.FC = () => {
   // Synchronize canvas nodes and cable ties to core-daemon supervisor for CLI inter-agent access
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (window.maestri?.canvas?.sync) {
-        window.maestri.canvas.sync({
+      const syncFn = window.mindAgentics?.canvas?.sync || window.maestri?.canvas?.sync;
+      if (syncFn) {
+        syncFn({
           nodes,
           cableTies,
           workspaceId: activeWorkspace?.id,
@@ -695,6 +698,7 @@ export const InfiniteCanvas: React.FC = () => {
         const termId = (target as any).content?.terminalId;
         if (termId) {
           window.api?.terminal?.kill?.(termId)?.catch?.(() => {});
+          window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
           window.maestri?.terminal?.kill?.(termId)?.catch?.(() => {});
         }
       }

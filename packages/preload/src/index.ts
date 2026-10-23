@@ -1,5 +1,5 @@
 import electron from 'electron';
-import { IPC_CHANNELS as C } from '@maestri/shared';
+import { IPC_CHANNELS as C } from '@mindagentics/shared';
 
 const LICENSE_EXPIRED = "licenseExpired";
 function licenseFailureKind(error: any): string | null {
@@ -1664,12 +1664,15 @@ app: {
 };
 
 if (electron.contextBridge && typeof electron.contextBridge.exposeInMainWorld === "function") {
+  electron.contextBridge.exposeInMainWorld("mindAgentics", api);
   electron.contextBridge.exposeInMainWorld("maestri", api);
   electron.contextBridge.exposeInMainWorld("api", api);
 } else if (typeof window !== "undefined") {
+  (window as any).mindAgentics = api;
   (window as any).maestri = api;
   (window as any).api = api;
 }
 
 export default api;
+export type MindAgenticsApi = typeof api;
 export type MaestriApi = typeof api;

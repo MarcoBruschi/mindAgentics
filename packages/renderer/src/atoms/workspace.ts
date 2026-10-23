@@ -1,18 +1,18 @@
 import { atom } from 'jotai';
-import { Workspace, Floor, CanvasNode, CableTie, Band, DrawingStroke } from '@maestri/shared';
+import { Workspace, Floor, CanvasNode, CableTie, Band, DrawingStroke } from '@mindagentics/shared';
 
 // Initial clean workspace
 export const initialWorkspace: Workspace = {
   id: 'workspace-main',
   name: 'Main Workspace',
-  workingDirectory: 'C:\\Users\\mabru\\Documents\\maestri',
+  workingDirectory: 'C:\\Users\\mabru\\Documents\\mindAgentics',
   preferredIde: 'vscode',
   floors: [
     {
       id: 'floor-main',
       name: 'Canvas',
       isGround: true,
-      workingDirectory: 'C:\\Users\\mabru\\Documents\\maestri',
+      workingDirectory: 'C:\\Users\\mabru\\Documents\\mindAgentics',
       gitBranch: 'main',
       status: null,
       nodes: [],
@@ -34,7 +34,7 @@ export function normalizeWorkspace(raw: any): Workspace {
 
   const id = raw.id || `workspace-${Date.now()}`;
   const name = raw.name || 'Workspace';
-  const workingDirectory = raw.workingDirectory || 'C:\\Users\\mabru\\Documents\\maestri';
+  const workingDirectory = raw.workingDirectory || 'C:\\Users\\mabru\\Documents\\mindAgentics';
   const preferredIde = raw.preferredIde || 'vscode';
 
   if (Array.isArray(raw.floors) && raw.floors.length > 0) {
@@ -149,7 +149,7 @@ export function normalizeWorkspace(raw: any): Workspace {
 // Load saved workspaces from localStorage as instant synchronous cache
 const getSavedWorkspaces = (): Workspace[] => {
   try {
-    const raw = localStorage.getItem('maestri_workspaces');
+    const raw = localStorage.getItem('mindagentics_workspaces') || localStorage.getItem('maestri_workspaces');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -164,7 +164,7 @@ const getSavedWorkspaces = (): Workspace[] => {
 
 const getSavedActiveId = (): string => {
   try {
-    const saved = localStorage.getItem('maestri_active_ws');
+    const saved = localStorage.getItem('mindagentics_active_ws') || localStorage.getItem('maestri_active_ws');
     if (saved) return saved;
   } catch {
     // fallback

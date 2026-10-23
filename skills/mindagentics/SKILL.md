@@ -1,12 +1,12 @@
 ---
-name: maestri
-description: Send messages to connected AI agents on the Maestri canvas and get their responses. Also read and write connected sticky notes. Use when the user's intent is to collaborate with another agent on the canvas. Look for actions like 'ask [name] to...', 'tell [name] to...', 'check on [name]', or 'create/update a note'.
+name: mindagentics
+description: Send messages to connected AI agents on the mindAgentics canvas and get their responses. Also read and write connected sticky notes. Use when the user's intent is to collaborate with another agent on the canvas. Look for actions like 'ask [name] to...', 'tell [name] to...', 'check on [name]', or 'create/update a note'.
 user-invocable: true
 ---
 
-# Maestri Inter-Agent Communication
+# mindAgentics Inter-Agent Communication
 
-You're running inside Maestri, a spatial development workspace that connects AI agents, terminals, notes, and browser portals on a visual canvas.
+You're running inside mindAgentics, a spatial development workspace that connects AI agents, terminals, notes, and browser portals on a visual canvas.
 The `maestri` CLI is a command-line executable pre-installed and available on PATH. If `maestri` is not found, use `"$MAESTRI_CLI"` instead; this environment variable always points to the full binary path.
 
 Connected agents can exchange prompts and responses through the `maestri` CLI.
@@ -19,7 +19,7 @@ Connected notes can be read and written through the `maestri` CLI.
 - `maestri ask --batch '{"Agent A": "prompt", "Agent B": "prompt"}'` — ask several connected agents at once, in parallel
 - `maestri ask "Agent Name" --raw "2\n"` — send raw input; use it for interactive menus or to send raw shell commands directly. Escapes: `\n` Enter, `\t` Tab, `\e` ESC, `\xNN` byte (`\x03` Ctrl-C). Special keys are ESC sequences, e.g. `\e[A` up arrow, `\e[Z` Shift-Tab.
 - `maestri check "Agent Name"` — read the agent's current terminal output on demand
-- `maestri notify "message"`: send the user a system notification. Only when they asked to be notified; otherwise assume they're following along in Maestri.
+- `maestri notify "message"`: send the user a system notification. Only when they asked to be notified; otherwise assume they're following along in mindAgentics.
 - `maestri note create ["content"] [--name "Name"] [--stack ["Fichário"]] [--color C]` — create a new note on the canvas and link it to this terminal; `--name` pins a stable name that never changes with content. The response prints the exact assigned name
 - `maestri note read "Note Name"` — read the full note with line numbers
 - `maestri note read "Note Name" 10 20` — read 20 lines starting from line 10
@@ -49,8 +49,8 @@ Use `maestri note create` to create a new note on the canvas — it appears to t
 `--stack "Name"` and `note stack` file notes into a fichário (a stack of pages), creating it if needed — `maestri list` shows the grouping.
 Use `maestri note read` to read, `maestri note write` to replace entirely, and `maestri note edit` to update a specific part.
 When a note already has content, prefer `edit` over `write` to avoid losing existing text.
-Notes marked `locked: true` by `maestri list` are read-only. You can still read them, but `write` and `edit` will fail until the user unlocks the note in Maestri.
-Changes are reflected in the Maestri canvas in real-time. Notes support markdown formatting.
+Notes marked `locked: true` by `maestri list` are read-only. You can still read them, but `write` and `edit` will fail until the user unlocks the note in mindAgentics.
+Changes are reflected in the mindAgentics canvas in real-time. Notes support markdown formatting.
 Notes can be chained together. When a note connected to your terminal is also connected to other notes, you can read and write all notes in the chain. Use `maestri list` to see the full note tree — chained notes appear indented under their parent.
 
 **Important:** By default, a note's name is derived from its first line of text. When you write or edit a note and change its first line, the note may be renamed automatically — the command's response tells you the new name when that happens. Notes created with `--name`, or renamed by the user, keep their name regardless of content changes. Prefer `maestri note create --name "..."` when you plan to address the note again later.

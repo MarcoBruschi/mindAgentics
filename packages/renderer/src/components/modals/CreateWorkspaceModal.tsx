@@ -3,7 +3,7 @@ import { useAtom } from 'jotai';
 import { isCreateWorkspaceModalOpenAtom } from '@/atoms/ui';
 import { workspacesAtom, activeWorkspaceIdAtom } from '@/atoms/workspace';
 import { X, FolderOpen, Plus, Folder } from 'lucide-react';
-import { Workspace } from '@maestri/shared';
+import { Workspace } from '@mindagentics/shared';
 
 export const CreateWorkspaceModal: React.FC = () => {
   const [isOpen, setIsOpen] = useAtom(isCreateWorkspaceModalOpenAtom);
@@ -11,7 +11,7 @@ export const CreateWorkspaceModal: React.FC = () => {
   const [, setActiveWorkspaceId] = useAtom(activeWorkspaceIdAtom);
 
   const [name, setName] = useState(`Workspace ${workspaces.length + 1}`);
-  const [workingDirectory, setWorkingDirectory] = useState('C:\\Users\\mabru\\Documents\\maestri');
+  const [workingDirectory, setWorkingDirectory] = useState('C:\\Users\\mabru\\Documents\\mindAgentics');
   const [preferredIde, setPreferredIde] = useState('vscode');
   const [isSubmitting, setIsSubmitting] = useState(false);
 

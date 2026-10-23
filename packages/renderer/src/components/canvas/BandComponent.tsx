@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Band, CanvasNode } from '@maestri/shared';
+import { Band, CanvasNode } from '@mindagentics/shared';
 import { Trash2, GripHorizontal, Ungroup } from 'lucide-react';
 
 interface BandProps {

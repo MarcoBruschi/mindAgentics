@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { fileURLToPath } from 'url';
-import { IPC_CHANNELS as C } from '@maestri/shared';
+import { IPC_CHANNELS as C } from '@mindagentics/shared';
 import { DataService } from './storage/dataService.js';
 import { CoreDaemonSupervisor } from './supervisor/coreDaemonSupervisor.js';
 import { TerminalManager } from './terminal/terminalManager.js';
@@ -64,6 +64,7 @@ async function createWindow(): Promise<BrowserWindow> {
   const material = getWindowMaterial();
 
   const win = new BrowserWindow({
+    title: 'mindAgentics',
     x: bounds.x,
     y: bounds.y,
     width: bounds.width || 1280,
@@ -147,7 +148,7 @@ async function createWindow(): Promise<BrowserWindow> {
     // Attempt local dev server fallback
     win.loadURL('http://localhost:5173').catch(() => {
       // If dev server not yet running, load basic splash html
-      win.loadURL(`data:text/html;charset=utf-8,<html><body style="background:%230b0f17;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;"><h1>Maestri Ready</h1></body></html>`);
+      win.loadURL(`data:text/html;charset=utf-8,<html><body style="background:%230b0f17;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;"><h1>mindAgentics Ready</h1></body></html>`);
     });
   }
 

@@ -45,7 +45,7 @@ export interface AgentUsageItem {
   details?: Array<{ label: string; value: string }>;
 }
 
-const STORAGE_KEY = 'maestri:agent-visibility-preferences';
+const STORAGE_KEY = 'mindagentics:agent-visibility-preferences';
 
 const getInitialPreferences = (): Record<string, boolean> => {
   try {
@@ -119,6 +119,7 @@ export const AgentLimitsModal: React.FC = () => {
     setIsRefreshing(true);
     try {
       const getLimitsFn =
+        window.mindAgentics?.terminal?.getAgentLimits ||
         window.maestri?.terminal?.getAgentLimits ||
         window.api?.terminal?.getAgentLimits;
 
@@ -130,8 +131,9 @@ export const AgentLimitsModal: React.FC = () => {
         }
       }
 
-      if (detectedReports.length === 0 && window.maestri?.terminal?.detectAgents) {
-        const detected = await window.maestri.terminal.detectAgents();
+      if (detectedReports.length === 0 && (window.mindAgentics?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents)) {
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents;
+        const detected = await detectFn?.();
         if (Array.isArray(detected)) {
           detectedReports = detected.filter((a) => a.installed && !['powershell', 'cmd', 'bash'].includes(a.id));
         }

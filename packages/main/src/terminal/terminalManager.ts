@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import * as nodePty from 'node-pty';
 import { CoreDaemonSupervisor } from '../supervisor/coreDaemonSupervisor.js';
 import type { DataService } from '../storage/dataService.js';
-import type { TerminalStatus } from '@maestri/shared';
+import type { TerminalStatus } from '@mindagentics/shared';
 import { probeAntigravity, probeCodex, probeOpenCode, formatResetCountdown, type AgentUsageReport } from './agentProbes.js';
 
 export interface TerminalSpawnOptions {
@@ -69,13 +69,18 @@ export class TerminalManager extends EventEmitter {
 
   private resolveCliPath(): { cliPath: string; cliDir: string } {
     const isWin = process.platform === 'win32';
-    const binName = isWin ? 'maestri.cmd' : 'maestri.js';
+    const binName = isWin ? 'mindagentics.cmd' : 'mindagentics.js';
+    const fallbackBinName = isWin ? 'maestri.cmd' : 'maestri.js';
 
     const candidates = [
       path.resolve(__dirname, '../../core-daemon/bin', binName),
       path.resolve(__dirname, '../../../core-daemon/bin', binName),
       path.resolve(process.cwd(), 'packages/core-daemon/bin', binName),
-      path.resolve(process.cwd(), 'clone/packages/core-daemon/bin', binName)
+      path.resolve(process.cwd(), 'clone/packages/core-daemon/bin', binName),
+      path.resolve(__dirname, '../../core-daemon/bin', fallbackBinName),
+      path.resolve(__dirname, '../../../core-daemon/bin', fallbackBinName),
+      path.resolve(process.cwd(), 'packages/core-daemon/bin', fallbackBinName),
+      path.resolve(process.cwd(), 'clone/packages/core-daemon/bin', fallbackBinName)
     ];
 
     for (const c of candidates) {
@@ -92,8 +97,8 @@ export class TerminalManager extends EventEmitter {
     if (this.dataService) {
       return path.join(this.dataService.getDataDir(), 'terminals');
     }
-    if (process.env.MAESTRI_DATA_DIR && process.env.MAESTRI_DATA_DIR.trim().length > 0) {
-      return path.join(path.resolve(process.env.MAESTRI_DATA_DIR.trim()), 'terminals');
+    if ((process.env.MINDAGENTICS_DATA_DIR || process.env.MAESTRI_DATA_DIR) && (process.env.MINDAGENTICS_DATA_DIR || process.env.MAESTRI_DATA_DIR)!.trim().length > 0) {
+      return path.join(path.resolve((process.env.MINDAGENTICS_DATA_DIR || process.env.MAESTRI_DATA_DIR)!.trim()), 'terminals');
     }
     try {
       const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : path.join(os.homedir(), '.config'));
@@ -211,10 +216,15 @@ export class TerminalManager extends EventEmitter {
       : (process.env.SHELL || '/bin/bash');
 
     const { cliPath, cliDir } = this.resolveCliPath();
-    const pipeAddress = this.supervisor.pipeAddress || (isWin ? `\\\\.\\pipe\\maestri-${this.supervisor.token}` : `/tmp/maestri-${this.supervisor.token}.sock`);
+    const pipeAddress = this.supervisor.pipeAddress || (isWin ? `\\\\.\\pipe\\mindagentics-${this.supervisor.token}` : `/tmp/mindagentics-${this.supervisor.token}.sock`);
 
     const env: Record<string, string> = {
       ...process.env as Record<string, string>,
+      MINDAGENTICS_PIPE: pipeAddress,
+      MINDAGENTICS_SOCKET: pipeAddress,
+      MINDAGENTICS_TERMINAL_ID: terminalId,
+      MINDAGENTICS_WORKSPACE_ID: workspaceId,
+      MINDAGENTICS_CLI: cliPath,
       MAESTRI_PIPE: pipeAddress,
       MAESTRI_SOCKET: pipeAddress,
       MAESTRI_TERMINAL_ID: terminalId,
@@ -222,15 +232,15 @@ export class TerminalManager extends EventEmitter {
       MAESTRI_CLI: cliPath,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
-      TERM_PROGRAM: 'Maestri',
+      TERM_PROGRAM: 'mindAgentics',
       PATH: `${cliDir}${path.delimiter}${process.env.PATH || ''}`,
-      ...(options.maestroMode ? { MAESTRI_MAESTRO_MODE: '1' } : {}),
+      ...(options.maestroMode ? { MINDAGENTICS_MAESTRO_MODE: '1', MAESTRI_MAESTRO_MODE: '1' } : {}),
       ...options.env
     };
 
     const shellArgs = isWin ? ['-NoLogo', '-NoExit'] : ['-l'];
 
-    this.ensureMaestriSkills(cwd);
+    this.ensureMindAgenticsSkills(cwd);
 
     try {
       const pty = nodePty.spawn(shell, shellArgs, {
@@ -405,12 +415,19 @@ export class TerminalManager extends EventEmitter {
     }
   }
 
-  private ensureMaestriSkills(targetDir?: string): void {
+  private ensureMindAgenticsSkills(targetDir?: string): void {
     try {
       const skillsSource = path.join(os.homedir(), '.gemini', 'config', 'skills');
       if (!fs.existsSync(skillsSource)) return;
 
       const maestriSkillFolders = [
+        'mindagentics',
+        'mindagentics-chat',
+        'mindagentics-manager',
+        'mindagentics-portal',
+        'mindagentics-portal-devices',
+        'mindagentics-routines',
+        'mindagentics-workspace',
         'maestri',
         'maestri-chat',
         'maestri-manager',
@@ -442,67 +459,67 @@ export class TerminalManager extends EventEmitter {
         let needsUpdate = true;
         if (fs.existsSync(agentsMdPath)) {
           const existing = fs.readFileSync(agentsMdPath, 'utf8');
-          if (existing.includes('Modo Maestro')) {
+          if (existing.includes('Modo Maestro') && existing.includes('mindAgentics')) {
             needsUpdate = false;
           }
         }
         if (needsUpdate) {
-          const content = `# Maestri Canvas - Instruções para Agentes de IA
+          const content = `# mindAgentics Canvas - Instruções para Agentes de IA
 
-Você está operando como um agente no canvas interativo **Maestri**.
-Você tem à sua disposição a CLI do Maestri (\`maestri\`) e todas as skills integradas:
+Você está operando como um agente no canvas interativo **mindAgentics**.
+Você tem à sua disposição a CLI do mindAgentics (\`mindagentics\`, alias \`maestri\`) e todas as skills integradas:
 
-- **\`maestri list\`**: Lista os agentes conectados, notas adesivas e portais no canvas.
-- **\`maestri ask "<Nome do Agente>" "<Mensagem>"\`**: Envia mensagens e delega tarefas para outros agentes presentes no canvas.
-- **\`maestri recruit "<Nome>" --preset "<preset>" --role "<role>"\`**: Recruta e cria novos agentes especializados no workspace.
-- **\`maestri portal open "<url>" --name "<Título>"\`**: Abre portais web para navegação e referências no canvas.
-- **\`maestri portal navigate "<url>"\`**: Controla portais web para navegar e interagir com páginas.
-- **\`maestri connect "<De>" "<Para>"\`**: Conecta nós, agentes e referências no canvas.
-- **\`maestri note create --title "<Título>" --body "<Conteúdo>"\`**: Cria ou edita notas adesivas no canvas.
-- **\`maestri floor <action>\`**: Gerencia worktrees isoladas de trabalho (floors).
-- **\`maestri graphify <build|query|explain|path|open>\`**: Constrói e consulta o Knowledge Graph do projeto via AST determinístico, visualizando no Portal.
+- **\`mindagentics list\`**: Lista os agentes conectados, notas adesivas e portais no canvas.
+- **\`mindagentics ask "<Nome do Agente>" "<Mensagem>"\`**: Envia mensagens e delega tarefas para outros agentes presentes no canvas.
+- **\`mindagentics recruit "<Nome>" --preset "<preset>" --role "<role>"\`**: Recruta e cria novos agentes especializados no workspace.
+- **\`mindagentics portal open "<url>" --name "<Título>"\`**: Abre portais web para navegação e referências no canvas.
+- **\`mindagentics portal navigate "<url>"\`**: Controla portais web para navegar e interagir com páginas.
+- **\`mindagentics connect "<De>" "<Para>"\`**: Conecta nós, agentes e referências no canvas.
+- **\`mindagentics note create --title "<Título>" --body "<Conteúdo>"\`**: Cria ou edita notas adesivas no canvas.
+- **\`mindagentics floor <action>\`**: Gerencia worktrees isoladas de trabalho (floors).
+- **\`mindagentics graphify <build|query|explain|path|open>\`**: Constrói e consulta o Knowledge Graph do projeto via AST determinístico, visualizando no Portal.
 
 ## Modo Maestro (Orquestração de Agentes)
 
-Quando a variável de ambiente \`MAESTRI_MAESTRO_MODE=1\` estiver ativa ou você for designado como Maestro da equipe:
-Você atua como o **Orquestrador Central** do canvas Maestri. Ao receber uma tarefa complexa ou missão do usuário, siga obrigatoriamente as seguintes regras:
+Quando a variável de ambiente \`MINDAGENTICS_MAESTRO_MODE=1\` (ou \`MAESTRI_MAESTRO_MODE=1\`) estiver ativa ou você for designado como Maestro da equipe:
+Você atua como o **Orquestrador Central** do canvas mindAgentics. Ao receber uma tarefa complexa ou missão do usuário, siga obrigatoriamente as seguintes regras:
 
 ### Regra 1 (Delegação Obrigatória)
 Ao receber uma tarefa, o Maestro NÃO deve executar todo o trabalho pesado sozinho se puder delegar. O Maestro deve planejar, decompor o objetivo em subtarefas claras e delegar para outros agentes conectados usando:
 \`\`\`bash
-maestri ask "<Nome do Agente>" "<Instrução detalhada>"
+mindagentics ask "<Nome do Agente>" "<Instrução detalhada>"
 \`\`\`
-Você pode inspecionar quem está disponível no canvas com \`maestri list\`.
+Você pode inspecionar quem está disponível no canvas com \`mindagentics list\` (ou \`maestri list\`).
 
 ### Regra 2 (Criação de Agentes no Workspace)
 Caso o usuário não especifique agentes já existentes/conectados para a tarefa, ou caso a equipe precise de habilidades específicas (ex: Frontend, Backend, QA, Reviewer, Pesquisador), o Maestro deve criar agentes especializados no workspace usando:
 \`\`\`bash
-maestri recruit "<Nome do Agente>" --preset "<preset>" --role "<role>"
+mindagentics recruit "<Nome do Agente>" --preset "<preset>" --role "<role>"
 \`\`\`
 - Presets disponíveis: \`"Claude Code"\`, \`"Codex"\`, \`"Antigravity"\`, \`"OpenCode"\`, \`"Shell"\`.
 - Exemplo:
   \`\`\`bash
-  maestri recruit "Frontend Dev" --preset "Antigravity" --role "Especialista em React e UI"
-  maestri recruit "Backend Dev" --preset "Codex" --role "Especialista em APIs e Banco de Dados"
+  mindagentics recruit "Frontend Dev" --preset "Antigravity" --role "Especialista em React e UI"
+  mindagentics recruit "Backend Dev" --preset "Codex" --role "Especialista em APIs e Banco de Dados"
   \`\`\`
-Após recrutar, delegue as subtarefas aos novos agentes via \`maestri ask\`.
+Após recrutar, delegue as subtarefas aos novos agentes via \`mindagentics ask\`.
 
 ### Regra 3 (Portais Web e Referências)
 Se uma tarefa exigir analisar uma referência na web (documentação técnica, biblioteca, URL, design, site de referência, benchmark):
 1. **Abrir o portal web no canvas com a referência**:
    \`\`\`bash
-   maestri portal open "<URL>" --name "<Título da Referência>"
+   mindagentics portal open "<URL>" --name "<Título da Referência>"
    \`\`\`
 2. **Linkar o agente designado à referência**:
    \`\`\`bash
-   maestri connect "<Nome do Agente>" "<Título da Referência>"
+   mindagentics connect "<Nome do Agente>" "<Título da Referência>"
    \`\`\`
 3. **Solicitar ao agente designado o uso da referência**:
    \`\`\`bash
-   maestri ask "<Nome do Agente>" "Analise a referência web linkada e execute [tarefa]..."
+   mindagentics ask "<Nome do Agente>" "Analise a referência web linkada e execute [tarefa]..."
    \`\`\`
 
-Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando a CLI do Maestri.
+Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando a CLI do mindAgentics (\`mindagentics\` ou \`maestri\`).
 `;
           fs.writeFileSync(agentsMdPath, content, 'utf8');
         }

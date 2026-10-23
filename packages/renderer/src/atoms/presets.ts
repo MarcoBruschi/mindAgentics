@@ -1,5 +1,5 @@
 import { atom } from 'jotai';
-import { AgentPreset } from '@maestri/shared';
+import { AgentPreset } from '@mindagentics/shared';
 
 export const agentPresetsAtom = atom<AgentPreset[]>([
   {

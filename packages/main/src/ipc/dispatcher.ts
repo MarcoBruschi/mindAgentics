@@ -2,7 +2,7 @@ import { ipcMain, dialog, shell, clipboard, app, BrowserWindow } from 'electron'
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { IPC_CHANNELS as C } from '@maestri/shared';
+import { IPC_CHANNELS as C } from '@mindagentics/shared';
 import { DataService } from '../storage/dataService.js';
 import { CoreDaemonSupervisor } from '../supervisor/coreDaemonSupervisor.js';
 import { TerminalManager } from '../terminal/terminalManager.js';

@@ -6,7 +6,7 @@ import {
   workspacesAtom,
   activeFloorIdAtom,
 } from '@/atoms/workspace';
-import { Floor } from '@maestri/shared';
+import { Floor } from '@mindagentics/shared';
 import {
   X,
   GitBranch,
@@ -38,7 +38,7 @@ export const CreateFloorModal: React.FC = () => {
       id: floorId,
       name: floorName.trim(),
       isGround: false,
-      workingDirectory: `${activeWorkspace.workingDirectory}\\.maestri\\floors\\${floorName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+      workingDirectory: `${activeWorkspace.workingDirectory}\\.mindagentics\\floors\\${floorName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
       gitBranch: isolationMode === 'worktree' ? branchName : null,
       status: { text: 'Working on Floor', state: 'working', progress: null },
       nodes: [
