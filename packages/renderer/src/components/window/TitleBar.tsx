@@ -23,9 +23,10 @@ export const TitleBar: React.FC = () => {
           onClick={() => setIsSidebarOpen((prev: boolean) => !prev)}
           className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-300 hover:text-white shadow-lg transition-all duration-200 cursor-pointer hover:bg-white/10"
           style={{
-            backgroundColor: 'rgba(32, 32, 35, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
           title={isSidebarOpen ? 'Esconder barra lateral' : 'Mostrar barra lateral'}
         >

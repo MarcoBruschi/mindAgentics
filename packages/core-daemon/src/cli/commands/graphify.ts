@@ -1,22 +1,127 @@
-import { execFile } from 'node:child_process';
+import { execFile, exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
 import { portalCommand } from './portal.js';
 
 const execFileAsync = promisify(execFile);
+const execAsync = promisify(exec);
+
+let cachedPythonEnv: { python: string; scripts: string; env: NodeJS.ProcessEnv } | null = null;
+
+async function resolvePythonEnv(): Promise<{ python: string; scripts: string; env: NodeJS.ProcessEnv }> {
+  if (cachedPythonEnv) return cachedPythonEnv;
+
+  const isWin = process.platform === 'win32';
+  const pathSep = isWin ? ';' : ':';
+  const candidatePythons: string[] = ['python', 'python3', 'py'];
+
+  if (isWin) {
+    const localAppData = process.env.LOCALAPPDATA;
+    if (localAppData) {
+      const pyPrograms = path.join(localAppData, 'Programs', 'Python');
+      if (fs.existsSync(pyPrograms)) {
+        try {
+          const dirs = fs.readdirSync(pyPrograms).sort().reverse();
+          for (const d of dirs) {
+            const fullPy = path.join(pyPrograms, d, 'python.exe');
+            if (fs.existsSync(fullPy)) candidatePythons.push(fullPy);
+          }
+        } catch {}
+      }
+    }
+    const programFiles = process.env.ProgramFiles;
+    if (programFiles) {
+      try {
+        const dirs = fs.readdirSync(programFiles).filter((d) => d.startsWith('Python3')).sort().reverse();
+        for (const d of dirs) {
+          const fullPy = path.join(programFiles, d, 'python.exe');
+          if (fs.existsSync(fullPy)) candidatePythons.push(fullPy);
+        }
+      } catch {}
+    }
+  }
+
+  let resolvedPython = 'python';
+  let resolvedScripts = '';
+
+  for (const py of candidatePythons) {
+    try {
+      const cmd = py === 'py' ? 'py -3' : `"${py}"`;
+      const { stdout } = await execAsync(
+        `${cmd} -c "import sys, sysconfig; print('PY:' + sys.executable); print('SCRIPTS:' + (sysconfig.get_path('scripts') or ''))"`,
+        { timeout: 5000 }
+      );
+      for (const line of stdout.trim().split(/\r?\n/)) {
+        if (line.startsWith('PY:')) resolvedPython = line.substring(3).trim();
+        if (line.startsWith('SCRIPTS:')) resolvedScripts = line.substring(8).trim();
+      }
+      if (resolvedPython && fs.existsSync(resolvedPython)) break;
+    } catch {}
+  }
+
+  const newPaths = [resolvedScripts, path.dirname(resolvedPython)].filter(Boolean);
+  const augmentedPath = [...newPaths, process.env.PATH || ''].join(pathSep);
+  const augmentedEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    PATH: augmentedPath,
+    PYTHONIOENCODING: 'utf-8',
+  };
+
+  cachedPythonEnv = { python: resolvedPython, scripts: resolvedScripts, env: augmentedEnv };
+  return cachedPythonEnv;
+}
 
 async function runGraphify(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; code: number }> {
   try {
     const isWin = process.platform === 'win32';
+    const pyEnv = await resolvePythonEnv();
+
+    const scriptGraphify = pyEnv.scripts ? path.join(pyEnv.scripts, isWin ? 'graphify.exe' : 'graphify') : '';
+    const cmdBinary = fs.existsSync(scriptGraphify) ? scriptGraphify : 'graphify';
+
     try {
-      const { stdout, stderr } = await execFileAsync('graphify', args, { cwd, shell: isWin, timeout: 120000 });
+      const { stdout, stderr } = await execFileAsync(cmdBinary, args, { cwd, env: pyEnv.env, timeout: 180000 });
       return { stdout: stdout.trim(), stderr: stderr.trim(), code: 0 };
     } catch (err: any) {
-      if (err.code === 'ENOENT' || (err.message && err.message.includes('not recognized'))) {
-        const { stdout, stderr } = await execFileAsync('python', ['-m', 'graphify', ...args], { cwd, shell: isWin, timeout: 120000 });
-        return { stdout: stdout.trim(), stderr: stderr.trim(), code: 0 };
+      if (err.code === 'ENOENT' || (err.message && (err.message.includes('not recognized') || err.message.includes('No such file')))) {
+        try {
+          const { stdout, stderr } = await execFileAsync(pyEnv.python, ['-m', 'graphify', ...args], {
+            cwd,
+            env: pyEnv.env,
+            timeout: 180000,
+          });
+          return { stdout: stdout.trim(), stderr: stderr.trim(), code: 0 };
+        } catch (innerErr: any) {
+          // If graphify is not installed, auto-install via pip
+          if (innerErr.stderr && innerErr.stderr.includes('No module named graphify')) {
+            try {
+              await execFileAsync(pyEnv.python, ['-m', 'pip', 'install', 'graphifyy', '--disable-pip-version-check'], {
+                env: pyEnv.env,
+                timeout: 300000,
+              });
+              const { stdout, stderr } = await execFileAsync(pyEnv.python, ['-m', 'graphify', ...args], {
+                cwd,
+                env: pyEnv.env,
+                timeout: 180000,
+              });
+              return { stdout: stdout.trim(), stderr: stderr.trim(), code: 0 };
+            } catch (pipErr: any) {
+              return {
+                stdout: '',
+                stderr: `Graphify não está instalado e o auto-bootstrap falhou:\n${pipErr.message}`,
+                code: 1,
+              };
+            }
+          }
+          return {
+            stdout: innerErr.stdout?.toString().trim() || '',
+            stderr: innerErr.stderr?.toString().trim() || innerErr.message,
+            code: typeof innerErr.code === 'number' ? innerErr.code : 1,
+          };
+        }
       }
       return {
         stdout: err.stdout?.toString().trim() || '',
@@ -45,6 +150,30 @@ export const graphifyCommand: CommandHandler = async (req, state, router, schedu
     case 'build':
     case 'create': {
       let dir = restArgs[0] || targetDir;
+
+      // Handle Git URLs
+      if (dir.startsWith('http://') || dir.startsWith('https://')) {
+        const cloneArgs = ['clone', dir];
+        if (req.options?.branch) cloneArgs.push('--branch', String(req.options.branch));
+        const cloneRes = await runGraphify(cloneArgs, process.cwd());
+        if (cloneRes.code === 0) {
+          const lines = cloneRes.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          for (const line of lines) {
+            if (line.startsWith('Ready at:')) {
+              const parsed = line.replace('Ready at:', '').trim();
+              if (fs.existsSync(parsed)) {
+                dir = parsed;
+                break;
+              }
+            }
+          }
+          if (dir.startsWith('http')) {
+            const lastLine = lines[lines.length - 1];
+            if (lastLine && fs.existsSync(lastLine)) dir = lastLine;
+          }
+        }
+      }
+
       const isMindAgenticsRoot = fs.existsSync(path.join(dir, 'packages', 'public-api'));
       const targetScanDir = isMindAgenticsRoot ? path.join(dir, 'packages', 'public-api') : dir;
 

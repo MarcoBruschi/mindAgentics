@@ -476,6 +476,15 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       const portal = findPortal(state, portalName);
       if (portal) {
         portal.content.url = url;
+        sendToMain({
+          type: 'placeNode',
+          id: `place-${portal.id}`,
+          payload: {
+            node: portal,
+            width: portal.width,
+            height: portal.height,
+          },
+        });
       }
       return {
         output: `Navigated "${portalName}" to ${url}`,
@@ -508,6 +517,15 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       const portal = findPortal(state, portalName);
       if (portal && url) {
         portal.content.url = url;
+        sendToMain({
+          type: 'placeNode',
+          id: `place-${portal.id}`,
+          payload: {
+            node: portal,
+            width: portal.width,
+            height: portal.height,
+          },
+        });
         return { output: `Updated "${portalName}" URL to ${url}`, exitCode: 0 };
       }
       return { error: 'mindagentics portal edit: --url required.', exitCode: 1 };
@@ -518,6 +536,16 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       const portal = findPortal(state, portalName);
       if (!portal) return { error: `Portal "${portalName}" not found.`, exitCode: 1 };
       state.nodes.delete(portal.id);
+      state.connections = state.connections.filter(
+        (c: any) => c.fromId !== portal.id && c.toId !== portal.id,
+      );
+      sendToMain({
+        type: 'deleteNode',
+        id: `del-${portal.id}`,
+        payload: {
+          nodeId: portal.id,
+        },
+      });
       return { output: `Closed portal "${portalName}".`, exitCode: 0 };
     }
 
@@ -530,6 +558,15 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
         portal.content.viewport = { width: w, height: h };
         portal.width = w;
         portal.height = h;
+        sendToMain({
+          type: 'placeNode',
+          id: `place-${portal.id}`,
+          payload: {
+            node: portal,
+            width: w,
+            height: h,
+          },
+        });
         return { output: `viewport: ${w}x${h}`, exitCode: 0 };
       }
       return { error: 'mindagentics portal resize: width and height required.', exitCode: 1 };

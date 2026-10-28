@@ -11,6 +11,7 @@ import { DataService } from '../storage/dataService.js';
 import { CoreDaemonSupervisor } from '../supervisor/coreDaemonSupervisor.js';
 import { TerminalManager } from '../terminal/terminalManager.js';
 import { GitWorktreeService } from '../git/gitWorktreeService.js';
+import { GraphifyService } from '../graphify/graphifyService.js';
 
 export interface DispatcherDeps {
   mainWindow: BrowserWindow | null;
@@ -18,10 +19,12 @@ export interface DispatcherDeps {
   supervisor: CoreDaemonSupervisor;
   terminalManager: TerminalManager;
   gitService: GitWorktreeService;
+  graphifyService?: GraphifyService;
 }
 
 export function registerIpcDispatcher(deps: DispatcherDeps): void {
   const { dataService, supervisor, terminalManager, gitService } = deps;
+  const graphifyService = deps.graphifyService || new GraphifyService();
   const getWin = () => deps.mainWindow || BrowserWindow.getAllWindows()[0] || null;
 
   const handle = (channel: string, handler: (...args: any[]) => any) => {
@@ -301,10 +304,24 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     }
   });
 
+  supervisor.on('deleteNode', (payload: any) => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('maestri:canvas:nodeDeleted', payload);
+    }
+  });
+
   supervisor.on('cableTieCreated', (payload: any) => {
     const win = getWin();
     if (win && !win.isDestroyed()) {
       win.webContents.send('maestri:canvas:cableTieCreated', payload);
+    }
+  });
+
+  supervisor.on('cableTieDeleted', (payload: any) => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('maestri:canvas:cableTieDeleted', payload);
     }
   });
 
@@ -463,96 +480,44 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   handle(C.dataImportBackup, (zipPath: string) => dataService.importBackup(zipPath));
   handle(C.dataStorageLocation, () => dataService.getDataDir());
 
-  // Knowledge Graph (Graphify)
+  // Knowledge Graph (Graphify) - Integrated Platform Service
   handle('mindagentics:graphify:build', async (params: { target: string; isGitUrl?: boolean; branch?: string; directed?: boolean }) => {
-    const target = params?.target?.trim() || '.';
-    const directed = params?.directed !== false;
-    let projectDir = target;
-
-    if (params?.isGitUrl || target.startsWith('http://') || target.startsWith('https://')) {
-      const cloneCmd = `graphify clone "${target}"` + (params.branch ? ` --branch "${params.branch}"` : '');
-      const { stdout } = await execAsync(cloneCmd);
-      const lines = stdout.trim().split(/\r?\n/);
-      projectDir = lines[lines.length - 1] || target;
-    }
-
-    projectDir = path.resolve(projectDir);
-
-    const graphifyCmd = `graphify "${projectDir}" ${directed ? '--directed' : ''}`;
-    try {
-      await execAsync(graphifyCmd, { cwd: projectDir });
-    } catch (err: any) {
-      const fallbackCmd = `${graphifyCmd} --code-only`;
-      await execAsync(fallbackCmd, { cwd: projectDir });
-    }
-
-    const outDir = path.join(projectDir, 'graphify-out');
-    const graphHtml = path.join(outDir, 'graph.html');
-    const graphJson = path.join(outDir, 'graph.json');
-    const graphReport = path.join(outDir, 'GRAPH_REPORT.md');
-
-    if (!fs.existsSync(graphReport) || !fs.existsSync(graphHtml)) {
-      try {
-        await execAsync(`graphify cluster-only "${projectDir}" --no-label`, { cwd: projectDir });
-      } catch {}
-      if (!fs.existsSync(graphHtml) && fs.existsSync(graphJson)) {
-        try {
-          await execAsync(`graphify export html --graph "${graphJson}"`, { cwd: projectDir });
-        } catch {}
+    const onProgress = (message: string) => {
+      const win = getWin();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('mindagentics:graphify:progress', { message });
       }
-    }
-
-    let reportText = '';
-    if (fs.existsSync(graphReport)) {
-      reportText = fs.readFileSync(graphReport, 'utf-8');
-    }
-
-    let nodesCount = 0;
-    let edgesCount = 0;
-    if (fs.existsSync(graphJson)) {
-      try {
-        const data = JSON.parse(fs.readFileSync(graphJson, 'utf-8'));
-        nodesCount = data.nodes?.length || 0;
-        edgesCount = (data.links || data.edges)?.length || 0;
-      } catch {}
-    }
-
-    const projectName = path.basename(projectDir);
-    const htmlUrl = 'file:///' + graphHtml.replace(/\\/g, '/');
-
-    return {
-      ok: true,
-      projectName,
-      projectDir,
-      htmlUrl,
-      graphHtmlPath: graphHtml,
-      graphReportPath: graphReport,
-      reportContent: reportText,
-      nodesCount,
-      edgesCount
     };
+    return await graphifyService.build(params, onProgress);
   });
 
   handle('mindagentics:graphify:check', async (dir: string) => {
-    let curr = path.resolve(dir || process.cwd());
-    for (let i = 0; i < 4; i++) {
-      const rep = path.join(curr, 'graphify-out', 'GRAPH_REPORT.md');
-      const html = path.join(curr, 'graphify-out', 'graph.html');
-      const json = path.join(curr, 'graphify-out', 'graph.json');
-      if (fs.existsSync(rep) && fs.existsSync(json)) {
-        return {
-          hasGraph: true,
-          projectName: path.basename(curr),
-          projectDir: curr,
-          reportContent: fs.readFileSync(rep, 'utf-8'),
-          htmlUrl: 'file:///' + html.replace(/\\/g, '/')
-        };
-      }
-      const parent = path.dirname(curr);
-      if (parent === curr) break;
-      curr = parent;
+    return graphifyService.check(dir);
+  });
+
+  handle('mindagentics:graphify:status', async () => {
+    try {
+      const env = await graphifyService.resolveEnvironment();
+      return {
+        ok: true,
+        python: env.pythonBin,
+        scripts: env.scriptsDir,
+        hasGraphify: Boolean(env.graphifyBin && fs.existsSync(env.graphifyBin)),
+      };
+    } catch (err: any) {
+      return { ok: false, error: err.message };
     }
-    return { hasGraph: false };
+  });
+
+  handle('mindagentics:graphify:install', async () => {
+    const onProgress = (message: string) => {
+      const win = getWin();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('mindagentics:graphify:progress', { message });
+      }
+    };
+    await graphifyService.ensureGraphifyReady(onProgress);
+    return { ok: true };
   });
 
   // Fallback handler for all remaining unhandled channels

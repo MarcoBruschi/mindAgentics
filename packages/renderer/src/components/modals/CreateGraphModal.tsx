@@ -43,6 +43,20 @@ export const CreateGraphModal: React.FC = () => {
     }
   }, [isOpen, activeWorkspace?.workingDirectory]);
 
+  useEffect(() => {
+    const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
+    if (api?.graphify?.onProgress) {
+      const unsub = api.graphify.onProgress((data: { message: string }) => {
+        if (data?.message) {
+          setStatusMessage(data.message);
+        }
+      });
+      return () => {
+        if (typeof unsub === 'function') unsub();
+      };
+    }
+  }, []);
+
   if (!isOpen) return null;
 
   const handlePickDirectory = async () => {

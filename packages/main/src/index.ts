@@ -8,6 +8,7 @@ import { DataService } from './storage/dataService.js';
 import { CoreDaemonSupervisor } from './supervisor/coreDaemonSupervisor.js';
 import { TerminalManager } from './terminal/terminalManager.js';
 import { GitWorktreeService } from './git/gitWorktreeService.js';
+import { GraphifyService } from './graphify/graphifyService.js';
 import { registerIpcDispatcher } from './ipc/dispatcher.js';
 
 let mainWindow: BrowserWindow | null = null;
@@ -15,6 +16,7 @@ const dataService = new DataService();
 const supervisor = new CoreDaemonSupervisor();
 const terminalManager = new TerminalManager(supervisor, dataService);
 const gitService = new GitWorktreeService();
+const graphifyService = new GraphifyService();
 
 function resolvePreloadPath(): string {
   const candidates = [
@@ -86,8 +88,31 @@ async function createWindow(): Promise<BrowserWindow> {
     }
   });
 
+  const refreshMaterial = () => {
+    if (material && process.platform === 'win32' && !win.isDestroyed()) {
+      try {
+        (win as any).setBackgroundMaterial?.('none');
+      } catch {}
+      setTimeout(() => {
+        if (!win.isDestroyed()) {
+          try {
+            (win as any).setBackgroundMaterial?.(material);
+          } catch {}
+        }
+      }, 50);
+      setTimeout(() => {
+        if (!win.isDestroyed()) {
+          try {
+            (win as any).setBackgroundMaterial?.(material);
+          } catch {}
+        }
+      }, 200);
+    }
+  };
+
   if (bounds.maximized) {
     win.maximize();
+    refreshMaterial();
   }
 
   let boundsSaveTimer: NodeJS.Timeout | null = null;
@@ -125,8 +150,18 @@ async function createWindow(): Promise<BrowserWindow> {
 
   win.on('resize', saveBounds);
   win.on('move', saveBounds);
-  win.on('maximize', saveBounds);
-  win.on('unmaximize', saveBounds);
+  win.on('maximize', () => {
+    saveBounds();
+    refreshMaterial();
+  });
+  win.on('unmaximize', () => {
+    saveBounds();
+    refreshMaterial();
+  });
+  win.on('restore', () => {
+    saveBounds();
+    refreshMaterial();
+  });
 
   win.on('closed', () => {
     mainWindow = null;
@@ -187,7 +222,8 @@ if (app && typeof app.whenReady === 'function') {
       dataService,
       supervisor,
       terminalManager,
-      gitService
+      gitService,
+      graphifyService
     });
 
     app.on('activate', async () => {

@@ -180,8 +180,14 @@ app: {
     onNodePlaced(handler: (payload: any) => void) {
       return subscribe('maestri:canvas:nodePlaced', handler);
     },
+    onNodeDeleted(handler: (payload: any) => void) {
+      return subscribe('maestri:canvas:nodeDeleted', handler);
+    },
     onCableTieCreated(handler: (payload: any) => void) {
       return subscribe('maestri:canvas:cableTieCreated', handler);
+    },
+    onCableTieDeleted(handler: (payload: any) => void) {
+      return subscribe('maestri:canvas:cableTieDeleted', handler);
     }
   },
   updates: {
@@ -1658,8 +1664,14 @@ app: {
   onNodePlaced(handler: (payload: any) => void) {
     return subscribe('maestri:canvas:nodePlaced', handler);
   },
+  onNodeDeleted(handler: (payload: any) => void) {
+    return subscribe('maestri:canvas:nodeDeleted', handler);
+  },
   onCableTieCreated(handler: (payload: any) => void) {
     return subscribe('maestri:canvas:cableTieCreated', handler);
+  },
+  onCableTieDeleted(handler: (payload: any) => void) {
+    return subscribe('maestri:canvas:cableTieDeleted', handler);
   },
   graphify: {
     buildGraph(params: any) {
@@ -1667,6 +1679,19 @@ app: {
     },
     checkGraph(dir: string) {
       return electron.ipcRenderer.invoke('mindagentics:graphify:check', dir);
+    },
+    getStatus() {
+      return electron.ipcRenderer.invoke('mindagentics:graphify:status');
+    },
+    install() {
+      return electron.ipcRenderer.invoke('mindagentics:graphify:install');
+    },
+    onProgress(handler: (data: { message: string }) => void) {
+      const subscription = (_event: any, data: any) => handler(data);
+      electron.ipcRenderer.on('mindagentics:graphify:progress', subscription);
+      return () => {
+        electron.ipcRenderer.removeListener('mindagentics:graphify:progress', subscription);
+      };
     }
   }
 };

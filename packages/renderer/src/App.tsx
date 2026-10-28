@@ -106,7 +106,18 @@ export const App: React.FC = () => {
 
           setNodes((prev: any[]) => {
             if (prev.some((n) => n.id === node.id)) {
-              return prev;
+              return prev.map((n) =>
+                n.id === node.id
+                  ? {
+                      ...n,
+                      ...node,
+                      content: {
+                        ...(n.content || {}),
+                        ...(node.content || {}),
+                      },
+                    }
+                  : n
+              );
             }
             if (node.kind === 'portal' && node.content?.url) {
               const urlExists = prev.some(
@@ -116,6 +127,21 @@ export const App: React.FC = () => {
             }
             return [...prev, node];
           });
+        })
+      );
+    }
+
+    const nodeDeletedListener = api.onNodeDeleted || api.canvas?.onNodeDeleted;
+    if (typeof nodeDeletedListener === 'function') {
+      unsubs.push(
+        nodeDeletedListener((payload: any) => {
+          const nodeId = payload?.nodeId || payload?.id || payload;
+          if (!nodeId) return;
+
+          setNodes((prev: any[]) => prev.filter((n) => n.id !== nodeId));
+          setCableTies((prev: any[]) =>
+            prev.filter((t) => t.fromNodeId !== nodeId && t.toNodeId !== nodeId)
+          );
         })
       );
     }
@@ -145,6 +171,32 @@ export const App: React.FC = () => {
             };
             return [...prev, newTie];
           });
+        })
+      );
+    }
+
+    const cableTieDeletedListener = api.onCableTieDeleted || api.canvas?.onCableTieDeleted;
+    if (typeof cableTieDeletedListener === 'function') {
+      unsubs.push(
+        cableTieDeletedListener((payload: any) => {
+          const tieId = payload?.id;
+          const fromNodeId = payload?.fromNodeId;
+          const toNodeId = payload?.toNodeId;
+
+          setCableTies((prev: any[]) =>
+            prev.filter((t) => {
+              if (tieId && t.id === tieId) return false;
+              if (fromNodeId && toNodeId) {
+                if (
+                  (t.fromNodeId === fromNodeId && t.toNodeId === toNodeId) ||
+                  (t.fromNodeId === toNodeId && t.toNodeId === fromNodeId)
+                ) {
+                  return false;
+                }
+              }
+              return true;
+            })
+          );
         })
       );
     }

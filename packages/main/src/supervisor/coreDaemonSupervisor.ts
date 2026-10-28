@@ -202,8 +202,14 @@ export class CoreDaemonSupervisor extends EventEmitter {
       case 'placeNode':
         this.emit('placeNode', frame.payload);
         break;
+      case 'deleteNode':
+        this.emit('deleteNode', frame.payload);
+        break;
       case 'cableTieCreated':
         this.emit('cableTieCreated', frame.payload);
+        break;
+      case 'cableTieDeleted':
+        this.emit('cableTieDeleted', frame.payload);
         break;
       default:
         this.emit(frame.type, frame.payload);

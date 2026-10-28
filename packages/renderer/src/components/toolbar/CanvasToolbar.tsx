@@ -306,10 +306,11 @@ export const CanvasToolbar: React.FC = () => {
         <div
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
           style={{
-            backgroundColor: 'rgba(32, 32, 35, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+            backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
           }}
         >
           {/* 1. Selection Cursor (Hollow, Tilted Left, Light Blue #3B82F6) */}
@@ -412,7 +413,15 @@ export const CanvasToolbar: React.FC = () => {
 
         {/* Floating Sub-Toolbar when in Draw Mode: Brush Type, Size, and Colors */}
         {mode === 'draw' && (
-          <div className="flex items-center gap-2 bg-[#202126]/95 border border-white/10 px-3.5 py-1.5 rounded-full shadow-2xl backdrop-blur-md animate-fade-in text-xs">
+          <div
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-2xl animate-fade-in text-xs"
+            style={{
+              backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+          >
             {/* Brush Type Selector */}
             <div className="flex items-center gap-1 bg-black/30 p-0.5 rounded-full border border-white/5">
               {brushTypes.map((t) => (
@@ -487,7 +496,15 @@ export const CanvasToolbar: React.FC = () => {
 
         {/* Floating Sub-Toolbar when in Erase Mode */}
         {mode === 'erase' && (
-          <div className="flex items-center gap-2 bg-[#202126]/95 border border-red-500/20 px-3 py-1 rounded-full shadow-2xl backdrop-blur-md animate-fade-in text-xs text-zinc-300">
+          <div
+            className="flex items-center gap-2 px-3 py-1 rounded-full shadow-2xl animate-fade-in text-xs text-zinc-300"
+            style={{
+              backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+            }}
+          >
             <Eraser className="w-3.5 h-3.5 text-red-400" />
             <span className="text-[11px] font-medium text-zinc-300">Borracha ativa</span>
             <span className="text-[10px] text-zinc-500">· Arraste para apagar como lápis</span>
@@ -510,10 +527,12 @@ export const CanvasToolbar: React.FC = () => {
           onClick={() => setIsAgentLimitsOpen((prev) => !prev)}
           className="h-[40px] px-3.5 rounded-full flex items-center gap-2.5 transition-all cursor-pointer hover:brightness-110"
           style={{
-            backgroundColor: 'rgba(32, 32, 35, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '9999px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
           }}
           title="Uso e Limites dos Agentes"
         >
@@ -541,12 +560,14 @@ export const CanvasToolbar: React.FC = () => {
 
         {/* Zoom Controls */}
         <div
-          className="h-[40px] px-4 rounded-full flex items-center gap-3 backdrop-blur-md"
+          className="h-[40px] px-4 rounded-full flex items-center gap-3"
           style={{
-            backgroundColor: 'rgba(32, 32, 35, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '9999px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
           }}
         >
           <button

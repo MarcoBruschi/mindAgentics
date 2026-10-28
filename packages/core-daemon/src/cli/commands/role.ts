@@ -1,6 +1,6 @@
 import type { CommandHandler } from '../../daemon/pipeServer.js';
 
-export const roleCommand: CommandHandler = async (req, state) => {
+export const roleCommand: CommandHandler = async (req, state, router, scheduler, sendToMain) => {
   const [subaction, ...restArgs] = req.args;
   const action = (subaction || '').toLowerCase();
 
@@ -109,6 +109,21 @@ export const roleCommand: CommandHandler = async (req, state) => {
 
       if (isNone) {
         target.agentRole = undefined;
+        for (const [id, node] of state.nodes.entries()) {
+          if (node.kind === 'terminal' && (node as any).content?.terminalId === target.id) {
+            (node as any).content.agentRole = undefined;
+            sendToMain({
+              type: 'placeNode',
+              id: `place-${id}`,
+              payload: {
+                node,
+                width: node.width,
+                height: node.height,
+              },
+            });
+            break;
+          }
+        }
         return { output: `Cleared role on recruit "${target.title}".`, exitCode: 0 };
       }
 
@@ -117,6 +132,21 @@ export const roleCommand: CommandHandler = async (req, state) => {
       if (!r) return { error: `Role "${roleName}" not found.`, exitCode: 1 };
 
       target.agentRole = roleName;
+      for (const [id, node] of state.nodes.entries()) {
+        if (node.kind === 'terminal' && (node as any).content?.terminalId === target.id) {
+          (node as any).content.agentRole = roleName;
+          sendToMain({
+            type: 'placeNode',
+            id: `place-${id}`,
+            payload: {
+              node,
+              width: node.width,
+              height: node.height,
+            },
+          });
+          break;
+        }
+      }
       return { output: `Assigned role "${roleName}" to recruit "${target.title}". Process restarted.`, exitCode: 0 };
     }
 

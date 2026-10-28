@@ -125,11 +125,23 @@ export const recruitCommand: CommandHandler = async (req, state, router, schedul
   state.nodes.set(nodeId, termNode);
 
   // Auto-connect to caller terminal node
-  state.connections.push({
-    fromId: callerNodeId,
-    toId: nodeId,
-    label: 'Teammate',
-  });
+  if (callerNodeId) {
+    state.connections.push({
+      fromId: callerNodeId,
+      toId: nodeId,
+      label: 'Teammate',
+    });
+
+    sendToMain({
+      type: 'cableTieCreated',
+      id: `tie-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      payload: {
+        fromNodeId: callerNodeId,
+        toNodeId: nodeId,
+        label: 'Teammate',
+      },
+    });
+  }
 
   sendToMain({
     type: 'placeNode',
