@@ -90,23 +90,23 @@ async function createWindow(): Promise<BrowserWindow> {
 
   const refreshMaterial = () => {
     if (material && process.platform === 'win32' && !win.isDestroyed()) {
-      try {
-        (win as any).setBackgroundMaterial?.('none');
-      } catch {}
-      setTimeout(() => {
+      const apply = () => {
         if (!win.isDestroyed()) {
           try {
+            win.setBackgroundColor('#00000000');
             (win as any).setBackgroundMaterial?.(material);
-          } catch {}
+          } catch (e) {
+            console.warn('[refreshMaterial] Failed to apply material:', e);
+          }
         }
-      }, 50);
-      setTimeout(() => {
-        if (!win.isDestroyed()) {
-          try {
-            (win as any).setBackgroundMaterial?.(material);
-          } catch {}
-        }
-      }, 200);
+      };
+
+      // Direct apply without stripping material with 'none'
+      apply();
+      setTimeout(apply, 50);
+      setTimeout(apply, 150);
+      setTimeout(apply, 300);
+      setTimeout(apply, 500);
     }
   };
 
@@ -159,6 +159,14 @@ async function createWindow(): Promise<BrowserWindow> {
     refreshMaterial();
   });
   win.on('restore', () => {
+    saveBounds();
+    refreshMaterial();
+  });
+  win.on('enter-full-screen', () => {
+    saveBounds();
+    refreshMaterial();
+  });
+  win.on('leave-full-screen', () => {
     saveBounds();
     refreshMaterial();
   });

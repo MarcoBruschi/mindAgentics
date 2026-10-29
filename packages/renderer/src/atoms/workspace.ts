@@ -196,21 +196,13 @@ export function normalizeWorkspace(raw: any): Workspace {
   };
 }
 
-// Load saved workspaces from localStorage as instant synchronous cache
-const getSavedWorkspaces = (): Workspace[] => {
-  try {
-    const raw = localStorage.getItem('mindagentics_workspaces') || localStorage.getItem('maestri_workspaces');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map(normalizeWorkspace);
-      }
-    }
-  } catch {
-    // fallback
-  }
-  return [initialWorkspace];
-};
+// Clean up any legacy giant workspaces cache from localStorage to prevent QuotaExceededError
+try {
+  localStorage.removeItem('mindagentics_workspaces');
+  localStorage.removeItem('maestri_workspaces');
+} catch {
+  // ignore
+}
 
 const getSavedActiveId = (): string => {
   try {
@@ -222,7 +214,7 @@ const getSavedActiveId = (): string => {
   return 'workspace-main';
 };
 
-export const workspacesAtom = atom<Workspace[]>(getSavedWorkspaces());
+export const workspacesAtom = atom<Workspace[]>([initialWorkspace]);
 
 export const activeWorkspaceIdAtom = atom<string>(getSavedActiveId());
 
@@ -398,6 +390,62 @@ export const activeFloorAtom = atom<Floor | null>((get) => {
   );
 });
 
+/**
+ * Detects if an update between previous nodes and next nodes is purely ephemeral
+ * (such as PTY terminal status changes: 'working', 'idle', 'attention', hasAttention),
+ * which should not create undo/redo history snapshots.
+ */
+function isEphemeralNodeUpdate(prevNodes: CanvasNode[], nextNodes: CanvasNode[]): boolean {
+  if (prevNodes === nextNodes) return true;
+  if (!Array.isArray(prevNodes) || !Array.isArray(nextNodes)) return false;
+  if (prevNodes.length !== nextNodes.length) return false;
+
+  for (let i = 0; i < prevNodes.length; i++) {
+    const prev = prevNodes[i];
+    const next = nextNodes[i];
+
+    if (!prev || !next) return false;
+    if (prev.id !== next.id || prev.kind !== next.kind) {
+      return false;
+    }
+
+    if (
+      prev.x !== next.x ||
+      prev.y !== next.y ||
+      prev.width !== next.width ||
+      prev.height !== next.height ||
+      prev.zIndex !== next.zIndex
+    ) {
+      return false;
+    }
+
+    if (prev.kind !== 'terminal') {
+      if (prev.content !== next.content) {
+        return false;
+      }
+    } else {
+      if (prev.content !== next.content) {
+        const prevContent = (prev.content || {}) as Record<string, any>;
+        const nextContent = (next.content || {}) as Record<string, any>;
+
+        const allKeys = new Set([...Object.keys(prevContent), ...Object.keys(nextContent)]);
+        for (const key of allKeys) {
+          if (key === 'status' || key === 'hasAttention') {
+            continue;
+          }
+          if (prevContent[key] !== nextContent[key]) {
+            return false;
+          }
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+export const pushUndoSnapshotAtom = pushSnapshotAtom;
+
 // ==========================================
 // Writable proxy atoms with automatic history capture
 // ==========================================
@@ -411,16 +459,20 @@ export const nodesAtom = atom(
     const workspace = get(activeWorkspaceAtom);
     if (!floor || !workspace || !Array.isArray(workspace.floors)) return;
 
-    const snapshot: CanvasFloorSnapshot = {
-      nodes: floor.nodes ? [...floor.nodes] : [],
-      cableTies: floor.cableTies ? [...floor.cableTies] : [],
-      bands: floor.bands ? [...floor.bands] : [],
-      drawings: floor.drawings ? [...floor.drawings] : [],
-    };
-    set(pushSnapshotAtom, snapshot);
-
     const currentNodes = floor.nodes || [];
     const newNodes = typeof update === 'function' ? update(currentNodes) : update;
+
+    // Filter ephemeral status events: ensure PTY terminal status changes do not trigger undo snapshot
+    if (!isEphemeralNodeUpdate(currentNodes, newNodes)) {
+      const snapshot: CanvasFloorSnapshot = {
+        nodes: currentNodes ? [...currentNodes] : [],
+        cableTies: floor.cableTies ? [...floor.cableTies] : [],
+        bands: floor.bands ? [...floor.bands] : [],
+        drawings: floor.drawings ? [...floor.drawings] : [],
+      };
+      set(pushSnapshotAtom, snapshot);
+    }
+
     const updatedFloors = workspace.floors.map((f) =>
       f.id === floor.id ? { ...f, nodes: newNodes } : f
     );

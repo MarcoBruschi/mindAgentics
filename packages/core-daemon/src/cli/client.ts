@@ -44,7 +44,7 @@ Run 'mindagentics <command> --help' for details on a specific command.`);
 export async function runCliClient(argv: string[]): Promise<void> {
   const parsed = parseCliArgs(argv);
 
-  if (parsed.command === 'help' || parsed.command === '--help' || parsed.options.help) {
+  if (!parsed.command || parsed.command === 'help' || parsed.command === '--help') {
     printHelpBanner();
     process.exit(0);
   }

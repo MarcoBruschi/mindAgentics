@@ -100,6 +100,16 @@ export class RpcHandler {
         break;
       }
 
+      case 'syncRoutines':
+      case 'loadRoutines': {
+        if (Array.isArray(payload?.routines)) {
+          this.scheduler.loadRoutines(payload.routines);
+        } else if (Array.isArray(payload)) {
+          this.scheduler.loadRoutines(payload);
+        }
+        break;
+      }
+
       case 'chatTurnSettled': {
         if (payload?.terminalId) {
           this.router.settleTurn(payload.terminalId, payload.output || '', payload.askId);
@@ -169,6 +179,22 @@ export class RpcHandler {
             toId: c.toNodeId,
             label: c.label,
           }));
+        }
+        break;
+      }
+
+      case 'syncWorkspaces': {
+        if (Array.isArray(payload?.workspaces)) {
+          this.state.workspaces.clear();
+          for (const ws of payload.workspaces) {
+            if (ws && ws.id) {
+              this.state.workspaces.set(ws.id, {
+                id: ws.id,
+                name: ws.name || 'Workspace',
+                workingDirectory: ws.workingDirectory || ws.rootPath || ws.dir || '',
+              });
+            }
+          }
         }
         break;
       }

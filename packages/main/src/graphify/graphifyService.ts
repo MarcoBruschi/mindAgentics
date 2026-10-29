@@ -327,9 +327,9 @@ export class GraphifyService {
     if (fs.existsSync(destDir)) {
       onProgress?.(`Repositório existente detectado em ${destDir}, atualizando...`);
       try {
-        await execAsync('git pull', { cwd: destDir });
+        await execFileAsync('git', ['pull'], { cwd: destDir });
         if (branch) {
-          await execAsync(`git checkout "${branch}"`, { cwd: destDir });
+          await execFileAsync('git', ['checkout', branch], { cwd: destDir });
         }
         return destDir;
       } catch {}
@@ -337,8 +337,8 @@ export class GraphifyService {
     }
 
     fs.mkdirSync(path.dirname(destDir), { recursive: true });
-    const gitCmd = `git clone --depth 1 ${branch ? `-b "${branch}"` : ''} "${url}" "${destDir}"`;
-    await execAsync(gitCmd);
+
+    await execFileAsync('git', ['clone', '--depth', '1', ...(branch ? ['-b', branch] : []), '--', url, destDir]);
     return destDir;
   }
 

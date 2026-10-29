@@ -2,11 +2,12 @@ import { ipcMain, dialog, shell, clipboard, app, BrowserWindow } from 'electron'
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { IPC_CHANNELS as C } from '@mindagentics/shared';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 import { DataService } from '../storage/dataService.js';
 import { CoreDaemonSupervisor } from '../supervisor/coreDaemonSupervisor.js';
 import { TerminalManager } from '../terminal/terminalManager.js';
@@ -145,7 +146,11 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     const ws = await dataService.getWorkspace(workspaceId);
     if (!ws || !ws.workingDirectory) return { ok: false };
     const ideCmd = ideId === 'cursor' ? 'cursor' : ideId === 'windsurf' ? 'windsurf' : 'code';
-    require('child_process').exec(`${ideCmd} "${ws.workingDirectory}"`);
+    try {
+      await execFileAsync(ideCmd, [ws.workingDirectory]);
+    } catch (err) {
+      console.error(`[appOpenInIde] Failed to open ${ideCmd}:`, err);
+    }
     return { ok: true };
   });
 
@@ -220,6 +225,49 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   on(C.preferencesSubscribe, () => {});
   on(C.preferencesUnsubscribe, () => {});
 
+  // Canvas & Workspace sync helper
+  const syncActiveCanvasToSupervisor = async () => {
+    try {
+      const allWorkspaces = await dataService.listWorkspaces();
+      supervisor.syncWorkspaces(allWorkspaces);
+
+      const stateDoc = await dataService.getAppState();
+      const activeWsId = (stateDoc.payload as any)?.activeWorkspaceId ||
+        stateDoc.payload?.recentWorkspaceIds?.[0] ||
+        allWorkspaces[0]?.id;
+
+      if (!activeWsId) return;
+
+      const activeWs = (await dataService.getWorkspace(activeWsId)) || allWorkspaces.find((w: any) => w.id === activeWsId);
+      if (!activeWs) return;
+
+      const activeFloorId = activeWs.activeFloorId || activeWs.floors?.[0]?.id || 'ground';
+      const activeFloor = activeWs.floors?.find((f: any) => f.id === activeFloorId) || activeWs.floors?.[0] || {
+        id: activeFloorId,
+        nodes: [],
+        cableTies: []
+      };
+
+      supervisor.syncCanvas({
+        nodes: activeFloor.nodes || [],
+        cableTies: activeFloor.cableTies || [],
+        workspaceId: activeWs.id,
+        floorId: activeFloor.id
+      });
+    } catch (err) {
+      console.warn('[syncActiveCanvasToSupervisor error]', err);
+    }
+  };
+
+  // Inicialização e Hidratação quando CoreDaemon estiver pronto
+  supervisor.on('ready', async () => {
+    await syncActiveCanvasToSupervisor();
+  });
+
+  if (supervisor.daemonReady) {
+    syncActiveCanvasToSupervisor();
+  }
+
   // Workspace
   handle(C.workspaceList, async () => dataService.listWorkspaces());
   handle(C.workspaceCreate, async (input: any) => {
@@ -228,9 +276,19 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     const ide = input?.preferredIde || 'vscode';
     return dataService.createWorkspace(name, dir, ide);
   });
-  handle(C.workspacePatch, async (id: string, patch: any) => dataService.patchWorkspace(id, patch));
+  handle(C.workspacePatch, async (id: string, patch: any) => {
+    const updated = await dataService.patchWorkspace(id, patch);
+    const stateDoc = await dataService.getAppState();
+    const activeWsId = (stateDoc.payload as any)?.activeWorkspaceId || stateDoc.payload?.recentWorkspaceIds?.[0];
+    if (activeWsId === id || !activeWsId) {
+      await syncActiveCanvasToSupervisor();
+    }
+    return updated;
+  });
   handle(C.workspaceDelete, async (id: string, deleteDir = false) => {
     await dataService.deleteWorkspace(id, deleteDir);
+    const allWorkspaces = await dataService.listWorkspaces();
+    supervisor.syncWorkspaces(allWorkspaces);
     const win = getWin();
     if (win && !win.isDestroyed()) win.webContents.send(C.workspaceOnDeleted, id);
     return { ok: true };
@@ -238,7 +296,10 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   handle(C.workspaceDuplicate, async (id: string) => {
     const ws = await dataService.getWorkspace(id);
     if (!ws) throw new Error('Workspace not found');
-    return dataService.createWorkspace(`${ws.name} Copy`, ws.workingDirectory, ws.preferredIde);
+    const created = await dataService.createWorkspace(`${ws.name} Copy`, ws.workingDirectory, ws.preferredIde);
+    const allWorkspaces = await dataService.listWorkspaces();
+    supervisor.syncWorkspaces(allWorkspaces);
+    return created;
   });
   handle(C.workspaceExport, async (id: string) => {
     const ws = await dataService.getWorkspace(id);
@@ -247,6 +308,8 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   handle(C.workspaceImport, async (content: string) => {
     const ws = JSON.parse(content);
     await dataService.saveWorkspace(ws);
+    const allWorkspaces = await dataService.listWorkspaces();
+    supervisor.syncWorkspaces(allWorkspaces);
     return ws;
   });
   handle(C.workspaceReveal, (p: string) => {
@@ -262,6 +325,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
       activeWorkspaceId: id,
       recentWorkspaceIds: [id]
     } as any);
+    await syncActiveCanvasToSupervisor();
     return { ok: true };
   });
 
@@ -322,6 +386,128 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     const win = getWin();
     if (win && !win.isDestroyed()) {
       win.webContents.send('maestri:canvas:cableTieDeleted', payload);
+    }
+  });
+
+  supervisor.on('workspaceCreate', async (payload: any) => {
+    try {
+      const name = payload?.name || 'New Workspace';
+      const dir = payload?.workingDirectory || payload?.dir || os.homedir();
+      let ws;
+      if (payload?.id) {
+        ws = {
+          id: payload.id,
+          name,
+          workingDirectory: dir,
+          preferredIde: payload?.preferredIde || 'vscode',
+          floors: [
+            {
+              id: `floor-${payload.id}`,
+              name: 'Canvas',
+              isGround: true,
+              workingDirectory: dir,
+              gitBranch: 'main',
+              status: null,
+              nodes: [],
+              cableTies: [],
+              bands: [],
+              drawings: []
+            }
+          ]
+        };
+        await dataService.saveWorkspace(ws);
+      } else {
+        ws = await dataService.createWorkspace(name, dir);
+      }
+
+      const allWorkspaces = await dataService.listWorkspaces();
+      supervisor.syncWorkspaces(allWorkspaces);
+
+      const win = getWin();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(C.workspaceList, allWorkspaces);
+        win.webContents.send(C.workspaceOnChanged, ws);
+        win.webContents.send('maestri:workspace:created', ws);
+      }
+    } catch (err) {
+      console.error('[supervisor:workspaceCreate error]', err);
+    }
+  });
+
+  supervisor.on('routineDelete', async (payload: any) => {
+    try {
+      const id = typeof payload === 'string' ? payload : payload?.id;
+      if (!id) return;
+      const routines = await dataService.getRoutines();
+      const filtered = routines.filter((r: any) => r.id !== id);
+      await dataService.saveRoutines(filtered);
+
+      const win = getWin();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(C.routineList, filtered);
+        win.webContents.send(C.routineOnChanged, filtered);
+        win.webContents.send('maestri:routine:deleted', id);
+      }
+    } catch (err) {
+      console.error('[supervisor:routineDelete error]', err);
+    }
+  });
+
+  supervisor.on('floorCreate', async (payload: any) => {
+    try {
+      const win = getWin();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('maestri:floor:created', payload);
+      }
+    } catch (err) {
+      console.error('[supervisor:floorCreate error]', err);
+    }
+  });
+
+  supervisor.on('routineCreate', async (payload: any) => {
+    try {
+      if (!payload) return;
+      const routines = await dataService.getRoutines();
+      const existingIdx = routines.findIndex((r: any) => r.id === payload.id);
+      if (existingIdx >= 0) {
+        routines[existingIdx] = payload;
+      } else {
+        routines.push(payload);
+      }
+      await dataService.saveRoutines(routines);
+
+      const win = getWin();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(C.routineList, routines);
+        win.webContents.send(C.routineOnChanged, routines);
+        win.webContents.send('maestri:routine:created', payload);
+      }
+    } catch (err) {
+      console.error('[supervisor:routineCreate error]', err);
+    }
+  });
+
+  supervisor.on('bandCreated', (payload: any) => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('maestri:canvas:bandCreated', payload);
+      win.webContents.send(C.bandCreate, payload);
+    }
+  });
+
+  supervisor.on('bandDissolved', (payload: any) => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('maestri:canvas:bandDissolved', payload);
+      win.webContents.send(C.bandDissolve, payload);
+    }
+  });
+
+  supervisor.on('bandUpdated', (payload: any) => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('maestri:canvas:bandUpdated', payload);
+      win.webContents.send(C.bandUpdate, payload);
     }
   });
 
@@ -391,14 +577,24 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
 
   // Notes
   handle(C.noteRead, async (workspaceId: string, noteId: string) => {
-    const noteFile = path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes', `${noteId}.md`);
+    const sanitizedNoteId = (noteId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!sanitizedNoteId) return '';
+    const noteFile = path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes', `${sanitizedNoteId}.md`);
+    if (!path.resolve(noteFile).startsWith(path.resolve(path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes')))) {
+      throw new Error('Access denied: Path traversal detected');
+    }
     if (fs.existsSync(noteFile)) {
       return fs.promises.readFile(noteFile, 'utf-8');
     }
     return '';
   });
   handle(C.noteWrite, async (workspaceId: string, noteId: string, content: string) => {
-    const noteFile = path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes', `${noteId}.md`);
+    const sanitizedNoteId = (noteId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!sanitizedNoteId) throw new Error('Invalid noteId: only alphanumeric, dash and underscore characters allowed');
+    const noteFile = path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes', `${sanitizedNoteId}.md`);
+    if (!path.resolve(noteFile).startsWith(path.resolve(path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes')))) {
+      throw new Error('Access denied: Path traversal detected');
+    }
     await dataService.replaceFileAtomically(noteFile, content);
     return { ok: true };
   });

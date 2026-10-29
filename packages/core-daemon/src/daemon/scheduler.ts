@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 /**
  * Routine Chrono Engine
  * Section 3.2 & 5.3 of CLONE_SPEC.md
@@ -20,6 +23,9 @@ export class RoutineScheduler {
   ) {}
 
   public start() {
+    if (this.routines.size === 0) {
+      this.loadRoutines();
+    }
     if (this.timer) return;
     this.timer = setInterval(() => {
       this.tick();
@@ -30,6 +36,34 @@ export class RoutineScheduler {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+  }
+
+
+  public loadRoutines(routines?: Routine[]) {
+    if (Array.isArray(routines)) {
+      for (const routine of routines) {
+        if (routine && routine.id) {
+          this.addRoutine(routine);
+        }
+      }
+      return;
+    }
+
+    try {
+      const routinesPath = path.join(os.homedir(), '.mindagentics', 'routines.json');
+      if (fs.existsSync(routinesPath)) {
+        const raw = fs.readFileSync(routinesPath, 'utf8');
+        const doc = JSON.parse(raw);
+        const list: Routine[] = Array.isArray(doc) ? doc : (doc.routines || []);
+        for (const routine of list) {
+          if (routine && routine.id) {
+            this.addRoutine(routine);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[RoutineScheduler] Failed to load routines from disk:', err);
     }
   }
 

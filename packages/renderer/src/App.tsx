@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAtom } from 'jotai';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { InfiniteCanvas } from '@/components/canvas/InfiniteCanvas';
@@ -24,6 +24,7 @@ import {
 } from '@/atoms/workspace';
 
 export const App: React.FC = () => {
+  const isHydratedRef = useRef(false);
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom);
   const [activeWorkspaceId, setActiveWorkspaceId] = useAtom(activeWorkspaceIdAtom);
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
@@ -36,13 +37,24 @@ export const App: React.FC = () => {
   // Initial backend load with normalization for existing disk workspaces
   useEffect(() => {
     const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
-    if (api?.app?.info) {
-      api.app.info().then((info: any) => {
-        document.documentElement.classList.toggle(
-          'window-translucent',
-          Boolean(info?.windowMaterial || info?.windowSeeThrough)
-        );
-      }).catch(() => {});
+    const syncTranslucency = () => {
+      if (api?.app?.info) {
+        api.app.info().then((info: any) => {
+          document.documentElement.classList.toggle(
+            'window-translucent',
+            Boolean(info?.windowMaterial || info?.windowSeeThrough)
+          );
+        }).catch(() => {});
+      }
+    };
+    syncTranslucency();
+
+    const controls = window.api?.windowControls || (window as any).mindAgentics?.windowControls || (window as any).maestri?.windowControls;
+    let unsubControls: (() => void) | undefined;
+    if (controls?.onChanged) {
+      unsubControls = controls.onChanged(() => {
+        syncTranslucency();
+      });
     }
 
     if (window.api?.workspace?.list) {
@@ -64,30 +76,38 @@ export const App: React.FC = () => {
               setActiveWorkspaceId(targetId);
             }
           }
+          isHydratedRef.current = true;
         })
-        .catch(() => {});
+        .catch(() => {
+          isHydratedRef.current = true;
+        });
+    } else {
+      isHydratedRef.current = true;
     }
   }, [setWorkspaces]);
 
   // Global Auto-save on every workspace change (Requirement 2)
   useEffect(() => {
     try {
-      localStorage.setItem('mindagentics_workspaces', JSON.stringify(workspaces));
-      localStorage.setItem('mindagentics_active_ws', activeWorkspaceId);
-      localStorage.setItem('mindagentics_workspaces', JSON.stringify(workspaces));
       localStorage.setItem('mindagentics_active_ws', activeWorkspaceId);
     } catch {
       // quota or local storage error
     }
 
-    const timer = setTimeout(() => {
+    if (!isHydratedRef.current) {
+      return;
+    }
+
+    const backendTimer = setTimeout(() => {
       if (activeWorkspace && window.api?.workspace?.patch) {
         window.api.workspace.patch(activeWorkspace.id, activeWorkspace).catch(() => {});
         window.api?.workspace?.switch?.(activeWorkspace.id)?.catch?.(() => {});
       }
     }, 400);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(backendTimer);
+    };
   }, [workspaces, activeWorkspaceId, activeWorkspace]);
 
   // Listen for canvas placement and cable tie events from CoreDaemon / CLI
@@ -219,14 +239,15 @@ export const App: React.FC = () => {
       const inInput = isInputOrEditable(activeEl);
       const modKey = hasPrimaryModifier(e);
 
+      // Focus isolation: do not hijack keystrokes if focused in an input, textarea, or terminal
+      if (inInput) return;
+
       // Sidebar Toggle: Ctrl+S
       if (modKey && e.key.toLowerCase() === 's' && !e.shiftKey) {
         e.preventDefault();
         setIsSidebarOpen((prev: boolean) => !prev);
         return;
       }
-
-      if (inInput) return;
 
       if (modKey && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -245,7 +266,7 @@ export const App: React.FC = () => {
   }, [undo, redo, setIsSidebarOpen]);
 
   return (
-    <div className="app-shell w-screen h-screen overflow-hidden bg-[#1E1E1E] text-zinc-100 select-none font-sans relative">
+    <div className="app-shell w-screen h-screen overflow-hidden bg-transparent text-zinc-100 select-none font-sans relative">
       {/* Top Floating Chrome Bar (Search, Hamburger, Right Utilities, Window Controls) */}
       <TitleBar />
 

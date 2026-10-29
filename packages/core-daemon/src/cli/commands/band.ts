@@ -85,6 +85,11 @@ export const bandCommand: CommandHandler = async (req, state, router, scheduler,
         },
       });
 
+      sendToMain({
+        type: 'bandCreated',
+        payload: { bandId, nodeId, name, memberIds, bandNode },
+      });
+
       return {
         output: `Created band "${name}" with ${memberIds.length} member(s).`,
         exitCode: 0,
@@ -167,6 +172,11 @@ export const bandCommand: CommandHandler = async (req, state, router, scheduler,
         payload: {
           nodeId: bandNode.id,
         },
+      });
+
+      sendToMain({
+        type: 'bandDissolved',
+        payload: { bandId: bandNode.content.bandId, nodeId: bandNode.id },
       });
 
       return { output: `Dissolved band "${bandNode.content.title}". Members returned to free canvas.`, exitCode: 0 };

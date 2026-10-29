@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 /**
  * Core Daemon In-Memory State & Coordination Store
  */
@@ -86,8 +89,134 @@ export class DaemonState {
   // Semantic memory for recall: list of entries
   public memoryEntries: Array<{ terminalId: string; text: string; timestamp: string }> = [];
 
+  private memoryFilePath: string;
+  private usageFilePath: string;
+  private usageSaveTimer: NodeJS.Timeout | null = null;
+
   constructor() {
+    const baseDir = path.join(os.homedir(), '.mindagentics');
+    this.memoryFilePath = path.join(baseDir, 'memory.jsonl');
+    this.usageFilePath = path.join(baseDir, 'usage', 'usage.json');
+
     this.seedDefaultState();
+    this.hydrateMemory();
+    this.wrapMemoryEntries();
+    this.hydrateUsage();
+  }
+
+
+  private hydrateMemory() {
+    try {
+      if (fs.existsSync(this.memoryFilePath)) {
+        const content = fs.readFileSync(this.memoryFilePath, 'utf8');
+        const lines = content.split(/\r?\n/);
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const entry = JSON.parse(trimmed);
+            if (entry && typeof entry.text === 'string') {
+              this.memoryEntries.push({
+                terminalId: entry.terminalId || '',
+                text: entry.text,
+                timestamp: entry.timestamp || new Date().toISOString(),
+              });
+            }
+          } catch {
+            // ignore corrupted line
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[DaemonState] Failed to hydrate memory entries:', err);
+    }
+  }
+
+  private wrapMemoryEntries() {
+    const originalPush = this.memoryEntries.push.bind(this.memoryEntries);
+    this.memoryEntries.push = (...items: Array<{ terminalId: string; text: string; timestamp: string }>) => {
+      const count = originalPush(...items);
+      for (const item of items) {
+        this.appendMemoryEntry(item);
+      }
+      return count;
+    };
+  }
+
+  public addMemoryEntry(entry: { terminalId: string; text: string; timestamp?: string }) {
+    const fullEntry = {
+      terminalId: entry.terminalId,
+      text: entry.text,
+      timestamp: entry.timestamp || new Date().toISOString(),
+    };
+    this.memoryEntries.push(fullEntry);
+  }
+
+  private appendMemoryEntry(entry: { terminalId: string; text: string; timestamp: string }) {
+    try {
+      const dir = path.dirname(this.memoryFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.appendFileSync(this.memoryFilePath, JSON.stringify(entry) + '\n', 'utf8');
+    } catch (err) {
+      console.warn('[DaemonState] Failed to append memory entry:', err);
+    }
+  }
+
+  private hydrateUsage() {
+    try {
+      if (fs.existsSync(this.usageFilePath)) {
+        const raw = fs.readFileSync(this.usageFilePath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.totals) {
+            this.usage.totals = {
+              tokensIn: Number(parsed.totals.tokensIn) || 0,
+              tokensOut: Number(parsed.totals.tokensOut) || 0,
+              costEstimate: Number(parsed.totals.costEstimate) || 0,
+              totalCalls: Number(parsed.totals.totalCalls) || 0,
+            };
+          }
+          if (parsed.byTerminal && typeof parsed.byTerminal === 'object') {
+            this.usage.byTerminal = parsed.byTerminal;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[DaemonState] Failed to hydrate usage metrics:', err);
+    }
+  }
+
+  private scheduleSaveUsage() {
+    if (this.usageSaveTimer) {
+      clearTimeout(this.usageSaveTimer);
+    }
+    this.usageSaveTimer = setTimeout(() => {
+      this.persistUsage();
+    }, 500);
+  }
+
+  public persistUsage() {
+    try {
+      const dir = path.dirname(this.usageFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const tmpPath = `${this.usageFilePath}.tmp.${Date.now()}`;
+      fs.writeFileSync(tmpPath, JSON.stringify(this.usage, null, 2), 'utf8');
+      fs.renameSync(tmpPath, this.usageFilePath);
+    } catch (err) {
+      console.warn('[DaemonState] Failed to persist usage.json:', err);
+    }
+  }
+
+  public flush() {
+    if (this.usageSaveTimer) {
+      clearTimeout(this.usageSaveTimer);
+      this.usageSaveTimer = null;
+    }
+    this.persistUsage();
   }
 
   private seedDefaultState() {
@@ -279,6 +408,7 @@ export class DaemonState {
     rec.costEstimate = (rec.costEstimate || 0) + cost;
     rec.callsCount += 1;
     rec.timestamp = new Date().toISOString();
+    this.scheduleSaveUsage();
   }
 
   public setFloorStatus(workspaceId: string, floorId: string, text: string | null, state: FloorStatusState | null, progress: string | null) {

@@ -36,7 +36,7 @@ function findRoutine(scheduler: any, nameOrId: string): Routine | undefined {
   return undefined;
 }
 
-export const routineCommand: CommandHandler = async (req, state, router, scheduler) => {
+export const routineCommand: CommandHandler = async (req, state, router, scheduler, sendToMain) => {
   const caller = state.terminals.get(req.terminalId);
   if (caller && !caller.maestroMode) {
     // Check if maestro mode required
@@ -114,6 +114,11 @@ export const routineCommand: CommandHandler = async (req, state, router, schedul
 
       scheduler.addRoutine(routine);
 
+      sendToMain?.({
+        type: 'routineCreate',
+        payload: routine,
+      });
+
       return {
         output: `Scheduled routine "${name}" [ID: ${routineId.slice(0, 8)}]. Next fire: ${routine.nextFireAt}`,
         exitCode: 0,
@@ -163,11 +168,15 @@ export const routineCommand: CommandHandler = async (req, state, router, schedul
       };
     }
 
-    case 'delete': {
+        case 'delete': {
       const name = restArgs[0];
       const r = findRoutine(scheduler, name);
       if (!r) return { error: `Routine "${name}" not found.`, exitCode: 1 };
       scheduler.removeRoutine(r.id);
+      sendToMain?.({
+        type: 'routineDelete',
+        payload: { id: r.id, name: r.name },
+      });
       return { output: `Deleted routine "${r.name}".`, exitCode: 0 };
     }
 

@@ -274,15 +274,16 @@ const NodeWrapperComponent: React.FC<NodeWrapperProps> = ({
           : ''
       }`}
       style={{
-        left: `${node.x}px`,
-        top: `${node.y}px`,
+        left: 0,
+        top: 0,
+        transform: `translate3d(${node.x}px, ${node.y}px, 0)`,
         width: isTextBlock ? 'max-content' : `${node.width}px`,
         height: isTextBlock ? 'auto' : `${node.height}px`,
         minWidth: isTextBlock ? '180px' : undefined,
         whiteSpace: isTextBlock ? 'nowrap' : undefined,
         writingMode: isTextBlock ? 'horizontal-tb' : undefined,
         zIndex: isDragging ? 9999 : node.zIndex,
-        willChange: isDragging ? 'left, top, width, height' : 'auto',
+        willChange: 'transform',
       }}
     >
       {/* Passing header drag handler to children via header container */}

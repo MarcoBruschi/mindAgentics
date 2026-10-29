@@ -44,13 +44,14 @@ export const floorCommand: CommandHandler = async (req, state, router, scheduler
         isGround: false,
       });
 
-      sendToMain({
-        type: 'floorCreateKindResult',
+            sendToMain({
+        type: 'floorCreate',
         payload: {
           floorId,
           name,
           branch,
           kind: isCopy ? 'copy' : (isNoGit ? 'plain' : 'worktree'),
+          workspaceId: callerWsId,
         },
       });
 

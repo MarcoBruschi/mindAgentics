@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAtom } from 'jotai';
 import {
   canvasOffsetAtom,
@@ -261,11 +261,22 @@ export const InfiniteCanvas: React.FC = () => {
       const inInput = isInputOrEditable(activeEl);
       const isMod = e.ctrlKey || e.metaKey;
 
-      // Escape key: unconditionally blur active terminal/input, clear selection, and return to select mode
-      if (e.key === 'Escape') {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
+      // When focused inside an input, textarea, or terminal:
+      // Allow Shift+Escape to blur out of the focused element to return control to the canvas.
+      // Global canvas shortcuts must NOT hijack keystrokes (e.g. Ctrl+L for clear screen, Escape for Vim).
+      if (inInput) {
+        if (e.key === 'Escape' && e.shiftKey) {
+          if (activeEl instanceof HTMLElement) {
+            activeEl.blur();
+          }
+          setSelectedIds([]);
+          setCanvasMode('select');
         }
+        return;
+      }
+
+      // Escape key when not in input: clear selection, and return to select mode
+      if (e.key === 'Escape') {
         setSelectedIds([]);
         setCanvasMode('select');
         return;
@@ -334,8 +345,8 @@ export const InfiniteCanvas: React.FC = () => {
         return;
       }
 
-      // 5. Delete element: Delete or Backspace or Ctrl+W (when not editing text)
-      if ((e.key === 'Delete' || e.key === 'Backspace' || (isMod && e.key.toLowerCase() === 'w')) && !inInput) {
+      // 5. Delete element: Delete or Backspace or Ctrl+W
+      if (e.key === 'Delete' || e.key === 'Backspace' || (isMod && e.key.toLowerCase() === 'w')) {
         if (selectedIds.length > 0) {
           e.preventDefault();
           beginUndoGroup();
@@ -346,8 +357,7 @@ export const InfiniteCanvas: React.FC = () => {
               if (termId) {
                 window.api?.terminal?.kill?.(termId)?.catch?.(() => {});
                 window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
-                window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
-          (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.kill?.(termId)?.catch?.(() => {});
+                (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.kill?.(termId)?.catch?.(() => {});
               }
             }
           }
@@ -363,16 +373,13 @@ export const InfiniteCanvas: React.FC = () => {
         return;
       }
 
-      // 6. Copy selection: Ctrl+C / Cmd+C (when not editing text)
-      if (isMod && e.key.toLowerCase() === 'c' && !inInput && selectedIds.length > 0) {
+      // 6. Copy selection: Ctrl+C / Cmd+C
+      if (isMod && e.key.toLowerCase() === 'c' && selectedIds.length > 0) {
         const selected = nodes.filter((n) => selectedIds.includes(n.id));
         const payloadStr = serializeCanvasSelection(selected, cableTies, []);
         navigator.clipboard.writeText(payloadStr).catch(() => {});
         return;
       }
-
-      // 7. Input focus isolation: do not trigger single-key shortcuts when typing
-      if (inInput) return;
 
       // Spacebar for continuous pan
       if (e.code === 'Space' && !e.repeat) {
@@ -580,6 +587,12 @@ export const InfiniteCanvas: React.FC = () => {
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!containerRef.current) return;
 
+    // Never intercept clicks or start marquee when interacting with nodes, terminals, or toolbars
+    const targetEl = e.target as HTMLElement | null;
+    if (targetEl && targetEl.closest('.node-wrapper, .canvas-node, .xterm, .terminal, .canvas-toolbar, [data-canvas-ignore]')) {
+      return;
+    }
+
     // Unfocus terminal or input when clicking canvas background
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -786,12 +799,45 @@ export const InfiniteCanvas: React.FC = () => {
     });
   }, [setNodes]);
 
+  // Band operations
+  const handleUpdateBand = useCallback((updated: Band) => {
+    setBands((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+  }, [setBands]);
+
+  const handleDeleteBand = useCallback((bandId: string) => {
+    beginUndoGroup();
+    setBands((prev) => prev.filter((b) => b.id !== bandId));
+    endUndoGroup();
+  }, [setBands, beginUndoGroup, endUndoGroup]);
+
+  const handleDissolveBand = useCallback((bandId: string) => {
+    const targetBand = bands.find((b) => b.id === bandId);
+    if (!targetBand) return;
+    beginUndoGroup();
+    const updatedNodes = layOutDissolvedBandMembers(targetBand, nodes);
+    setNodes(updatedNodes);
+    setBands((prev) => prev.filter((b) => b.id !== bandId));
+    endUndoGroup();
+  }, [bands, nodes, setNodes, setBands, beginUndoGroup, endUndoGroup]);
+
   // Cable Tie operations
   const handleDeleteTie = (tieId: string) => {
     beginUndoGroup();
     setCableTies((prev) => prev.filter((t) => t.id !== tieId));
     endUndoGroup();
   };
+
+  // Fast O(1) node lookup index for Cable Ties
+  const nodeLookup = useMemo(() => {
+    const map = new Map<string, CanvasNode>();
+    for (const n of nodes) {
+      map.set(n.id, n);
+      if (n.kind === 'terminal' && (n.content as any)?.terminalId) {
+        map.set((n.content as any).terminalId, n);
+      }
+    }
+    return map;
+  }, [nodes]);
 
   const cursorClass = isPanning || isSpacePressed
     ? 'cursor-grab active:cursor-grabbing'
@@ -823,16 +869,26 @@ export const InfiniteCanvas: React.FC = () => {
           transform: `translate(${offset.x}px, ${offset.y}px) scale(${offset.zoom})`,
         }}
       >
+        {/* Bands Layer */}
+        {bands.map((band) => (
+          <BandComponent
+            key={band.id}
+            band={band}
+            nodes={nodes}
+            onUpdateBand={handleUpdateBand}
+            onDeleteBand={handleDeleteBand}
+            onDissolveBand={handleDissolveBand}
+            onMoveNodes={handleMoveNodes}
+            zoom={offset.zoom}
+          />
+        ))}
+
         {/* Cable Ties SVG Layer */}
         <svg className="absolute inset-0 w-[50000px] h-[50000px] pointer-events-none -left-[25000px] -top-[25000px] overflow-visible">
           <g transform="translate(25000, 25000)">
             {cableTies.map((tie) => {
-              const fromNode = nodes.find(
-                (n) => n.id === tie.fromNodeId || (n.kind === 'terminal' && (n.content as any)?.terminalId === tie.fromNodeId)
-              );
-              const toNode = nodes.find(
-                (n) => n.id === tie.toNodeId || (n.kind === 'terminal' && (n.content as any)?.terminalId === tie.toNodeId)
-              );
+              const fromNode = nodeLookup.get(tie.fromNodeId);
+              const toNode = nodeLookup.get(tie.toNodeId);
               return (
                 <CableTieComponent
                   key={tie.id}

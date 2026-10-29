@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { CanvasAddon } from '@xterm/addon-canvas';
+import { WebglAddon } from '@xterm/addon-webgl';
 import {
   TerminalNode as TerminalNodeType,
 } from '@mindagentics/shared';
@@ -65,25 +66,27 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   const hasAttention = node.content.hasAttention || false;
   const isMaestro = Boolean(node.content.maestroMode);
 
-  // Find components linked via Cable Ties to this node
-  const linkedTies = (cableTies || []).filter(
-    (t) =>
-      t.fromNodeId === node.id ||
-      t.toNodeId === node.id ||
-      t.fromNodeId === node.content.terminalId ||
-      t.toNodeId === node.content.terminalId
-  );
-  const linkedNodes = linkedTies
-    .map((t) => {
-      const otherId =
-        t.fromNodeId === node.id || t.fromNodeId === node.content.terminalId
-          ? t.toNodeId
-          : t.fromNodeId;
-      return (allNodes || []).find(
-        (n) => n.id === otherId || (n.kind === 'terminal' && n.content?.terminalId === otherId)
-      );
-    })
-    .filter(Boolean) as any[];
+  // Find components linked via Cable Ties to this node (memoized for high frame-rate performance)
+  const linkedNodes = React.useMemo(() => {
+    const termId = node.content.terminalId;
+    const nodeId = node.id;
+    const ties = (cableTies || []).filter(
+      (t) =>
+        t.fromNodeId === nodeId ||
+        t.toNodeId === nodeId ||
+        t.fromNodeId === termId ||
+        t.toNodeId === termId
+    );
+    return ties
+      .map((t) => {
+        const otherId =
+          t.fromNodeId === nodeId || t.fromNodeId === termId ? t.toNodeId : t.fromNodeId;
+        return (allNodes || []).find(
+          (n) => n.id === otherId || (n.kind === 'terminal' && n.content?.terminalId === otherId)
+        );
+      })
+      .filter(Boolean) as any[];
+  }, [cableTies, allNodes, node.id, node.content.terminalId]);
 
   const getAgentIcon = (presetName?: string) => {
     const nameLower = (presetName || '').toLowerCase();
@@ -127,6 +130,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       cursorBlink: true,
       scrollback: 10000,
       convertEol: true,
+      rightClickSelectsWord: true,
+      allowProposedApi: true,
     });
 
     const fitAddon = new FitAddon();
@@ -135,29 +140,61 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     // Intercept keyboard events in terminal so Escape returns control to canvas
     // and global shortcuts (Ctrl+P, Ctrl+K, Ctrl+0, Ctrl+\) continue working
     term.attachCustomKeyEventHandler((arg: KeyboardEvent) => {
+      // Shift+Escape blurs the terminal so focus returns to the canvas
       if (arg.key === 'Escape') {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
+        if (arg.shiftKey) {
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+          return false;
+        }
+        // Plain Escape is sent to xterm for Vim, Claude Code cancel, Codex, fzf, etc.
+        return true;
+      }
+
+      // Copy selection on Ctrl+C / Cmd+C when text is selected
+      if ((arg.ctrlKey || arg.metaKey) && arg.key.toLowerCase() === 'c' && term.hasSelection()) {
+        const selectedText = term.getSelection();
+        if (selectedText) {
+          navigator.clipboard.writeText(selectedText).catch(() => {});
         }
         return false;
       }
-      const isMod = arg.ctrlKey || arg.metaKey;
-      if (isMod) {
-        const k = arg.key.toLowerCase();
-        if (k === 'p' || k === 'k' || k === '0' || k === '\\' || k === 'v' || k === 'h') {
-          return false;
-        }
+
+      // Paste on Ctrl+V / Cmd+V
+      if ((arg.ctrlKey || arg.metaKey) && arg.key.toLowerCase() === 'v' && !arg.shiftKey) {
+        navigator.clipboard.readText().then((clipText) => {
+          if (clipText && termBridge) {
+            termBridge.write(termId, clipText);
+          }
+        }).catch(() => {});
+        return false;
       }
+
+      // Allow Ctrl+P, Ctrl+K, Ctrl+H and all standard shell readline navigation through to xterm
       return true;
     });
 
     term.open(terminalRef.current);
 
+    let renderAddon: WebglAddon | CanvasAddon | null = null;
     try {
-      const canvasAddon = new CanvasAddon();
-      term.loadAddon(canvasAddon);
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        try {
+          webglAddon.dispose();
+        } catch {}
+      });
+      term.loadAddon(webglAddon);
+      renderAddon = webglAddon;
     } catch {
-      // fallback to DOM
+      try {
+        const canvasAddon = new CanvasAddon();
+        term.loadAddon(canvasAddon);
+        renderAddon = canvasAddon;
+      } catch {
+        // Fallback to DOM renderer
+      }
     }
 
     try {
@@ -228,11 +265,15 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           try {
             await termBridge.spawn({
               id: termId,
+              terminalId: termId,
               command: agentCommand,
               cols: term.cols || 80,
               rows: term.rows || 24,
-              cwd: activeWorkspace?.workingDirectory,
+              cwd: node.content.workingDirectory || activeWorkspace?.workingDirectory,
               title: agentName,
+              agentRole: node.content.agentRole,
+              instructions: node.content.instructions,
+              isAutonomous: node.content.isAutonomous ?? true,
               presetId: preset.id,
               maestroMode: isMaestro,
             });
@@ -276,14 +317,23 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       });
     }
 
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const handleResize = () => {
-      try {
-        fitAddon.fit();
-        const termResize = window.mindAgentics?.terminal?.resize || (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.resize;
-        if (termResize) {
-          termResize(termId, term.cols, term.rows);
-        }
-      } catch {}
+      if (resizeTimer) {
+        clearTimeout(resizeTimer);
+      }
+      resizeTimer = setTimeout(() => {
+        if (isDisposed) return;
+        try {
+          fitAddon.fit();
+          const termResize =
+            window.mindAgentics?.terminal?.resize ||
+            (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.resize;
+          if (termResize) {
+            termResize(termId, term.cols, term.rows);
+          }
+        } catch {}
+      }, 70);
     };
 
     const resizeObserver = new ResizeObserver(() => {
@@ -297,9 +347,15 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
 
     return () => {
       isDisposed = true;
+      if (resizeTimer) {
+        clearTimeout(resizeTimer);
+      }
       resizeObserver.disconnect();
       unsubscribeData?.();
       unsubscribeStatus?.();
+      try {
+        renderAddon?.dispose();
+      } catch {}
       term.dispose();
     };
   }, [node.content.terminalId, agentCommand]);
@@ -384,7 +440,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
 
   return (
     <div
-      className={`flex flex-col w-full h-full bg-[#0d0e11] select-none text-zinc-300 transition-all ${
+      className={`flex flex-col w-full h-full bg-[#0d0e11] text-zinc-300 transition-all ${
         isMaestro ? 'ring-1 ring-amber-500/30' : ''
       }`}
     >
@@ -558,11 +614,21 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
 
       {/* Terminal Viewport Container */}
       <div
-        className="flex-1 w-full p-1.5 overflow-hidden cursor-text"
-        onClick={() => xtermInstance.current?.focus()}
-        onMouseDown={() => xtermInstance.current?.focus()}
+        className="flex-1 w-full p-1.5 overflow-hidden cursor-text select-text"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          xtermInstance.current?.focus();
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          xtermInstance.current?.focus();
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          xtermInstance.current?.focus();
+        }}
       >
-        <div ref={terminalRef} className="w-full h-full" />
+        <div ref={terminalRef} className="w-full h-full select-text" />
       </div>
     </div>
   );

@@ -19,8 +19,34 @@ import type {
   RoutineHistoryDocument
 } from '@mindagentics/shared';
 
+export class AsyncKeyedMutex {
+  private chains: Map<string, Promise<void>> = new Map();
+
+  public async acquire<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.chains.get(key) ?? Promise.resolve();
+    let release: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    this.chains.set(key, gate);
+
+    await prev.catch(() => {});
+    try {
+      return await fn();
+    } finally {
+      release!();
+      if (this.chains.get(key) === gate) {
+        this.chains.delete(key);
+      }
+    }
+  }
+}
+
 export class DataService {
   private dataDir: string;
+  private fileMutex = new AsyncKeyedMutex();
+  private workspaceMutex = new AsyncKeyedMutex();
+  private manifestMutex = new AsyncKeyedMutex();
 
   constructor() {
     this.dataDir = this.resolveDataDir();
@@ -67,24 +93,157 @@ export class DataService {
   }
 
   /**
-   * Atomic file writing via temporary file rename
+   * Atomic file writing via temporary file rename with Windows resilience,
+   * exponential backoff & jitter retries, orphan cleanup, and critical file backups.
    */
   public async replaceFileAtomically(filePath: string, content: string | Uint8Array): Promise<void> {
-    const dir = path.dirname(filePath);
-    await fsp.mkdir(dir, { recursive: true });
-    const tmpPath = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
-    await fsp.writeFile(tmpPath, content);
-    await fsp.rename(tmpPath, filePath);
+    if (!filePath || typeof filePath !== 'string' || filePath.trim() === '') {
+      throw new Error('[DataService] Invalid file path provided for atomic write');
+    }
+    if (filePath.includes('\0')) {
+      throw new Error('[DataService] Target path contains invalid characters (null byte)');
+    }
+
+    const resolvedPath = path.resolve(filePath);
+    const dir = path.dirname(resolvedPath);
+    const root = path.parse(resolvedPath).root;
+
+    // Validate target directory path safety
+    if (!dir || dir === '.' || dir === root) {
+      throw new Error(`[DataService] Unsafe target directory for atomic write: ${dir}`);
+    }
+
+    const normalizedKey = path.normalize(resolvedPath).toLowerCase();
+    return this.fileMutex.acquire(normalizedKey, async () => {
+      // Validate that target directory path is safe and accessible
+      if (fs.existsSync(dir)) {
+        const stat = await fsp.stat(dir);
+        if (!stat.isDirectory()) {
+          throw new Error(`[DataService] Target directory path exists but is not a directory: ${dir}`);
+        }
+      } else {
+        await fsp.mkdir(dir, { recursive: true });
+      }
+
+      // Maintain .bak backup for critical files prior to replacing
+      const baseName = path.basename(resolvedPath).toLowerCase();
+      const criticalFiles = ['manifest.json', 'app-state.json', 'workspace.json'];
+      if (criticalFiles.includes(baseName)) {
+        try {
+          if (fs.existsSync(resolvedPath)) {
+            const stat = await fsp.stat(resolvedPath);
+            if (stat.size > 0) {
+              await fsp.copyFile(resolvedPath, `${resolvedPath}.bak`);
+            }
+          }
+        } catch (bakErr) {
+          console.warn(`[DataService] Failed to create backup (.bak) for critical file ${resolvedPath}:`, bakErr);
+        }
+      }
+
+      const tmpPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+      let success = false;
+
+      try {
+        await fsp.writeFile(tmpPath, content);
+
+        const delays = [50, 150, 300];
+        let lastError: any = null;
+
+        for (let attempt = 0; attempt <= delays.length; attempt++) {
+          try {
+            await fsp.rename(tmpPath, resolvedPath);
+            success = true;
+            break;
+          } catch (err: any) {
+            lastError = err;
+            const isLockError = err?.code === 'EPERM' || err?.code === 'EBUSY' || err?.code === 'EACCES';
+            if (isLockError && attempt < delays.length) {
+              const jitter = Math.floor(Math.random() * 30);
+              const waitMs = delays[attempt] + jitter;
+              await new Promise((r) => setTimeout(r, waitMs));
+            } else {
+              throw err;
+            }
+          }
+        }
+
+        if (!success && lastError) {
+          throw lastError;
+        }
+      } finally {
+        if (!success) {
+          try {
+            if (fs.existsSync(tmpPath)) {
+              await fsp.unlink(tmpPath);
+            }
+          } catch {
+            // ignore unlink error during orphan cleanup
+          }
+        }
+      }
+    });
   }
 
   private async readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
-    try {
-      if (!fs.existsSync(filePath)) return fallback;
-      const raw = await fsp.readFile(filePath, 'utf-8');
-      return JSON.parse(raw) as T;
-    } catch {
+    if (!fs.existsSync(filePath)) {
       return fallback;
     }
+
+    let raw: string | null = null;
+    let readError: any = null;
+
+    // Retry read up to 3 times to withstand transient Windows locks (EPERM / EBUSY)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        raw = await fsp.readFile(filePath, 'utf-8');
+        readError = null;
+        break;
+      } catch (err: any) {
+        readError = err;
+        const isLockError = err?.code === 'EPERM' || err?.code === 'EBUSY';
+        if (isLockError && attempt < 2) {
+          await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+        } else {
+          break;
+        }
+      }
+    }
+
+    if (raw !== null && raw.trim().length > 0) {
+      try {
+        return JSON.parse(raw) as T;
+      } catch (parseErr) {
+        console.error(`[DataService] Corrupted JSON in file ${filePath}:`, parseErr);
+      }
+    } else {
+      console.error(`[DataService] File ${filePath} exists but is empty or unreadable:`, readError);
+    }
+
+    // File exists but failed parsing or reading: quarantine damaged file
+    const quarantinePath = `${filePath}.corrupted.${Date.now()}`;
+    try {
+      await fsp.copyFile(filePath, quarantinePath);
+      console.warn(`[DataService] Quarantined corrupted file: ${filePath} -> ${quarantinePath}`);
+    } catch (quarantineErr) {
+      console.error(`[DataService] Failed to quarantine corrupted file ${filePath}:`, quarantineErr);
+    }
+
+    // Try reading backup (.bak)
+    const bakPath = `${filePath}.bak`;
+    if (fs.existsSync(bakPath)) {
+      try {
+        const bakRaw = await fsp.readFile(bakPath, 'utf-8');
+        const bakData = JSON.parse(bakRaw) as T;
+        console.warn(`[DataService] Restored valid JSON data from backup: ${bakPath}`);
+        return bakData;
+      } catch (bakErr) {
+        console.error(`[DataService] Backup file ${bakPath} also failed to parse:`, bakErr);
+      }
+    }
+
+    console.error(`[DataService] No valid backup available for ${filePath}. Returning fallback value.`);
+    return fallback;
   }
 
   /**
@@ -297,8 +456,10 @@ export class DataService {
   }
 
   public async saveManifest(manifest: ManifestDocument): Promise<void> {
-    const filePath = path.join(this.dataDir, 'manifest.json');
-    await this.replaceFileAtomically(filePath, JSON.stringify(manifest, null, 2));
+    return this.manifestMutex.acquire('manifest', async () => {
+      const filePath = path.join(this.dataDir, 'manifest.json');
+      await this.replaceFileAtomically(filePath, JSON.stringify(manifest, null, 2));
+    });
   }
 
   public async listWorkspaces(): Promise<any[]> {
@@ -324,23 +485,34 @@ export class DataService {
       }
     }
 
-    // Auto-discover any workspaces on disk not yet in manifest
-    try {
-      const wsParentDir = path.join(this.dataDir, 'workspaces');
-      if (fs.existsSync(wsParentDir)) {
-        const entries = await fsp.readdir(wsParentDir, { withFileTypes: true });
-        for (const dirent of entries) {
-          if (dirent.isDirectory() && !seenWsIds.has(dirent.name)) {
-            const discovered = await this.getWorkspace(dirent.name);
-            if (discovered) {
-              if (!discovered.id) discovered.id = dirent.name;
-              workspaces.push(discovered);
-              seenWsIds.add(dirent.name);
+    // Auto-discover workspaces on disk ONLY as emergency fallback when manifest has NO workspaces
+    if (workspaces.length === 0) {
+      try {
+        const wsParentDir = path.join(this.dataDir, 'workspaces');
+        if (fs.existsSync(wsParentDir)) {
+          const entries = await fsp.readdir(wsParentDir, { withFileTypes: true });
+          for (const dirent of entries) {
+            if (dirent.isDirectory() && !seenWsIds.has(dirent.name)) {
+              const discovered = await this.getWorkspace(dirent.name);
+              if (discovered) {
+                if (!discovered.id) discovered.id = dirent.name;
+                workspaces.push(discovered);
+                seenWsIds.add(dirent.name);
+              }
             }
           }
+          if (workspaces.length > 0) {
+            const manifestDoc = await this.getManifest();
+            manifestDoc.workspaces = workspaces.map((w) => ({
+              id: w.id,
+              name: w.name || 'Workspace',
+              path: path.posix.join('workspaces', w.id, 'workspace.json'),
+            }));
+            await this.saveManifest(manifestDoc);
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     if (workspaces.length === 0) {
       // Create initial workspace if none exist
@@ -354,21 +526,23 @@ export class DataService {
   public async getWorkspace(id: string): Promise<any | null> {
     const wsFile = path.join(this.dataDir, 'workspaces', id, 'workspace.json');
     if (!fs.existsSync(wsFile)) return null;
-    try {
-      const raw = await fsp.readFile(wsFile, 'utf-8');
-      const doc = JSON.parse(raw);
-      const payload = doc?.payload ? doc.payload : doc;
-      if (payload && typeof payload === 'object') {
-        if (!payload.id) payload.id = id;
-      }
-      return payload;
-    } catch {
-      return null;
+    const doc = await this.readJsonFile<any | null>(wsFile, null);
+    if (!doc) return null;
+    const payload = doc?.payload ? doc.payload : doc;
+    if (payload && typeof payload === 'object') {
+      if (!payload.id) payload.id = id;
     }
+    return payload;
   }
 
   public async saveWorkspace(ws: any): Promise<void> {
     if (!ws || !ws.id) throw new Error('Workspace must have an id');
+    return this.workspaceMutex.acquire(ws.id, async () => {
+      await this.saveWorkspaceInternal(ws);
+    });
+  }
+
+  private async saveWorkspaceInternal(ws: any): Promise<void> {
     const wsDir = path.join(this.dataDir, 'workspaces', ws.id);
     await fsp.mkdir(wsDir, { recursive: true });
 
@@ -380,21 +554,111 @@ export class DataService {
     };
     await this.replaceFileAtomically(wsFile, JSON.stringify(doc, null, 2));
 
-    // Update manifest
-    const manifest = await this.getManifest();
-    const relPath = path.posix.join('workspaces', ws.id, 'workspace.json');
-    const existingIndex = manifest.workspaces.findIndex((entry) => entry.id === ws.id);
-    if (existingIndex >= 0) {
-      manifest.workspaces[existingIndex].name = ws.name || manifest.workspaces[existingIndex].name;
-      manifest.workspaces[existingIndex].path = relPath;
-    } else {
-      manifest.workspaces.push({
-        id: ws.id,
-        name: ws.name || 'Workspace',
-        path: relPath
-      });
+    // Mirror Markdown notes in workspaces/<ws.id>/notes/<note.content.noteId || note.id>.md
+    try {
+      await this.syncWorkspaceNotes(ws.id, ws);
+    } catch (noteErr) {
+      console.error(`[DataService] Error synchronizing notes for workspace ${ws.id}:`, noteErr);
     }
-    await this.saveManifest(manifest);
+
+    // Update manifest safely via manifest mutex
+    await this.manifestMutex.acquire('manifest', async () => {
+      const manifest = await this.getManifest();
+      const relPath = path.posix.join('workspaces', ws.id, 'workspace.json');
+      const existingIndex = manifest.workspaces.findIndex((entry) => entry.id === ws.id);
+      if (existingIndex >= 0) {
+        manifest.workspaces[existingIndex].name = ws.name || manifest.workspaces[existingIndex].name;
+        manifest.workspaces[existingIndex].path = relPath;
+      } else {
+        manifest.workspaces.push({
+          id: ws.id,
+          name: ws.name || 'Workspace',
+          path: relPath
+        });
+      }
+      const manifestPath = path.join(this.dataDir, 'manifest.json');
+      await this.replaceFileAtomically(manifestPath, JSON.stringify(manifest, null, 2));
+    });
+  }
+
+  private async syncWorkspaceNotes(wsId: string, ws: any): Promise<void> {
+    const notesDir = path.join(this.dataDir, 'workspaces', wsId, 'notes');
+    await fsp.mkdir(notesDir, { recursive: true });
+
+    const nodes: any[] = [];
+    if (Array.isArray(ws.nodes)) {
+      nodes.push(...ws.nodes);
+    }
+    if (Array.isArray(ws.floors)) {
+      for (const floor of ws.floors) {
+        if (floor && Array.isArray(floor.nodes)) {
+          nodes.push(...floor.nodes);
+        }
+      }
+    }
+
+    const activeNoteFiles = new Set<string>();
+
+    for (const node of nodes) {
+      if (!node) continue;
+      const isNote = node.kind === 'note' || node.type === 'note';
+      if (!isNote) continue;
+
+      const noteId = node.content?.noteId || node.id;
+      if (!noteId) continue;
+
+      const fileName = `${noteId}.md`;
+      activeNoteFiles.add(fileName);
+
+      let markdown = '';
+      if (node.content) {
+        if (typeof node.content === 'string') {
+          markdown = node.content;
+        } else if (typeof node.content.body === 'string') {
+          markdown = node.content.body;
+        } else if (typeof node.content.text === 'string') {
+          markdown = node.content.text;
+        } else if (typeof node.content.content === 'string') {
+          markdown = node.content.content;
+        } else if (typeof node.content.title === 'string') {
+          markdown = node.content.title;
+        }
+      }
+
+      const noteFilePath = path.join(notesDir, fileName);
+      let needsWrite = true;
+      try {
+        if (fs.existsSync(noteFilePath)) {
+          const currentMd = await fsp.readFile(noteFilePath, 'utf-8');
+          if (currentMd === markdown) {
+            needsWrite = false;
+          }
+        }
+      } catch {
+        needsWrite = true;
+      }
+
+      if (needsWrite) {
+        await this.replaceFileAtomically(noteFilePath, markdown);
+      }
+    }
+
+    // Clean up removed notes from disk
+    try {
+      const filesOnDisk = await fsp.readdir(notesDir);
+      for (const file of filesOnDisk) {
+        if (file.endsWith('.md') && !activeNoteFiles.has(file)) {
+          const toRemove = path.join(notesDir, file);
+          try {
+            await fsp.unlink(toRemove);
+          } catch (unlinkErr) {
+            console.warn(`[DataService] Failed to clean up removed note ${toRemove}:`, unlinkErr);
+          }
+        }
+      }
+    } catch (cleanErr) {
+      console.warn(`[DataService] Failed to scan notes directory at ${notesDir}:`, cleanErr);
+    }
   }
 
   public async createWorkspace(name: string, dir: string, ide = 'vscode'): Promise<any> {
@@ -424,29 +688,57 @@ export class DataService {
   }
 
   public async patchWorkspace(id: string, patch: any): Promise<any> {
-    const current = (await this.getWorkspace(id)) || {};
-    const updated = {
-      ...current,
-      ...patch,
-      id
-    };
-    await this.saveWorkspace(updated);
-    return updated;
+    return this.workspaceMutex.acquire(id, async () => {
+      const current = (await this.getWorkspace(id)) || {};
+      const updated = {
+        ...current,
+        ...patch,
+        id
+      };
+      await this.saveWorkspaceInternal(updated);
+      return updated;
+    });
   }
 
-  public async deleteWorkspace(id: string, deleteDir = false): Promise<void> {
-    const manifest = await this.getManifest();
-    manifest.workspaces = (manifest.workspaces || []).filter((w) => w.id !== id);
-    await this.saveManifest(manifest);
+  public async deleteWorkspace(id: string, deleteProjectFiles = false): Promise<void> {
+    await this.workspaceMutex.acquire(id, async () => {
+      // 1. Remove from manifest.json
+      await this.manifestMutex.acquire('manifest', async () => {
+        const manifest = await this.getManifest();
+        manifest.workspaces = (manifest.workspaces || []).filter((w) => w.id !== id);
+        const filePath = path.join(this.dataDir, 'manifest.json');
+        await this.replaceFileAtomically(filePath, JSON.stringify(manifest, null, 2));
+      });
 
-    if (deleteDir) {
+      // 2. Always remove mindAgentics internal storage directory for this workspace (~/.mindagentics/workspaces/<id>)
       const wsDir = path.join(this.dataDir, 'workspaces', id);
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          if (fs.existsSync(wsDir)) {
+            await fsp.rm(wsDir, { recursive: true, force: true });
+          }
+          break;
+        } catch {
+          await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+        }
+      }
+
+      // 3. Clean up app-state.json (remove from recentWorkspaceIds and update activeWorkspaceId)
       try {
-        await fsp.rm(wsDir, { recursive: true, force: true });
+        const appState = await this.getAppState();
+        const recents = (appState.payload?.recentWorkspaceIds || []).filter((wid) => wid !== id);
+        let activeId = (appState.payload as any)?.activeWorkspaceId;
+        if (activeId === id) {
+          activeId = recents[0] || null;
+        }
+        await this.saveAppState({
+          recentWorkspaceIds: recents,
+          activeWorkspaceId: activeId,
+        } as any);
       } catch {
         // ignore
       }
-    }
+    });
   }
 
   // ==========================================
@@ -539,7 +831,13 @@ export class DataService {
         if (!fs.existsSync(currentDir)) return;
         const entries = await fsp.readdir(currentDir, { withFileTypes: true });
         for (const entry of entries) {
-          if (entry.name === 'backups' || entry.name.endsWith('.tmp') || entry.name.includes('.tmp.')) {
+          if (
+            entry.name === 'backups' ||
+            entry.name.endsWith('.tmp') ||
+            entry.name.includes('.tmp.') ||
+            entry.name.endsWith('.bak') ||
+            entry.name.includes('.corrupted.')
+          ) {
             continue;
           }
           const fullPath = path.join(currentDir, entry.name);
@@ -576,7 +874,11 @@ export class DataService {
       for (const [relPath, content] of Object.entries(unzipped)) {
         // Prevent path traversal
         const safeRel = path.normalize(relPath).replace(/^(\.\.[\/\\])+/, '');
-        const target = path.join(this.dataDir, safeRel);
+        const target = path.resolve(this.dataDir, safeRel);
+        if (!target.startsWith(path.resolve(this.dataDir))) {
+          console.warn(`[DataService] Blocked unsafe path traversal in backup import: ${relPath}`);
+          continue;
+        }
         await this.replaceFileAtomically(target, content);
       }
 

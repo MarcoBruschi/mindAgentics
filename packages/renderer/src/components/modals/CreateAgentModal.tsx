@@ -240,10 +240,17 @@ export const CreateAgentModal: React.FC = () => {
     // Spawn PTY process if backend is connected
     if (window.api?.terminal?.spawn) {
       window.api.terminal.spawn({
+        id: newTerminalId,
         terminalId: newTerminalId,
         workspaceId: activeWorkspace?.id || 'workspace-main',
         command: finalCmd,
         cwd: finalDir,
+        title: finalName,
+        agentRole: agentRole || 'Developer',
+        instructions: enrichedInstructions,
+        isAutonomous,
+        presetId: selectedPresetId,
+        maestroMode: isMaestro,
       }).catch(() => {});
     }
 

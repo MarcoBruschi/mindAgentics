@@ -38,22 +38,74 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
   const [subaction, ...restArgs] = req.args;
   const action = (subaction || '').toLowerCase();
 
+  // 0. Help handling
+  if (!action || action === 'help' || action === '--help' || action === '-h' || req.options.help) {
+    return {
+      output: `Uso: mindagentics note <subcomando> [argumentos] [opções]
+
+Subcomandos:
+  create ["<Título>"] [--body "<Texto>"] [--color <cor>] [--stack "<Fichário>"]
+      Cria uma nova nota adesiva ou adiciona como página dentro de um Fichário.
+      Opções:
+        --body, --content "<texto>"    Conteúdo Markdown da nota
+        --color <yellow|blue|green|pink|purple|gray>  Cor da nota (padrão: yellow)
+        --stack "<nome do fichário>"   Insere diretamente dentro de um NoteStack (Fichário)
+        --title, --name "<título>"     Título explícito da nota
+
+  stack "<Nome da Nota>" ["<Nome do Fichário>"]
+      Move uma nota existente para dentro de um Fichário (NoteStack).
+      Se o fichário não existir, ele será criado automaticamente no canvas.
+
+  unstack "<Nome da Nota>"
+      Remove a nota de dentro do fichário, tornando-a avulsa no canvas.
+
+  read "<Nome da Nota>"
+      Lê o conteúdo completo de uma nota.
+
+  write "<Nome da Nota>" "<Novo Conteúdo>"
+      Atualiza e substitui o conteúdo do corpo da nota.
+
+  edit "<Nome da Nota>" "<Novo Conteúdo>"
+      Alias para write.
+
+  delete "<Nome da Nota>"
+      Remove permanentemente a nota do canvas.
+
+  list
+      Lista todas as notas e fichários existentes no workspace.
+`,
+      exitCode: 0,
+    };
+  }
+
   switch (action) {
     case 'create': {
-      let content = req.options.content || '';
-      if (!content && restArgs.length > 0 && !restArgs[0].startsWith('-')) {
-        content = restArgs.join(' ');
+      let title = (req.options.title || req.options.name) as string | undefined;
+      let content = (req.options.body || req.options.content) as string | undefined;
+
+      if (!title && restArgs.length > 0 && !restArgs[0].startsWith('-')) {
+        title = restArgs[0];
+        if (!content && restArgs.length > 1) {
+          content = restArgs.slice(1).join(' ');
+        }
       }
 
-      const explicitName = req.options.name as string | undefined;
-      const stack = req.options.stack as string | undefined;
-      const color = (req.options.color as NoteColor) || 'yellow';
+      if (!content) {
+        content = (req.options.body || req.options.content || '') as string;
+      }
 
-      let title: string = explicitName || '';
       if (!title) {
-        const firstLine = content.split('\n')[0].replace(/^#+\s*/, '').trim();
+        const firstLine = (content || '').split('\n')[0].replace(/^#+\s*/, '').trim();
         title = firstLine || `Note-${randomUUID().slice(0, 6)}`;
       }
+
+      if (!content) {
+        content = title;
+      }
+
+      const explicitName = (req.options.title || req.options.name) as string | undefined;
+      const stack = req.options.stack as string | undefined;
+      const color = (req.options.color as NoteColor) || 'yellow';
 
       const noteId = randomUUID();
       const nodeId = `node-note-${noteId.slice(0, 8)}`;
@@ -563,9 +615,44 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
       };
     }
 
+    case 'list': {
+      const notes = [];
+      const stacks = [];
+
+      for (const node of state.nodes.values()) {
+        if (node.kind === 'note') {
+          const c = node.content || {};
+          notes.push(`- [Nota] "${c.title || 'Sem título'}" (ID: ${node.id}, cor: ${c.color || 'yellow'}${c.stackId ? `, no fichário: "${c.stackId}"` : ''})`);
+        } else if (node.kind === 'noteStack') {
+          const c = node.content || {};
+          const pageCount = c.pages?.length || c.noteIds?.length || 0;
+          stacks.push(`- [Fichário] "${c.title || 'Fichário'}" (ID: ${node.id}, páginas: ${pageCount})`);
+        }
+      }
+
+      const total = notes.length + stacks.length;
+      if (total === 0) {
+        return {
+          output: 'Nenhuma nota ou fichário encontrado no workspace atual.',
+          exitCode: 0,
+        };
+      }
+
+      const out = [
+        `Total no canvas: ${total} (${notes.length} notas, ${stacks.length} fichários)`,
+        ...(stacks.length > 0 ? ['\nFichários:', ...stacks] : []),
+        ...(notes.length > 0 ? ['\nNotas:', ...notes] : []),
+      ].join('\n');
+
+      return {
+        output: out,
+        exitCode: 0,
+      };
+    }
+
     default:
       return {
-        error: `Unknown note subcommand: "${action}". Valid: create, read, write, edit, stack, unstack, delete.`,
+        error: `Unknown note subcommand: "${action}". Valid: create, read, write, edit, stack, unstack, delete, list, help.`,
         exitCode: 1,
       };
   }

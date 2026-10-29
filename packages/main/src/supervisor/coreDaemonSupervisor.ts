@@ -211,6 +211,27 @@ export class CoreDaemonSupervisor extends EventEmitter {
       case 'cableTieDeleted':
         this.emit('cableTieDeleted', frame.payload);
         break;
+      case 'workspaceCreate':
+        this.emit('workspaceCreate', frame.payload);
+        break;
+      case 'floorCreate':
+        this.emit('floorCreate', frame.payload);
+        break;
+      case 'floorCreateKindResult':
+        this.emit('floorCreateKindResult', frame.payload);
+        break;
+      case 'routineCreate':
+        this.emit('routineCreate', frame.payload);
+        break;
+      case 'bandCreated':
+        this.emit('bandCreated', frame.payload);
+        break;
+      case 'bandDissolved':
+        this.emit('bandDissolved', frame.payload);
+        break;
+      case 'bandUpdated':
+        this.emit('bandUpdated', frame.payload);
+        break;
       default:
         this.emit(frame.type, frame.payload);
         this.emit('event', frame);
@@ -273,6 +294,10 @@ export class CoreDaemonSupervisor extends EventEmitter {
 
   public syncCanvas(payload: any): void {
     this.sendNotification('syncCanvas', payload);
+  }
+
+  public syncWorkspaces(workspaces: any[]): void {
+    this.sendNotification('syncWorkspaces', { workspaces });
   }
 
   public unregisterTerminal(terminalId: string): void {

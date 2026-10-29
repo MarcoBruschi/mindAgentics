@@ -15,11 +15,12 @@ export function isInputOrEditable(element: Element | null): boolean {
   if (!element) return false;
   const tag = element.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
-  if ((element as HTMLElement).isContentEditable) return true;
+  if ((element as HTMLElement).isContentEditable || element.closest?.('[contenteditable="true"]') !== null) return true;
   if (
-    element.classList.contains('xterm-helper-textarea') ||
-    element.classList.contains('cm-content') ||
-    element.closest('.xterm') !== null
+    element.classList?.contains('xterm-helper-textarea') ||
+    element.classList?.contains('cm-content') ||
+    element.closest?.('.xterm') !== null ||
+    element.closest?.('.xterm-helper-textarea') !== null
   ) {
     return true;
   }

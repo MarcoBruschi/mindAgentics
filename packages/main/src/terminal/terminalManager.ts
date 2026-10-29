@@ -11,6 +11,7 @@ import { probeAntigravity, probeCodex, probeOpenCode, formatResetCountdown, type
 
 export interface TerminalSpawnOptions {
   id?: string;
+  terminalId?: string;
   cwd?: string;
   command?: string;
   args?: string[];
@@ -20,6 +21,9 @@ export interface TerminalSpawnOptions {
   workspaceId?: string;
   presetId?: string;
   title?: string;
+  agentRole?: string;
+  instructions?: string;
+  isAutonomous?: boolean;
   maestroMode?: boolean;
 }
 
@@ -34,6 +38,9 @@ export interface TerminalSession {
   focused: boolean;
   cols: number;
   rows: number;
+  title?: string;
+  agentRole?: string;
+  instructions?: string;
   maestroMode?: boolean;
   activeAskId?: string;
   askOutput?: string;
@@ -136,7 +143,12 @@ export class TerminalManager extends EventEmitter {
     try {
       const filePath = this.getLogFilePath(terminalId);
       if (fs.existsSync(filePath)) {
-        return fs.readFileSync(filePath, 'utf8');
+        const raw = fs.readFileSync(filePath, 'utf8');
+        const lines = raw.split('\n');
+        if (lines.length > this.maxScrollbackLines) {
+          return lines.slice(-this.maxScrollbackLines).join('\n');
+        }
+        return raw;
       }
     } catch (err) {
       console.warn(`[TerminalManager] Failed to read persisted scrollback for ${terminalId}:`, err);
@@ -144,13 +156,21 @@ export class TerminalManager extends EventEmitter {
     return '';
   }
 
-  private persistScrollback(terminalId: string): void {
+  private async persistScrollback(terminalId: string): Promise<void> {
     const session = this.sessions.get(terminalId);
     if (!session) return;
     try {
       const filePath = this.getLogFilePath(terminalId);
-      const content = session.scrollback.join('');
-      fs.writeFileSync(filePath, content, 'utf8');
+      let content = session.scrollback.join('');
+
+      // Limit scrollback to at most 10,000 lines per log file
+      const lines = content.split('\n');
+      if (lines.length > this.maxScrollbackLines) {
+        content = lines.slice(-this.maxScrollbackLines).join('\n');
+        session.scrollback = [content];
+      }
+
+      await fs.promises.writeFile(filePath, content, 'utf8');
     } catch (err) {
       console.warn(`[TerminalManager] Failed to persist scrollback for ${terminalId}:`, err);
     }
@@ -161,33 +181,41 @@ export class TerminalManager extends EventEmitter {
 
     const timer = setTimeout(() => {
       this.saveDebounceTimers.delete(terminalId);
-      this.persistScrollback(terminalId);
+      this.persistScrollback(terminalId).catch((err) => {
+        console.warn(`[TerminalManager] Async persistScrollback failed for ${terminalId}:`, err);
+      });
     }, 500);
 
     this.saveDebounceTimers.set(terminalId, timer);
   }
 
-  public flushScrollback(terminalId: string): void {
+  public async flushScrollback(terminalId: string): Promise<void> {
     const timer = this.saveDebounceTimers.get(terminalId);
     if (timer) {
       clearTimeout(timer);
       this.saveDebounceTimers.delete(terminalId);
     }
-    this.persistScrollback(terminalId);
+    await this.persistScrollback(terminalId);
   }
 
-  public flushAllScrollbacks(): void {
+  public async flushAllScrollbacks(): Promise<void> {
+    const promises: Promise<void>[] = [];
     for (const terminalId of this.sessions.keys()) {
-      this.flushScrollback(terminalId);
+      promises.push(this.flushScrollback(terminalId));
     }
+    await Promise.all(promises);
   }
 
   public async spawn(options: TerminalSpawnOptions): Promise<{ terminalId: string; attached?: boolean }> {
-    const terminalId = options.id || crypto.randomUUID();
+    const terminalId = options.id || options.terminalId || crypto.randomUUID();
     const workspaceId = options.workspaceId || '';
     const cols = options.cols || 120;
     const rows = options.rows || 32;
     const cwd = options.cwd && fs.existsSync(options.cwd) ? options.cwd : os.homedir();
+    const agentName = options.title || 'Agent';
+    const agentRole = options.agentRole || '';
+    const instructions = options.instructions || '';
+    const isAutonomous = options.isAutonomous ?? true;
 
     // 1. Check if session already exists and is alive (e.g. switching workspaces and returning)
     const existing = this.sessions.get(terminalId);
@@ -225,11 +253,17 @@ export class TerminalManager extends EventEmitter {
       MINDAGENTICS_TERMINAL_ID: terminalId,
       MINDAGENTICS_WORKSPACE_ID: workspaceId,
       MINDAGENTICS_CLI: cliPath,
+      MINDAGENTICS_AGENT_NAME: agentName,
+      MINDAGENTICS_AGENT_ROLE: agentRole,
+      MINDAGENTICS_AGENT_INSTRUCTIONS: instructions,
       MAESTRI_PIPE: pipeAddress,
       MAESTRI_SOCKET: pipeAddress,
       MAESTRI_TERMINAL_ID: terminalId,
       MAESTRI_WORKSPACE_ID: workspaceId,
       MAESTRI_CLI: cliPath,
+      MAESTRI_AGENT_NAME: agentName,
+      MAESTRI_AGENT_ROLE: agentRole,
+      MAESTRI_AGENT_INSTRUCTIONS: instructions,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
       TERM_PROGRAM: 'mindAgentics',
@@ -240,7 +274,7 @@ export class TerminalManager extends EventEmitter {
 
     const shellArgs = isWin ? ['-NoLogo', '-NoExit'] : ['-l'];
 
-    this.ensureMindAgenticsSkills(cwd);
+    this.ensureMindAgenticsSkills(cwd, { title: agentName, agentRole, instructions, terminalId });
 
     try {
       const pty = nodePty.spawn(shell, shellArgs, {
@@ -263,36 +297,78 @@ export class TerminalManager extends EventEmitter {
         focused: false,
         cols,
         rows,
+        title: agentName,
+        agentRole,
+        instructions,
         maestroMode: Boolean(options.maestroMode),
         isAlive: true
       };
 
       this.sessions.set(terminalId, session);
 
+      // Build identity briefing so the agent immediately absorbs its name, role, and context
+      let identityBriefing = '';
+      const briefingParts: string[] = [];
+      if (agentName && agentName !== 'Terminal' && agentName !== 'Antigravity' && agentName !== 'Codex' && agentName !== 'Claude Code') {
+        briefingParts.push(`Seu nome de agente é "${agentName}".`);
+      }
+      if (agentRole) {
+        briefingParts.push(`Seu papel / função principal é: ${agentRole}.`);
+      }
+      if (options.maestroMode) {
+        briefingParts.push(`Você é o Maestro / Orquestrador Central da equipe. Planeje, divida objetivos e delegue tarefas aos outros agentes conectados usando 'mindagentics ask'.`);
+      }
+      if (instructions && instructions.trim().length > 0) {
+        briefingParts.push(`Contexto e diretrizes adicionais: ${instructions.trim()}`);
+      }
+      if (briefingParts.length > 0) {
+        briefingParts.push('Assuma esta identidade no canvas mindAgentics e confirme seu papel.');
+        identityBriefing = briefingParts.join(' ');
+      }
+
       if (options.command && options.command.trim().length > 0) {
         let cmdToRun = options.command.trim();
 
         // Enforce autonomous mode flags to avoid manual authorization prompts
-        const isAutonomous = (options as any).isAutonomous ?? true;
         if (isAutonomous) {
           if (cmdToRun.startsWith('agy') && !cmdToRun.includes('--dangerously-skip-permissions')) {
             cmdToRun += ' --dangerously-skip-permissions --mode auto';
           } else if (cmdToRun.startsWith('codex')) {
-            // Codex CLI forbids using --dangerously-bypass-approvals-and-sandbox together with --ask-for-approval
             cmdToRun = cmdToRun.replace(/--ask-for-approval\s+[^\s]+/g, '').trim();
             if (!cmdToRun.includes('--dangerously-bypass-approvals-and-sandbox')) {
               cmdToRun += ' --dangerously-bypass-approvals-and-sandbox';
             }
           } else if (cmdToRun.startsWith('claude') && !cmdToRun.includes('--dangerously-skip-permissions')) {
             cmdToRun += ' --dangerously-skip-permissions';
-          } else if (cmdToRun.startsWith('opencode') && !cmdToRun.includes('--dangerously-skip-permissions')) {
-            cmdToRun += ' --dangerously-skip-permissions';
+          } else if (cmdToRun.startsWith('opencode') && !cmdToRun.includes('--auto')) {
+            cmdToRun += ' --auto';
+          }
+        }
+
+        // Inject initial identity briefing into CLI argument if defined
+        if (identityBriefing) {
+          const sanitizedPrompt = identityBriefing.replace(/"/g, "'").replace(/[\r\n]+/g, ' ').trim();
+          if (cmdToRun.startsWith('agy') && !cmdToRun.includes('-i ') && !cmdToRun.includes('--prompt-interactive')) {
+            cmdToRun += ` -i "${sanitizedPrompt}"`;
+          } else if (cmdToRun.startsWith('codex') && !cmdToRun.includes('"')) {
+            cmdToRun += ` "${sanitizedPrompt}"`;
+          } else if (cmdToRun.startsWith('claude') && !cmdToRun.includes('"')) {
+            cmdToRun += ` "${sanitizedPrompt}"`;
+          } else if (cmdToRun.startsWith('opencode') && !cmdToRun.includes('--prompt')) {
+            cmdToRun += ` --prompt "${sanitizedPrompt}"`;
           }
         }
 
         setTimeout(() => {
           try {
             pty.write(cmdToRun + '\r\n');
+          } catch {}
+        }, 350);
+      } else if (identityBriefing) {
+        // Plain shell: output visual identity banner
+        setTimeout(() => {
+          try {
+            pty.write(`Write-Host "[mindAgentics] Agente: ${agentName} | Papel: ${agentRole || 'Developer'}" -ForegroundColor Cyan\r\n`);
           } catch {}
         }, 350);
       }
@@ -309,6 +385,12 @@ export class TerminalManager extends EventEmitter {
         if (session.activeAskId) {
           session.askOutput = (session.askOutput || '') + data;
           if (session.askTimer) clearTimeout(session.askTimer);
+
+          // Fast prompt detection: if output ends with a shell or CLI prompt, settle in 250ms
+          // Otherwise use a responsive 750ms debounce instead of a sluggish 1500ms
+          const endsWithPrompt = /(?:[$#>❯›]\s*|\b(?:PS [^>]+>)\s*)$/.test(data.trimEnd());
+          const settleDelay = endsWithPrompt ? 250 : 750;
+
           session.askTimer = setTimeout(() => {
             if (session.activeAskId) {
               const rawOut = session.askOutput || '';
@@ -322,7 +404,7 @@ export class TerminalManager extends EventEmitter {
               const clean = rawOut.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '').trim();
               this.supervisor.chatTurnSettled(terminalId, clean, askIdToSettle);
             }
-          }, 1500);
+          }, settleDelay);
         }
       });
 
@@ -419,7 +501,7 @@ export class TerminalManager extends EventEmitter {
     }
   }
 
-  private ensureMindAgenticsSkills(targetDir?: string): void {
+  private ensureMindAgenticsSkills(targetDir?: string, agentInfo?: { title?: string; agentRole?: string; instructions?: string; terminalId?: string }): void {
     try {
       const skillsSource = path.join(os.homedir(), '.gemini', 'config', 'skills');
       if (!fs.existsSync(skillsSource)) return;
@@ -467,8 +549,11 @@ export class TerminalManager extends EventEmitter {
             needsUpdate = false;
           }
         }
-        if (needsUpdate) {
-          const content = `# mindAgentics Canvas - Instruções para Agentes de IA
+        if (needsUpdate || (agentInfo && (agentInfo.title || agentInfo.agentRole || agentInfo.instructions))) {
+          const agentBlock = agentInfo && (agentInfo.title || agentInfo.agentRole || agentInfo.instructions)
+            ? `\n\n## Agente Configurado Neste Terminal (ID: ${agentInfo.terminalId || 'atual'})\n- **Nome:** ${agentInfo.title || 'Agente'}\n- **Papel / Função:** ${agentInfo.agentRole || 'Developer'}\n${agentInfo.instructions ? `- **Contexto e Instruções:**\n${agentInfo.instructions}\n` : ''}`
+            : '';
+          const content = `# mindAgentics Canvas - Instruções para Agentes de IA${agentBlock}
 
 > [!IMPORTANT]
 > **DIRETRIZ ZERO-READ (NÃO RE-LEIA ESTE MANUAL):**
