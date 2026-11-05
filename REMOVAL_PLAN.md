@@ -62,3 +62,13 @@ Este plano cobre a remoção do `CLONE_SPEC.md` e de vestígios de identidade, n
 
 - Criar uma nota curta de migração sem reproduzir conteúdo do documento removido.
 - Documentar a revisão do histórico, refs reescritos e a data a partir da qual clones antigos não devem ser usados.
+
+---
+
+## Status de Execução: Concluído
+
+- **Data da Execução:** 05/11/2026
+- **Árvore de Trabalho:** Limpa e validada (0 ocorrências de termos proibidos).
+- **Auditoria Automatizada:** `tests/audit/authorship.test.mjs` ativo com cobertura estrita para raiz, `packages/`, `scripts/`, `skills/` e `tests/`.
+- **Histórico Git:** Todos os refs históricos foram reescritos via `git filter-repo`. O arquivo e o histórico de `CLONE_SPEC.md` foram purgados de 100% dos commits anteriores.
+- **Instrução para Colaboradores:** Clones anteriores a 05/11/2026 tornaram-se obsoletos devido à reescrita dos hashes Git. Recomenda-se realizar novo clone do repositório ou executar `git fetch origin && git reset --hard origin/main`.
