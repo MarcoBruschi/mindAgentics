@@ -1,6 +1,6 @@
 /**
  * Accounts and Provider Credentials Models
- * Section 3.2 & 4.2 of CLONE_SPEC.md
+ * Accounts and credentials configuration schema.
  */
 
 export type AccountProvider = 'anthropic' | 'openai' | 'github' | 'gemini' | 'ollama' | 'custom';

@@ -209,7 +209,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     let unsubscribeData: (() => void) | undefined;
     let unsubscribeStatus: (() => void) | undefined;
 
-    const termBridge = window.mindAgentics?.terminal || (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal);
+    const termBridge = window.mindAgentics?.terminal || (window.mindAgentics?.terminal || window.api?.terminal ?.terminal);
     if (termBridge) {
       let scrollbackRestored = false;
       const pendingDataQueue: string[] = [];
@@ -328,7 +328,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           fitAddon.fit();
           const termResize =
             window.mindAgentics?.terminal?.resize ||
-            (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.resize;
+            (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.resize;
           if (termResize) {
             termResize(termId, term.cols, term.rows);
           }
@@ -381,7 +381,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         maestroMode: nextMaestro,
       },
     });
-    const setMaestroFn = window.mindAgentics?.terminal?.setMaestroMode || (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.setMaestroMode;
+    const setMaestroFn = window.mindAgentics?.terminal?.setMaestroMode || (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.setMaestroMode;
     if (setMaestroFn) {
       setMaestroFn(node.content.terminalId, nextMaestro).catch(() => {});
     }
@@ -403,7 +403,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       refCommand = `mindagentics ask "${termTitle}" "Hello from ${agentName}"`;
     }
 
-    const termWrite = window.mindAgentics?.terminal?.write || (window.mindAgentics?.terminal || window.api?.terminal || window.maestri?.terminal)?.write;
+    const termWrite = window.mindAgentics?.terminal?.write || (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.write;
     if (refCommand && termWrite) {
       termWrite(node.content.terminalId, refCommand + '\r');
     } else if (refCommand) {

@@ -1,6 +1,6 @@
 /**
  * Windows Named Pipe Server
- * Listens on `\\.\pipe\maestri-<id>` (or socket on POSIX)
+ * Listens on `\\.\pipe\mindagentics-<id>` (or socket on POSIX)
  * Handles incoming CLI requests from agent terminals.
  */
 
@@ -17,6 +17,8 @@ export type CommandHandler = (
   scheduler: RoutineScheduler,
   sendToMain: (frame: any) => void,
 ) => Promise<{ output?: string; error?: string; exitCode?: number; data?: any }>;
+
+const MAX_PIPE_BUFFER_BYTES = 5 * 1024 * 1024; // 5 MB max request buffer
 
 export class NamedPipeServer {
   private server: net.Server | null = null;
@@ -41,6 +43,19 @@ export class NamedPipeServer {
 
         socket.on('data', async (chunk) => {
           buffer += chunk.toString('utf8');
+
+          if (buffer.length > MAX_PIPE_BUFFER_BYTES) {
+            const errResp: CliResponseEnvelope = {
+              id: 'err',
+              ok: false,
+              error: 'Payload too large: request buffer exceeds maximum allowed limit of 5MB',
+              exitCode: 1,
+            };
+            socket.write(JSON.stringify(errResp) + '\n');
+            buffer = '';
+            return;
+          }
+
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
 
@@ -64,7 +79,7 @@ export class NamedPipeServer {
           }
         });
 
-        socket.on('error', (err) => {
+        socket.on('error', (_err) => {
           // Socket error handling
         });
       });
@@ -90,6 +105,24 @@ export class NamedPipeServer {
   }
 
   private async handleRequest(req: CliRequestEnvelope): Promise<CliResponseEnvelope> {
+    if (!req || typeof req !== 'object') {
+      return {
+        id: 'err',
+        ok: false,
+        error: 'Invalid request: request body must be a valid JSON object',
+        exitCode: 1,
+      };
+    }
+
+    if (!req.command || typeof req.command !== 'string') {
+      return {
+        id: req?.id || 'err',
+        ok: false,
+        error: 'Invalid request: "command" field is required and must be a string',
+        exitCode: 1,
+      };
+    }
+
     const cmd = req.command.toLowerCase();
     const handler = this.handlers.get(cmd);
 

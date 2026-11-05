@@ -1,6 +1,6 @@
 /**
- * @maestri/shared
- * Complete shared types, IPC channel constants, and frame protocols for Maestri.
+ * @mindagentics/shared
+ * Complete shared types, IPC channel constants, and frame protocols for mindAgentics.
  */
 
 // IPC Channels & Protocols

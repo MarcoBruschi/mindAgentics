@@ -75,7 +75,7 @@ export const CreateAgentModal: React.FC = () => {
       try {
         const getLimitsFn =
           window.mindAgentics?.terminal?.getAgentLimits ||
-          (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits || window.maestri?.terminal?.getAgentLimits) ||
+          (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits ?.terminal?.getAgentLimits) ||
           window.api?.terminal?.getAgentLimits;
 
         if (typeof getLimitsFn === 'function') {
@@ -85,7 +85,7 @@ export const CreateAgentModal: React.FC = () => {
           }
         }
 
-        const detectFn = window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents);
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents ?.terminal?.detectAgents);
         if (detectFn) {
           const agents = await detectFn();
           if (Array.isArray(agents)) {
@@ -178,7 +178,7 @@ export const CreateAgentModal: React.FC = () => {
 
     if (injectKnowledgeGraph) {
       try {
-        const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
+        const api = (window as any).api || (window as any).mindAgentics ;
         if (api?.graphify?.checkGraph) {
           const check = await api.graphify.checkGraph(finalDir);
           if (check?.hasGraph && check.reportContent) {

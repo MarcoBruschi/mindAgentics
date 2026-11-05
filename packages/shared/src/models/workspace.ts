@@ -1,6 +1,6 @@
 /**
  * Workspace and Floor Models & Schemas
- * Section 4.3 of CLONE_SPEC.md
+ * Workspace and Floor topology models and persistence schemas.
  */
 
 import type { CanvasNode, CableTie, CanvasBand, CanvasDrawing } from './nodes.js';
@@ -26,7 +26,6 @@ export interface FloorDescriptor {
   worktreePath: string;
   branch: string;
   branchCreatedByMindAgentics?: boolean;
-  branchCreatedByMaestri?: boolean;
   createdAt: string;
   state: FloorState;
 }

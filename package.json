@@ -3,6 +3,8 @@
   "version": "0.26.0",
   "private": true,
   "description": "Spatial AI Development Workspace & Infinite Agent Canvas",
+  "author": "mindAgentics Team",
+  "main": "packages/main/dist/index.js",
   "workspaces": [
     "packages/*"
   ],
@@ -16,14 +18,74 @@
     "build": "npm run build:shared && npm run build:public && npm run build:core && npm run build:preload && npm run build:renderer && npm run build:main",
     "dev:renderer": "npm run dev --workspace=@mindagentics/renderer",
     "start": "electron packages/main/dist/index.js",
+    "test:authorship": "node --test tests/audit/*.test.mjs",
+    "test:security": "node --test tests/security/*.test.mjs",
+    "test:functional": "node --test packages/core-daemon/test/*.test.mjs tests/functional/*.test.mjs",
+    "test": "npm run test:authorship && npm run test:security && npm run test:functional",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
     "setup:graphify": "python -m pip install graphifyy",
     "graphify": "python -m graphify",
     "graphify:build": "python -m graphify packages/public-api --code-only",
     "graphify:open": "node packages/core-daemon/bin/mindagentics.js graphify open"
   },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "node-pty": "1.2.0-beta.15"
+  },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "electron": "^33.2.0",
+    "electron-builder": "^26.18.0",
     "typescript": "^5.7.2"
+  },
+  "build": {
+    "appId": "com.mindagentics.app",
+    "productName": "mindAgentics",
+    "copyright": "Copyright © 2026 mindAgentics Team",
+    "directories": {
+      "output": "dist-package"
+    },
+    "files": [
+      "packages/main/dist/**/*",
+      "packages/preload/dist/**/*",
+      "packages/renderer/dist/**/*",
+      "packages/core-daemon/dist/**/*",
+      "packages/core-daemon/bin/**/*",
+      "packages/shared/dist/**/*",
+      "package.json",
+      "packages/*/package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/node-pty/**/*",
+      "**/*.node"
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "mindAgentics"
+    }
   }
 }

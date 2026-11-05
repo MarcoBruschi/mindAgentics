@@ -1,6 +1,6 @@
 /**
  * Stdio JSON-RPC Handler for Electron Main Process
- * Section 2.1 of CLONE_SPEC.md
+ * Implements framed JSON-RPC communication between daemon and main process.
  */
 
 import { snapNode, tidyNode, placeNode } from './spatial.js';
@@ -110,9 +110,13 @@ export class RpcHandler {
         break;
       }
 
+      case 'settleTurn':
       case 'chatTurnSettled': {
         if (payload?.terminalId) {
           this.router.settleTurn(payload.terminalId, payload.output || '', payload.askId);
+        }
+        if (id) {
+          this.sendResult(id, type + 'Result', { handled: true });
         }
         break;
       }

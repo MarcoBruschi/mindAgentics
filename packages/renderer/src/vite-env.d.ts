@@ -40,10 +40,8 @@ interface MindAgenticsWindowBridge {
   };
 }
 
-type MaestriWindowBridge = MindAgenticsWindowBridge;
 
 interface Window {
-  mindAgentics?: typeof window.maestri;
-  maestri?: any;
+  mindAgentics?: MindAgenticsWindowBridge & any;
   api?: any;
 }

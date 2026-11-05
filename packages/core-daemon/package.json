@@ -6,8 +6,7 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "bin": {
-    "mindagentics": "./bin/mindagentics.js",
-    "maestri": "./bin/maestri.js"
+    "mindagentics": "./bin/mindagentics.js"
   },
   "scripts": {
     "build": "tsc",

@@ -352,9 +352,9 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   });
 
   // Terminal PTY
-  handle('maestri:terminal:detectAgents', () => terminalManager.detectInstalledAgents());
-  handle('maestri:terminal:getAgentLimits', () => terminalManager.getAgentLimits());
-  handle('maestri:terminal:setMaestroMode', (_event: any, terminalId: string, maestroMode: boolean) => {
+  handle('mindagentics:terminal:detectAgents', () => terminalManager.detectInstalledAgents());
+  handle('mindagentics:terminal:getAgentLimits', () => terminalManager.getAgentLimits());
+  handle('mindagentics:terminal:setMaestroMode', (_event: any, terminalId: string, maestroMode: boolean) => {
     terminalManager.setMaestroMode(terminalId, maestroMode);
     return { ok: true };
   });
@@ -364,28 +364,28 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   supervisor.on('placeNode', (payload: any) => {
     const win = getWin();
     if (win && !win.isDestroyed()) {
-      win.webContents.send('maestri:canvas:nodePlaced', payload);
+      win.webContents.send('mindagentics:canvas:nodePlaced', payload);
     }
   });
 
   supervisor.on('deleteNode', (payload: any) => {
     const win = getWin();
     if (win && !win.isDestroyed()) {
-      win.webContents.send('maestri:canvas:nodeDeleted', payload);
+      win.webContents.send('mindagentics:canvas:nodeDeleted', payload);
     }
   });
 
   supervisor.on('cableTieCreated', (payload: any) => {
     const win = getWin();
     if (win && !win.isDestroyed()) {
-      win.webContents.send('maestri:canvas:cableTieCreated', payload);
+      win.webContents.send('mindagentics:canvas:cableTieCreated', payload);
     }
   });
 
   supervisor.on('cableTieDeleted', (payload: any) => {
     const win = getWin();
     if (win && !win.isDestroyed()) {
-      win.webContents.send('maestri:canvas:cableTieDeleted', payload);
+      win.webContents.send('mindagentics:canvas:cableTieDeleted', payload);
     }
   });
 
@@ -427,7 +427,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
       if (win && !win.isDestroyed()) {
         win.webContents.send(C.workspaceList, allWorkspaces);
         win.webContents.send(C.workspaceOnChanged, ws);
-        win.webContents.send('maestri:workspace:created', ws);
+        win.webContents.send('mindagentics:workspace:created', ws);
       }
     } catch (err) {
       console.error('[supervisor:workspaceCreate error]', err);
@@ -446,7 +446,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
       if (win && !win.isDestroyed()) {
         win.webContents.send(C.routineList, filtered);
         win.webContents.send(C.routineOnChanged, filtered);
-        win.webContents.send('maestri:routine:deleted', id);
+        win.webContents.send('mindagentics:routine:deleted', id);
       }
     } catch (err) {
       console.error('[supervisor:routineDelete error]', err);
@@ -457,7 +457,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     try {
       const win = getWin();
       if (win && !win.isDestroyed()) {
-        win.webContents.send('maestri:floor:created', payload);
+        win.webContents.send('mindagentics:floor:created', payload);
       }
     } catch (err) {
       console.error('[supervisor:floorCreate error]', err);
@@ -480,7 +480,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
       if (win && !win.isDestroyed()) {
         win.webContents.send(C.routineList, routines);
         win.webContents.send(C.routineOnChanged, routines);
-        win.webContents.send('maestri:routine:created', payload);
+        win.webContents.send('mindagentics:routine:created', payload);
       }
     } catch (err) {
       console.error('[supervisor:routineCreate error]', err);
@@ -490,7 +490,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   supervisor.on('bandCreated', (payload: any) => {
     const win = getWin();
     if (win && !win.isDestroyed()) {
-      win.webContents.send('maestri:canvas:bandCreated', payload);
+      win.webContents.send('mindagentics:canvas:bandCreated', payload);
       win.webContents.send(C.bandCreate, payload);
     }
   });
@@ -498,7 +498,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   supervisor.on('bandDissolved', (payload: any) => {
     const win = getWin();
     if (win && !win.isDestroyed()) {
-      win.webContents.send('maestri:canvas:bandDissolved', payload);
+      win.webContents.send('mindagentics:canvas:bandDissolved', payload);
       win.webContents.send(C.bandDissolve, payload);
     }
   });
@@ -506,12 +506,12 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   supervisor.on('bandUpdated', (payload: any) => {
     const win = getWin();
     if (win && !win.isDestroyed()) {
-      win.webContents.send('maestri:canvas:bandUpdated', payload);
+      win.webContents.send('mindagentics:canvas:bandUpdated', payload);
       win.webContents.send(C.bandUpdate, payload);
     }
   });
 
-  ipcMain.on('maestri:canvas:sync', (_event, payload: any) => {
+  ipcMain.on('mindagentics:canvas:sync', (_event, payload: any) => {
     supervisor.syncCanvas(payload);
   });
 
@@ -577,26 +577,10 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
 
   // Notes
   handle(C.noteRead, async (workspaceId: string, noteId: string) => {
-    const sanitizedNoteId = (noteId || '').replace(/[^a-zA-Z0-9_-]/g, '');
-    if (!sanitizedNoteId) return '';
-    const noteFile = path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes', `${sanitizedNoteId}.md`);
-    if (!path.resolve(noteFile).startsWith(path.resolve(path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes')))) {
-      throw new Error('Access denied: Path traversal detected');
-    }
-    if (fs.existsSync(noteFile)) {
-      return fs.promises.readFile(noteFile, 'utf-8');
-    }
-    return '';
+    return dataService.noteRead(workspaceId, noteId);
   });
   handle(C.noteWrite, async (workspaceId: string, noteId: string, content: string) => {
-    const sanitizedNoteId = (noteId || '').replace(/[^a-zA-Z0-9_-]/g, '');
-    if (!sanitizedNoteId) throw new Error('Invalid noteId: only alphanumeric, dash and underscore characters allowed');
-    const noteFile = path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes', `${sanitizedNoteId}.md`);
-    if (!path.resolve(noteFile).startsWith(path.resolve(path.join(dataService.getDataDir(), 'workspaces', workspaceId, 'notes')))) {
-      throw new Error('Access denied: Path traversal detected');
-    }
-    await dataService.replaceFileAtomically(noteFile, content);
-    return { ok: true };
+    return dataService.noteWrite(workspaceId, noteId, content);
   });
   handle(C.nodeDelete, async (nodeId: string) => {
     return { ok: true, deleted: nodeId };

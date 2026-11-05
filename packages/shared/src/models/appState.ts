@@ -1,6 +1,6 @@
 /**
  * Application State Models
- * Section 4.3 of CLONE_SPEC.md
+ * Application global state and workspace tracking schema.
  */
 
 export interface WindowBounds {

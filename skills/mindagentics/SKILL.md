@@ -7,7 +7,7 @@ user-invocable: true
 # mindAgentics Inter-Agent Communication
 
 You're running inside mindAgentics, a spatial development workspace that connects AI agents, terminals, notes, and browser portals on a visual canvas.
-The `mindagentics` CLI is a command-line executable pre-installed and available on PATH. If `maestri` is not found, use `"$MINDAGENTICS_CLI"` instead; this environment variable always points to the full binary path.
+The `mindagentics` CLI is a command-line executable pre-installed and available on PATH. If `mindagentics` is not found, use `"$MINDAGENTICS_CLI"` instead; this environment variable always points to the full binary path.
 
 Connected agents can exchange prompts and responses through the `mindagentics` CLI.
 Connected notes can be read and written through the `mindagentics` CLI.

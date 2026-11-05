@@ -25,7 +25,7 @@ const DEVICE_FAILURE_KINDS = [
   "deviceDisconnected"
 ];
 new Set(DEVICE_FAILURE_KINDS);
-const DEVICE_STREAM_WINDOW_MESSAGE = "maestri:device:streamTransfer";
+const DEVICE_STREAM_WINDOW_MESSAGE = "mindagentics:device:streamTransfer";
 
 function subscribe(channel: string, handler: (...args: any[]) => void) {
   const wrapped = (_event: any, ...args: any[]) => handler(...args);
@@ -175,19 +175,19 @@ app: {
   },
   canvas: {
     sync(data: any) {
-      electron.ipcRenderer.send('maestri:canvas:sync', data);
+      electron.ipcRenderer.send('mindagentics:canvas:sync', data);
     },
     onNodePlaced(handler: (payload: any) => void) {
-      return subscribe('maestri:canvas:nodePlaced', handler);
+      return subscribe('mindagentics:canvas:nodePlaced', handler);
     },
     onNodeDeleted(handler: (payload: any) => void) {
-      return subscribe('maestri:canvas:nodeDeleted', handler);
+      return subscribe('mindagentics:canvas:nodeDeleted', handler);
     },
     onCableTieCreated(handler: (payload: any) => void) {
-      return subscribe('maestri:canvas:cableTieCreated', handler);
+      return subscribe('mindagentics:canvas:cableTieCreated', handler);
     },
     onCableTieDeleted(handler: (payload: any) => void) {
-      return subscribe('maestri:canvas:cableTieDeleted', handler);
+      return subscribe('mindagentics:canvas:cableTieDeleted', handler);
     }
   },
   updates: {
@@ -700,13 +700,13 @@ app: {
   },
   terminal: {
     detectAgents() {
-      return electron.ipcRenderer.invoke('maestri:terminal:detectAgents');
+      return electron.ipcRenderer.invoke('mindagentics:terminal:detectAgents');
     },
     getAgentLimits() {
-      return electron.ipcRenderer.invoke('maestri:terminal:getAgentLimits');
+      return electron.ipcRenderer.invoke('mindagentics:terminal:getAgentLimits');
     },
     setMaestroMode(terminalId, maestroMode) {
-      return electron.ipcRenderer.invoke('maestri:terminal:setMaestroMode', terminalId, maestroMode);
+      return electron.ipcRenderer.invoke('mindagentics:terminal:setMaestroMode', terminalId, maestroMode);
     },
     spawn(input) {
       return electron.ipcRenderer.invoke(C.terminalSpawn, input);
@@ -1662,16 +1662,16 @@ app: {
     return invokeWithLicenseFailure(C.tidyNode, request);
   },
   onNodePlaced(handler: (payload: any) => void) {
-    return subscribe('maestri:canvas:nodePlaced', handler);
+    return subscribe('mindagentics:canvas:nodePlaced', handler);
   },
   onNodeDeleted(handler: (payload: any) => void) {
-    return subscribe('maestri:canvas:nodeDeleted', handler);
+    return subscribe('mindagentics:canvas:nodeDeleted', handler);
   },
   onCableTieCreated(handler: (payload: any) => void) {
-    return subscribe('maestri:canvas:cableTieCreated', handler);
+    return subscribe('mindagentics:canvas:cableTieCreated', handler);
   },
   onCableTieDeleted(handler: (payload: any) => void) {
-    return subscribe('maestri:canvas:cableTieDeleted', handler);
+    return subscribe('mindagentics:canvas:cableTieDeleted', handler);
   },
   graphify: {
     buildGraph(params: any) {
@@ -1698,14 +1698,11 @@ app: {
 
 if (electron.contextBridge && typeof electron.contextBridge.exposeInMainWorld === "function") {
   electron.contextBridge.exposeInMainWorld("mindAgentics", api);
-  electron.contextBridge.exposeInMainWorld("maestri", api);
   electron.contextBridge.exposeInMainWorld("api", api);
 } else if (typeof window !== "undefined") {
   (window as any).mindAgentics = api;
-  (window as any).maestri = api;
   (window as any).api = api;
 }
 
 export default api;
 export type MindAgenticsApi = typeof api;
-export type MaestriApi = typeof api;

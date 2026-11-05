@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const daemonScript = path.resolve(__dirname, '../bin/maestri.js');
+const daemonScript = path.resolve(__dirname, '../bin/mindagentics.js');
 
 const token = `testportal${Math.floor(Math.random() * 100000)}`;
 
@@ -104,7 +104,7 @@ async function run() {
   await sleep(100);
 
   // 2. Open portal with YouTube
-  console.log('Running: maestri portal open "https://youtube.com" --name "YouTube"');
+  console.log('Running: mindagentics portal open "https://youtube.com" --name "YouTube"');
   const res = await sendCommand(['portal', 'open', 'https://youtube.com', 'YouTube'], 'term-maestro');
   console.log('Portal response:', res.output);
 
@@ -138,7 +138,7 @@ async function run() {
   }
 
   // 3. Connect Maestro to YouTube
-  console.log('Running: maestri connect "Maestro" "YouTube"');
+  console.log('Running: mindagentics connect "Maestro" "YouTube"');
   const connectRes = await sendCommand(['connect', 'Maestro', 'YouTube'], 'term-maestro');
   console.log('Connect response:', connectRes.output);
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 import * as readline from 'node:readline';
 
 const daemonScript = path.resolve('packages/core-daemon/dist/index.js');
-const cliPath = path.resolve('packages/core-daemon/bin/maestri.js');
+const cliPath = path.resolve('packages/core-daemon/bin/mindagentics.js');
 const serveToken = 'testmaestro' + Math.floor(Math.random() * 100000);
 
 console.log(`Starting daemon with token: ${serveToken}...`);
@@ -19,10 +19,10 @@ function execCli(args) {
     const cp = spawn(process.execPath, [cliPath, ...args], {
       env: {
         ...process.env,
-        MAESTRI_PIPE: pipeAddress,
-        MAESTRI_TERMINAL_ID: 'maestro-term-001',
-        MAESTRI_WORKSPACE_ID: 'ws-maestro',
-        MAESTRI_MAESTRO_MODE: '1',
+        MINDAGENTICS_PIPE: pipeAddress,
+        MINDAGENTICS_TERMINAL_ID: 'maestro-term-001',
+        MINDAGENTICS_WORKSPACE_ID: 'ws-maestro',
+        MINDAGENTICS_MAESTRO_MODE: '1',
       },
     });
 
@@ -55,7 +55,7 @@ rl.on('line', async (line) => {
       }
 
       // 2. Open Reference Portal
-      console.log('\n--- Test 2: maestri portal open ---');
+      console.log('\n--- Test 2: mindagentics portal open ---');
       const openRes = await execCli(['portal', 'open', 'https://example.com', '--name', 'Doc Reference']);
       console.log(openRes.stdout);
       if (openRes.code !== 0 || !openRes.stdout.includes('Doc Reference')) {
@@ -64,7 +64,7 @@ rl.on('line', async (line) => {
       }
 
       // 3. Recruit specialized agent
-      console.log('\n--- Test 3: maestri recruit ---');
+      console.log('\n--- Test 3: mindagentics recruit ---');
       const recruitRes = await execCli(['recruit', 'Researcher', '--preset', 'Antigravity', '--role', 'Web Analyst']);
       console.log(recruitRes.stdout);
       if (recruitRes.code !== 0 || !recruitRes.stdout.includes('Researcher')) {
@@ -73,7 +73,7 @@ rl.on('line', async (line) => {
       }
 
       // 4. Connect Researcher to Doc Reference
-      console.log('\n--- Test 4: maestri connect Agent to Portal ---');
+      console.log('\n--- Test 4: mindagentics connect Agent to Portal ---');
       const connRes = await execCli(['connect', 'Researcher', 'Doc Reference']);
       console.log(connRes.stdout);
       if (connRes.code !== 0 || !connRes.stdout.includes('Connected')) {
@@ -82,7 +82,7 @@ rl.on('line', async (line) => {
       }
 
       // 5. Verify list output
-      console.log('\n--- Test 5: maestri list ---');
+      console.log('\n--- Test 5: mindagentics list ---');
       const listRes = await execCli(['list']);
       console.log(listRes.stdout);
       if (!listRes.stdout.includes('Doc Reference') || !listRes.stdout.includes('Researcher')) {

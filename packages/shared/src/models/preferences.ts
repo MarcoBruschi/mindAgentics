@@ -1,6 +1,6 @@
 /**
  * Preferences & Agent Presets Models
- * Section 4.3 of CLONE_SPEC.md
+ * User preferences and preset configuration models.
  */
 
 import type { NoteColor } from './nodes.js';

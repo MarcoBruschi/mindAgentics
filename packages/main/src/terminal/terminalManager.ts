@@ -104,8 +104,8 @@ export class TerminalManager extends EventEmitter {
     if (this.dataService) {
       return path.join(this.dataService.getDataDir(), 'terminals');
     }
-    if ((process.env.MINDAGENTICS_DATA_DIR || process.env.MAESTRI_DATA_DIR) && (process.env.MINDAGENTICS_DATA_DIR || process.env.MAESTRI_DATA_DIR)!.trim().length > 0) {
-      return path.join(path.resolve((process.env.MINDAGENTICS_DATA_DIR || process.env.MAESTRI_DATA_DIR)!.trim()), 'terminals');
+    if (process.env.MINDAGENTICS_DATA_DIR && process.env.MINDAGENTICS_DATA_DIR!.trim().length > 0) {
+      return path.join(path.resolve(process.env.MINDAGENTICS_DATA_DIR!.trim()), 'terminals');
     }
     try {
       const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : path.join(os.homedir(), '.config'));
@@ -256,19 +256,11 @@ export class TerminalManager extends EventEmitter {
       MINDAGENTICS_AGENT_NAME: agentName,
       MINDAGENTICS_AGENT_ROLE: agentRole,
       MINDAGENTICS_AGENT_INSTRUCTIONS: instructions,
-      MAESTRI_PIPE: pipeAddress,
-      MAESTRI_SOCKET: pipeAddress,
-      MAESTRI_TERMINAL_ID: terminalId,
-      MAESTRI_WORKSPACE_ID: workspaceId,
-      MAESTRI_CLI: cliPath,
-      MAESTRI_AGENT_NAME: agentName,
-      MAESTRI_AGENT_ROLE: agentRole,
-      MAESTRI_AGENT_INSTRUCTIONS: instructions,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
       TERM_PROGRAM: 'mindAgentics',
       PATH: `${cliDir}${path.delimiter}${process.env.PATH || ''}`,
-      ...(options.maestroMode ? { MINDAGENTICS_MAESTRO_MODE: '1', MAESTRI_MAESTRO_MODE: '1' } : {}),
+      ...(options.maestroMode ? { MINDAGENTICS_MAESTRO_MODE: '1' } : {}),
       ...options.env
     };
 
@@ -506,7 +498,7 @@ export class TerminalManager extends EventEmitter {
       const skillsSource = path.join(os.homedir(), '.gemini', 'config', 'skills');
       if (!fs.existsSync(skillsSource)) return;
 
-      const maestriSkillFolders = [
+      const mindAgenticsSkillFolders = [
         'mindagentics',
         'mindagentics-chat',
         'mindagentics-manager',
@@ -514,13 +506,7 @@ export class TerminalManager extends EventEmitter {
         'mindagentics-portal-devices',
         'mindagentics-routines',
         'mindagentics-workspace',
-        'maestri',
-        'maestri-chat',
-        'maestri-manager',
-        'maestri-portal',
-        'maestri-portal-devices',
-        'maestri-routines',
-        'maestri-workspace',
+        'mindagentics-portal-devices',
         'graphify'
       ];
 
@@ -530,7 +516,7 @@ export class TerminalManager extends EventEmitter {
         if (!fs.existsSync(codexSkillsDir)) {
           fs.mkdirSync(codexSkillsDir, { recursive: true });
         }
-        for (const skill of maestriSkillFolders) {
+        for (const skill of mindAgenticsSkillFolders) {
           const src = path.join(skillsSource, skill);
           const dest = path.join(codexSkillsDir, skill);
           if (fs.existsSync(src) && !fs.existsSync(dest)) {
@@ -561,7 +547,7 @@ export class TerminalManager extends EventEmitter {
 > NUNCA execute ferramentas de leitura (\`read_file\`, \`cat\`, etc.) para ler \`AGENTS.md\`, \`CLAUDE.md\` ou \`SKILL.md\` do disco. Inicie diretamente a ação necessária ou responda ao colega de equipe.
 
 Você está operando como um agente no canvas interativo **mindAgentics**.
-Você tem à sua disposição a CLI do mindAgentics (\`mindagentics\`, alias \`maestri\`) e todas as skills integradas:
+Você tem à sua disposição a CLI do mindAgentics (\`mindagentics\`, alias \`mindagentics\`) e todas as skills integradas:
 
 - **\`mindagentics list\`**: Lista os agentes conectados, notas adesivas e portais no canvas.
 - **\`mindagentics ask "<Nome do Agente>" "<Mensagem>"\`**: Envia mensagens e delega tarefas para outros agentes presentes no canvas.
@@ -575,7 +561,7 @@ Você tem à sua disposição a CLI do mindAgentics (\`mindagentics\`, alias \`m
 
 ## Modo Maestro (Orquestração de Agentes)
 
-Quando a variável de ambiente \`MINDAGENTICS_MAESTRO_MODE=1\` (ou \`MAESTRI_MAESTRO_MODE=1\`) estiver ativa ou você for designado como Maestro da equipe:
+Quando a variável de ambiente \`MINDAGENTICS_MAESTRO_MODE=1\` (ou \`MINDAGENTICS_MAESTRO_MODE=1\`) estiver ativa ou você for designado como Maestro da equipe:
 Você atua como o **Orquestrador Central** do canvas mindAgentics. Ao receber uma tarefa complexa ou missão do usuário, siga obrigatoriamente as seguintes regras:
 
 ### Regra 1 (Delegação Obrigatória)
@@ -583,7 +569,7 @@ Ao receber uma tarefa, o Maestro NÃO deve executar todo o trabalho pesado sozin
 \`\`\`bash
 mindagentics ask "<Nome do Agente>" "<Instrução detalhada>"
 \`\`\`
-Você pode inspecionar quem está disponível no canvas com \`mindagentics list\` (ou \`maestri list\`).
+Você pode inspecionar quem está disponível no canvas com \`mindagentics list\` (ou \`mindagentics list\`).
 
 ### Regra 2 (Criação de Agentes no Workspace)
 Caso o usuário não especifique agentes já existentes/conectados para a tarefa, ou caso a equipe precise de habilidades específicas (ex: Frontend, Backend, QA, Reviewer, Pesquisador), o Maestro deve criar agentes especializados no workspace usando:
@@ -613,7 +599,7 @@ Se uma tarefa exigir analisar uma referência na web (documentação técnica, b
    mindagentics ask "<Nome do Agente>" "Analise a referência web linkada e execute [tarefa]..."
    \`\`\`
 
-Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando a CLI do mindAgentics (\`mindagentics\` ou \`maestri\`).
+Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando a CLI do mindAgentics (\`mindagentics\` ou \`mindagentics\`).
 `;
           fs.writeFileSync(agentsMdPath, content, 'utf8');
         }

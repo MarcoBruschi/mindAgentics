@@ -122,24 +122,24 @@ async function runTests() {
   console.log('placeNode result:', JSON.stringify(placeRes.payload.result));
 
   const cliEnv = {
-    MAESTRI_PIPE: pipeAddress,
-    MAESTRI_TERMINAL_ID: 'test-term-001',
-    MAESTRI_WORKSPACE_ID: 'ws-test-main',
-    MAESTRI_FLOOR_ID: 'ground',
+    MINDAGENTICS_PIPE: pipeAddress,
+    MINDAGENTICS_TERMINAL_ID: 'test-term-001',
+    MINDAGENTICS_WORKSPACE_ID: 'ws-test-main',
+    MINDAGENTICS_FLOOR_ID: 'ground',
   };
 
-  console.log('\n--- Test 4: CLI maestri list ---');
+  console.log('\n--- Test 4: CLI mindagentics list ---');
   const listRes = await runCli(['list'], cliEnv);
   console.log('list exit code:', listRes.code);
   console.log(listRes.stdout);
 
-  console.log('\n--- Test 5: CLI maestri notify ---');
+  console.log('\n--- Test 5: CLI mindagentics notify ---');
   const notifyRes = await runCli(['notify', 'Deployment finished successfully!'], cliEnv);
   console.log(notifyRes.stdout);
 
-  console.log('\n--- Test 6: CLI maestri note create / read / edit ---');
+  console.log('\n--- Test 6: CLI mindagentics note create / read / edit ---');
   const noteCreateRes = await runCli(
-    ['note', 'create', 'Hello Maestri Canvas!', '--name', 'Integration Note', '--color', 'green'],
+    ['note', 'create', 'Hello mindAgentics Canvas!', '--name', 'Integration Note', '--color', 'green'],
     cliEnv,
   );
   console.log(noteCreateRes.stdout);
@@ -153,21 +153,21 @@ async function runTests() {
   const noteRead2Res = await runCli(['note', 'read', 'Integration Note'], cliEnv);
   console.log(noteRead2Res.stdout);
 
-  console.log('\n--- Test 7: CLI maestri recruit & ask ---');
+  console.log('\n--- Test 7: CLI mindagentics recruit & ask ---');
   const recruitRes = await runCli(['recruit', 'Scout', '--role', 'Code Reviewer'], cliEnv);
   console.log(recruitRes.stdout);
 
   const checkRes = await runCli(['check', 'Scout'], cliEnv);
   console.log('check output:', checkRes.stdout);
 
-  console.log('\n--- Test 8: CLI maestri portal create & snapshot ---');
+  console.log('\n--- Test 8: CLI mindagentics portal create & snapshot ---');
   const portalRes = await runCli(['portal', 'create', 'https://example.com', 'WebPreview'], cliEnv);
   console.log(portalRes.stdout);
 
   const snapshotRes = await runCli(['portal', 'snapshot', 'WebPreview'], cliEnv);
   console.log(snapshotRes.stdout);
 
-  console.log('\n--- Test 9: CLI maestri routine create & list ---');
+  console.log('\n--- Test 9: CLI mindagentics routine create & list ---');
   const routineCreateRes = await runCli(
     ['routine', 'create', 'Hourly Audit', '--command', 'npm test', '--every', '1h'],
     cliEnv,
@@ -177,14 +177,14 @@ async function runTests() {
   const routineListRes = await runCli(['routine', 'list'], cliEnv);
   console.log(routineListRes.stdout);
 
-  console.log('\n--- Test 10: CLI maestri floor status ---');
+  console.log('\n--- Test 10: CLI mindagentics floor status ---');
   const floorStatusRes = await runCli(
     ['floor', 'status', 'Tests passing 100%', '--state', 'working', '--progress', '5/5'],
     cliEnv,
   );
   console.log(floorStatusRes.stdout);
 
-  console.log('\n--- Test 11: CLI maestri debug ---');
+  console.log('\n--- Test 11: CLI mindagentics debug ---');
   const debugRes = await runCli(['debug'], cliEnv);
   console.log(debugRes.stdout);
 

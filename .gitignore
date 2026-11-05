@@ -19,11 +19,14 @@ node_modules
 # Build Outputs & Generated Assets
 dist
 dist-electron
+dist-package
 out
 build
 *.tsbuildinfo
 .vite
 graphify-out/
+.graphify/
+*.graph.json
 .mindagentics_graph.json
 
 # Environment Variables & Secrets
@@ -78,6 +81,7 @@ temp
 !.vscode/extensions.json
 !.vscode/settings.json
 .idea
+.codex/
 *.suo
 *.ntvs*
 *.njsproj

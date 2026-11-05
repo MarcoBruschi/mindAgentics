@@ -53,14 +53,14 @@ export class DataService {
   }
 
   /**
-   * Resolve storage directory according to Section 4.1 of CLONE_SPEC.md:
-   * 1. MAESTRI_DATA_DIR env variable
-   * 2. Pointer file (%APPDATA%/Maestri/storage-location.json)
-   * 3. ~/.maestri
+   * Resolve storage directory resolution hierarchy:
+   * 1. MINDAGENTICS_DATA_DIR env variable
+   * 2. Pointer file (%APPDATA%/mindAgentics/storage-location.json)
+   * 3. ~/.mindagentics
    */
   private resolveDataDir(): string {
-    if (process.env.MAESTRI_DATA_DIR && process.env.MAESTRI_DATA_DIR.trim() !== '') {
-      return path.resolve(process.env.MAESTRI_DATA_DIR.trim());
+    if (process.env.MINDAGENTICS_DATA_DIR && process.env.MINDAGENTICS_DATA_DIR.trim() !== '') {
+      return path.resolve(process.env.MINDAGENTICS_DATA_DIR.trim());
     }
 
     try {
@@ -69,9 +69,9 @@ export class DataService {
         const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
         pointerPath = path.join(appData, 'mindAgentics', 'storage-location.json');
       } else if (process.platform === 'darwin') {
-        pointerPath = path.join(os.homedir(), 'Library', 'Application Support', 'Maestri', 'storage-location.json');
+        pointerPath = path.join(os.homedir(), 'Library', 'Application Support', 'mindAgentics', 'storage-location.json');
       } else {
-        pointerPath = path.join(os.homedir(), '.config', 'Maestri', 'storage-location.json');
+        pointerPath = path.join(os.homedir(), '.config', 'mindAgentics', 'storage-location.json');
       }
 
       if (fs.existsSync(pointerPath)) {
@@ -96,12 +96,15 @@ export class DataService {
    * Atomic file writing via temporary file rename with Windows resilience,
    * exponential backoff & jitter retries, orphan cleanup, and critical file backups.
    */
-  public async replaceFileAtomically(filePath: string, content: string | Uint8Array): Promise<void> {
+  public async replaceFileAtomically(filePath: string, content: string | Uint8Array, allowedRootDir?: string): Promise<void> {
     if (!filePath || typeof filePath !== 'string' || filePath.trim() === '') {
       throw new Error('[DataService] Invalid file path provided for atomic write');
     }
     if (filePath.includes('\0')) {
       throw new Error('[DataService] Target path contains invalid characters (null byte)');
+    }
+    if (/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(filePath)) {
+      throw new Error(`[DataService] Access denied: Path traversal detected in path '${filePath}'`);
     }
 
     const resolvedPath = path.resolve(filePath);
@@ -111,6 +114,14 @@ export class DataService {
     // Validate target directory path safety
     if (!dir || dir === '.' || dir === root) {
       throw new Error(`[DataService] Unsafe target directory for atomic write: ${dir}`);
+    }
+
+    // Boundary check: ensure target path is within the allowed root directory
+    const baseDir = allowedRootDir ? path.resolve(allowedRootDir) : path.resolve(this.dataDir);
+    const isInsideBase = resolvedPath.toLowerCase().startsWith(baseDir.toLowerCase() + path.sep) ||
+      resolvedPath.toLowerCase() === baseDir.toLowerCase();
+    if (!isInsideBase) {
+      throw new Error(`[DataService] Access denied: Path '${filePath}' escapes base directory '${baseDir}'`);
     }
 
     const normalizedKey = path.normalize(resolvedPath).toLowerCase();
@@ -661,6 +672,77 @@ export class DataService {
     }
   }
 
+  /**
+   * Safe read of a workspace note markdown file with strict path traversal defenses.
+   */
+  public async noteRead(workspaceId: string, noteId: string): Promise<string> {
+    this.assertSafeWorkspaceAndNoteId(workspaceId, noteId);
+
+    const safeWsId = (workspaceId || '').trim();
+    const safeNoteId = (noteId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const notesDir = path.resolve(this.dataDir, 'workspaces', safeWsId, 'notes');
+    const noteFile = path.resolve(notesDir, `${safeNoteId}.md`);
+
+    const expectedNotesDir = path.resolve(this.dataDir, 'workspaces', safeWsId, 'notes');
+    if (!noteFile.startsWith(expectedNotesDir + path.sep)) {
+      throw new Error('Access denied: Path traversal detected');
+    }
+
+    if (fs.existsSync(noteFile)) {
+      return await fsp.readFile(noteFile, 'utf-8');
+    }
+    return '';
+  }
+
+  /**
+   * Safe atomic write of a workspace note markdown file with strict path traversal defenses.
+   */
+  public async noteWrite(workspaceId: string, noteId: string, content: string): Promise<{ ok: boolean }> {
+    this.assertSafeWorkspaceAndNoteId(workspaceId, noteId);
+
+    const safeWsId = (workspaceId || '').trim();
+    const safeNoteId = (noteId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!safeNoteId) {
+      throw new Error('Invalid noteId: only alphanumeric, dash and underscore characters allowed');
+    }
+
+    const notesDir = path.resolve(this.dataDir, 'workspaces', safeWsId, 'notes');
+    const noteFile = path.resolve(notesDir, `${safeNoteId}.md`);
+
+    const expectedNotesDir = path.resolve(this.dataDir, 'workspaces', safeWsId, 'notes');
+    if (!noteFile.startsWith(expectedNotesDir + path.sep)) {
+      throw new Error('Access denied: Path traversal detected');
+    }
+
+    await this.replaceFileAtomically(noteFile, content);
+    return { ok: true };
+  }
+
+  private assertSafeWorkspaceAndNoteId(workspaceId: string, noteId: string): void {
+    if (!workspaceId || typeof workspaceId !== 'string') {
+      throw new Error('Access denied: Invalid workspaceId provided');
+    }
+    if (!noteId || typeof noteId !== 'string') {
+      throw new Error('Access denied: Invalid noteId provided');
+    }
+    if (
+      workspaceId.includes('..') ||
+      workspaceId.includes('/') ||
+      workspaceId.includes('\\') ||
+      workspaceId.includes('\0')
+    ) {
+      throw new Error('Access denied: Path traversal detected in workspaceId');
+    }
+    if (
+      noteId.includes('..') ||
+      noteId.includes('/') ||
+      noteId.includes('\\') ||
+      noteId.includes('\0')
+    ) {
+      throw new Error('Access denied: Path traversal detected in noteId');
+    }
+  }
+
   public async createWorkspace(name: string, dir: string, ide = 'vscode'): Promise<any> {
     const id = crypto.randomUUID();
     const ws = {
@@ -854,7 +936,7 @@ export class DataService {
       await addDirToArchive(this.dataDir, '');
 
       const zipped = fflate.zipSync(filesToArchive, { level: 6 });
-      await this.replaceFileAtomically(targetPath, zipped);
+      await this.replaceFileAtomically(targetPath, zipped, dest ? path.dirname(dest) : undefined);
 
       return { ok: true, path: targetPath };
     } catch (err: any) {

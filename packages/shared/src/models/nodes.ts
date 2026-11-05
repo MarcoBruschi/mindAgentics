@@ -1,6 +1,6 @@
 /**
  * Canvas Node Models & Types
- * Section 3.1 & 4.3 of CLONE_SPEC.md
+ * Spatial canvas node definitions and element state models.
  */
 
 export type NodeKind =

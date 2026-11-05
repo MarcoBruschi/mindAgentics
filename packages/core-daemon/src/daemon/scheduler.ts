@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 /**
  * Routine Chrono Engine
- * Section 3.2 & 5.3 of CLONE_SPEC.md
+ * Automates scheduled tasks and recurring routines within workspace environments.
  */
 
 import { exec } from 'node:child_process';

@@ -1,6 +1,6 @@
 /**
  * Daemon Mode Coordinator
- * `maestri --serve <token>`
+ * `mindagentics --serve <token>`
  * Communicates with Electron Main via line-delimited JSON RPC on stdin/stdout.
  * Creates Named Pipe server for CLI connections.
  */

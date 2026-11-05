@@ -68,8 +68,8 @@ assert.ok(scheduler.routines.has('routine-test-1'), 'Scheduler should contain ro
 const reqCreate = {
   id: 'req-1',
   command: 'routine',
-  args: ['create', 'Daily Sync', '--command', 'maestri ask Teammate "sync"'],
-  options: { command: 'maestri ask Teammate "sync"', daily: '09:00' },
+  args: ['create', 'Daily Sync', '--command', 'mindagentics ask Teammate "sync"'],
+  options: { command: 'mindagentics ask Teammate "sync"', daily: '09:00' },
   terminalId: 'test-term-123',
   workspaceId: 'ws-123',
 };

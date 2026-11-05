@@ -1,10 +1,9 @@
-import { exec, execFile } from 'child_process';
+import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 export interface GraphifyBuildParams {
@@ -126,11 +125,11 @@ export class GraphifyService {
 
     for (const py of candidatePythons) {
       try {
-        const cmd = py === 'py' ? 'py -3' : `"${py}"`;
-        const { stdout } = await execAsync(
-          `${cmd} -c "import sys, sysconfig; print('PY:' + sys.executable); print('SCRIPTS:' + (sysconfig.get_path('scripts') or ''))"`,
-          { timeout: 5000 }
-        );
+        const pyCmd = py === 'py' ? 'py' : py;
+        const pyArgs = py === 'py'
+          ? ['-3', '-c', "import sys, sysconfig; print('PY:' + sys.executable); print('SCRIPTS:' + (sysconfig.get_path('scripts') or ''))"]
+          : ['-c', "import sys, sysconfig; print('PY:' + sys.executable); print('SCRIPTS:' + (sysconfig.get_path('scripts') or ''))"];
+        const { stdout } = await execFileAsync(pyCmd, pyArgs, { timeout: 5000 });
         const lines = stdout.trim().split(/\r?\n/);
         for (const line of lines) {
           if (line.startsWith('PY:')) resolvedPython = line.substring(3).trim();

@@ -4,7 +4,7 @@ mindAgentics is an infinite spatial development canvas connecting AI agents, int
 
 ## Available Agent CLI Commands
 
-The `mindagentics` (alias `maestri`) CLI provides the following core commands:
+The `mindagentics` CLI provides the following core commands:
 
 ### 1. Agent Delegation & Communication
 - `mindagentics list` — Inspect all active agents, sticky notes, portals, and cable connections on the canvas.

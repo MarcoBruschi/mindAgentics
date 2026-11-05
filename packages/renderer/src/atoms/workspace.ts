@@ -199,14 +199,13 @@ export function normalizeWorkspace(raw: any): Workspace {
 // Clean up any legacy giant workspaces cache from localStorage to prevent QuotaExceededError
 try {
   localStorage.removeItem('mindagentics_workspaces');
-  localStorage.removeItem('maestri_workspaces');
-} catch {
+  } catch {
   // ignore
 }
 
 const getSavedActiveId = (): string => {
   try {
-    const saved = localStorage.getItem('mindagentics_active_ws') || localStorage.getItem('maestri_active_ws');
+    const saved = localStorage.getItem('mindagentics_active_ws') ;
     if (saved) return saved;
   } catch {
     // fallback

@@ -120,7 +120,7 @@ export const AgentLimitsModal: React.FC = () => {
     try {
       const getLimitsFn =
         window.mindAgentics?.terminal?.getAgentLimits ||
-        (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits || window.maestri?.terminal?.getAgentLimits) ||
+        (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits ?.terminal?.getAgentLimits) ||
         window.api?.terminal?.getAgentLimits;
 
       let detectedReports: any[] = [];
@@ -131,8 +131,8 @@ export const AgentLimitsModal: React.FC = () => {
         }
       }
 
-      if (detectedReports.length === 0 && (window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents))) {
-        const detectFn = window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents || window.maestri?.terminal?.detectAgents);
+      if (detectedReports.length === 0 && (window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents ?.terminal?.detectAgents))) {
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents ?.terminal?.detectAgents);
         const detected = await detectFn?.();
         if (Array.isArray(detected)) {
           detectedReports = detected.filter((a) => a.installed && !['powershell', 'cmd', 'bash'].includes(a.id));

@@ -1,6 +1,6 @@
 /**
  * Storage Manifest Schema
- * Section 4.3 of CLONE_SPEC.md
+ * Storage Manifest and persistence catalog schema.
  */
 
 export interface ManifestWorkspaceEntry {

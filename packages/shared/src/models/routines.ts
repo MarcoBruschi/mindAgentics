@@ -1,6 +1,6 @@
 /**
  * Automation Chrono Routines Models
- * Section 3.2 & 5.3 of CLONE_SPEC.md
+ * Scheduled automation routines models and execution schemas.
  */
 
 export type RoutineScheduleKind = 'every' | 'daily' | 'weekly' | 'once';

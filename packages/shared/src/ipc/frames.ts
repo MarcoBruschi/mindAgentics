@@ -1,6 +1,6 @@
 /**
  * Stdio JSON-RPC & Named Pipe Frame Protocol Types
- * Section 2.1 & 2.2 of CLONE_SPEC.md
+ * Structured protocols for Stdio JSON-RPC & Named Pipe inter-process communication.
  */
 
 import type { CanvasNode, NodeBounds } from '../models/nodes.js';
@@ -42,7 +42,7 @@ export type DaemonFrame = RpcRequestFrame | RpcResponseFrame | RpcNotificationFr
 
 // Specific Stdio Frame Payloads
 export interface ReadyNotificationPayload {
-  envVarName: 'MAESTRI_PIPE' | 'MAESTRI_SOCKET';
+  envVarName: 'MINDAGENTICS_PIPE' | 'MINDAGENTICS_SOCKET';
   address: string;
 }
 

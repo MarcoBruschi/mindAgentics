@@ -1,6 +1,6 @@
 /**
  * Terminal CLI Client
- * Connects to Named Pipe at MINDAGENTICS_PIPE (or MAESTRI_PIPE fallback) and dispatches commands.
+ * Connects to Named Pipe at MINDAGENTICS_PIPE and dispatches commands.
  */
 
 import * as net from 'node:net';
@@ -11,7 +11,7 @@ import { parseCliArgs } from './parser.js';
 export function printHelpBanner() {
   console.log(`mindAgentics CLI v0.26.0
 
-Usage: mindagentics <command> [options] (alias: maestri)
+Usage: mindagentics <command> [options]
 
 Commands:
   list                                          List connected agents, notes, portals, and bands
@@ -51,12 +51,9 @@ export async function runCliClient(argv: string[]): Promise<void> {
 
   const pipePath =
     process.env.MINDAGENTICS_PIPE ||
-    process.env.MAESTRI_PIPE ||
-    process.env.MINDAGENTICS_SOCKET ||
-    process.env.MAESTRI_SOCKET;
+    process.env.MINDAGENTICS_SOCKET;
   const terminalId =
-    process.env.MINDAGENTICS_TERMINAL_ID ||
-    process.env.MAESTRI_TERMINAL_ID;
+    process.env.MINDAGENTICS_TERMINAL_ID;
 
   let hasGuardErrors = false;
   if (!pipePath) {
@@ -75,15 +72,14 @@ export async function runCliClient(argv: string[]): Promise<void> {
   const req: CliRequestEnvelope = {
     id: `req-${randomUUID().slice(0, 8)}`,
     terminalId: terminalId!,
-    workspaceId: process.env.MINDAGENTICS_WORKSPACE_ID || process.env.MAESTRI_WORKSPACE_ID,
-    floorId: process.env.MINDAGENTICS_FLOOR_ID || process.env.MAESTRI_FLOOR_ID,
+    workspaceId: process.env.MINDAGENTICS_WORKSPACE_ID,
+    floorId: process.env.MINDAGENTICS_FLOOR_ID,
     command: parsed.command,
     args: parsed.args,
     options: {
       ...parsed.options,
       maestroMode:
-        process.env.MINDAGENTICS_MAESTRO_MODE === '1' ||
-        process.env.MAESTRI_MAESTRO_MODE === '1',
+        process.env.MINDAGENTICS_MAESTRO_MODE === '1',
     },
   };
 

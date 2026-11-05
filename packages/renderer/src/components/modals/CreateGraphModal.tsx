@@ -44,7 +44,7 @@ export const CreateGraphModal: React.FC = () => {
   }, [isOpen, activeWorkspace?.workingDirectory]);
 
   useEffect(() => {
-    const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
+    const api = (window as any).api || (window as any).mindAgentics ;
     if (api?.graphify?.onProgress) {
       const unsub = api.graphify.onProgress((data: { message: string }) => {
         if (data?.message) {
@@ -61,7 +61,7 @@ export const CreateGraphModal: React.FC = () => {
 
   const handlePickDirectory = async () => {
     try {
-      const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
+      const api = (window as any).api || (window as any).mindAgentics ;
       if (api?.app?.pickDirectory) {
         const dir = await api.app.pickDirectory();
         if (dir) {
@@ -95,7 +95,7 @@ export const CreateGraphModal: React.FC = () => {
     );
 
     try {
-      const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
+      const api = (window as any).api || (window as any).mindAgentics ;
       const buildFn = api?.graphify?.buildGraph;
 
       if (!buildFn) {

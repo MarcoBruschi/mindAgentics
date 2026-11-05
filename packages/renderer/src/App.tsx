@@ -36,7 +36,7 @@ export const App: React.FC = () => {
 
   // Initial backend load with normalization for existing disk workspaces
   useEffect(() => {
-    const api = (window as any).api || (window as any).mindAgentics || (window as any).maestri;
+    const api = (window as any).api || (window as any).mindAgentics ;
     const syncTranslucency = () => {
       if (api?.app?.info) {
         api.app.info().then((info: any) => {
@@ -49,7 +49,7 @@ export const App: React.FC = () => {
     };
     syncTranslucency();
 
-    const controls = window.api?.windowControls || (window as any).mindAgentics?.windowControls || (window as any).maestri?.windowControls;
+    const controls = window.api?.windowControls || (window as any).mindAgentics?.windowControls ?.windowControls;
     let unsubControls: (() => void) | undefined;
     if (controls?.onChanged) {
       unsubControls = controls.onChanged(() => {
@@ -112,7 +112,7 @@ export const App: React.FC = () => {
 
   // Listen for canvas placement and cable tie events from CoreDaemon / CLI
   useEffect(() => {
-    const api = window.api || window.mindAgentics || (window.mindAgentics || window.api || window.maestri);
+    const api = window.api || window.mindAgentics || (window.mindAgentics || window.api );
     if (!api) return;
 
     const unsubs: Array<() => void> = [];
