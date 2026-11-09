@@ -862,17 +862,6 @@ export const InfiniteCanvas: React.FC = () => {
       {/* Background Grid */}
       <GridBackground offset={offset} />
 
-      {/* Empty State */}
-      {nodes.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 select-none">
-          <div className="text-center px-6 py-3.5 rounded-2xl bg-[#14161A]/90 border border-[#23262C] backdrop-blur-md shadow-2xl">
-            <p className="text-[13px] text-[#8A8F98] font-normal tracking-wide">
-              Canvas vazio — crie um terminal na barra acima para começar
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Canvas World Container */}
       <div
         className="absolute origin-top-left will-change-transform"

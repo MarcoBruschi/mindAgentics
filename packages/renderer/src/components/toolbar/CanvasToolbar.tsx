@@ -380,16 +380,16 @@ export const CanvasToolbar: React.FC = () => {
 
         {/* Floating Sub-Toolbar when in Draw Mode: Brush Type, Size, and Colors */}
         {mode === 'draw' && (
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md text-xs select-none animate-in fade-in zoom-in-95">
+          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md text-xs select-none whitespace-nowrap shrink-0 animate-in fade-in zoom-in-95">
             {/* Brush Type Segmented Control */}
-            <div className="flex items-center p-0.5 bg-[#0E0F12] rounded-full border border-[#23262C]">
+            <div className="flex items-center gap-1 p-0.5 bg-[#0E0F12] rounded-full border border-[#23262C] shrink-0">
               {brushTypes.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setBrushType(t.id)}
-                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                     brushType === t.id
-                      ? 'bg-[#181B20] text-[#8B93FF] border border-[#23262C] shadow-sm'
+                      ? 'bg-[#181B20] text-[#8B93FF] shadow-sm'
                       : 'text-[#8A8F98] hover:text-[#E7E8EA]'
                   }`}
                 >

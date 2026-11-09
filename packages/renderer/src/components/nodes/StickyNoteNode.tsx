@@ -15,49 +15,55 @@ interface StickyNoteNodeProps {
 
 const colorThemes: Record<
   NoteColor,
-  { bg: string; border: string; header: string; text: string; badge: string }
+  { bg: string; border: string; header: string; text: string; badge: string; dot: string }
 > = {
   yellow: {
-    bg: 'bg-[#2a2616]',
-    border: 'border-yellow-500/30',
-    header: 'bg-[#35301b]',
-    text: 'text-yellow-100',
-    badge: 'bg-yellow-400',
+    bg: 'bg-[#14161A]',
+    border: 'border-[#23262C] hover:border-amber-500/40',
+    header: 'bg-[#181B20]',
+    text: 'text-[#E7E8EA]',
+    badge: 'bg-amber-400',
+    dot: 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]',
   },
   blue: {
-    bg: 'bg-[#182333]',
-    border: 'border-blue-500/30',
-    header: 'bg-[#1d2d42]',
-    text: 'text-blue-100',
-    badge: 'bg-blue-400',
+    bg: 'bg-[#14161A]',
+    border: 'border-[#23262C] hover:border-[#8B93FF]/40',
+    header: 'bg-[#181B20]',
+    text: 'text-[#E7E8EA]',
+    badge: 'bg-[#8B93FF]',
+    dot: 'bg-[#8B93FF] shadow-[0_0_6px_rgba(139,147,255,0.6)]',
   },
   green: {
-    bg: 'bg-[#15271e]',
-    border: 'border-emerald-500/30',
-    header: 'bg-[#1b3328]',
-    text: 'text-emerald-100',
-    badge: 'bg-emerald-400',
+    bg: 'bg-[#14161A]',
+    border: 'border-[#23262C] hover:border-[#5FD3A0]/40',
+    header: 'bg-[#181B20]',
+    text: 'text-[#E7E8EA]',
+    badge: 'bg-[#5FD3A0]',
+    dot: 'bg-[#5FD3A0] shadow-[0_0_6px_rgba(95,211,160,0.6)]',
   },
   pink: {
-    bg: 'bg-[#2b1723]',
-    border: 'border-pink-500/30',
-    header: 'bg-[#371d2c]',
-    text: 'text-pink-100',
+    bg: 'bg-[#14161A]',
+    border: 'border-[#23262C] hover:border-pink-500/40',
+    header: 'bg-[#181B20]',
+    text: 'text-[#E7E8EA]',
     badge: 'bg-pink-400',
+    dot: 'bg-pink-400 shadow-[0_0_6px_rgba(244,114,182,0.6)]',
   },
   purple: {
-    bg: 'bg-[#231830]',
-    border: 'border-purple-500/30',
-    header: 'bg-[#2e1f3f]',
-    text: 'text-purple-100',
+    bg: 'bg-[#14161A]',
+    border: 'border-[#23262C] hover:border-purple-500/40',
+    header: 'bg-[#181B20]',
+    text: 'text-[#E7E8EA]',
     badge: 'bg-purple-400',
+    dot: 'bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]',
   },
   gray: {
-    bg: 'bg-[#1a1c20]',
-    border: 'border-zinc-500/30',
-    header: 'bg-[#22242a]',
-    text: 'text-zinc-200',
+    bg: 'bg-[#14161A]',
+    border: 'border-[#23262C] hover:border-zinc-500/40',
+    header: 'bg-[#181B20]',
+    text: 'text-[#E7E8EA]',
     badge: 'bg-zinc-400',
+    dot: 'bg-zinc-400',
   },
 };
 
@@ -153,30 +159,32 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
 
   return (
     <div
-      className={`flex flex-col w-full h-full border ${theme.border} ${theme.bg} rounded-xl overflow-hidden transition-colors shadow-lg`}
+      className={`flex flex-col w-full h-full border ${theme.border} ${theme.bg} rounded-2xl overflow-hidden transition-all shadow-2xl`}
     >
       {/* Header */}
       <div
-        className={`node-drag-handle flex items-center justify-between px-3 py-1.5 ${theme.header} border-b ${theme.border} cursor-move`}
+        className="node-drag-handle h-9 px-3 bg-[#181B20] border-b border-[#23262C] flex items-center justify-between cursor-move select-none"
       >
         <div className="flex items-center gap-2 overflow-hidden">
-          {/* Color picker dropdown trigger */}
-          <div className="relative">
+          {/* Note color dot indicator and picker */}
+          <div className="relative flex items-center">
             <button
               onClick={() => setShowColorPicker(!showColorPicker)}
-              className="p-1 text-zinc-400 hover:text-zinc-200 rounded"
-              title="Change note color"
+              className="p-1 text-[#8A8F98] hover:text-[#E7E8EA] rounded-lg hover:bg-[#23262C] transition-colors flex items-center gap-1.5"
+              title="Cor da nota"
             >
-              <Palette className="w-3.5 h-3.5" />
+              <span className={`w-2.5 h-2.5 rounded-full ${theme.dot}`} />
             </button>
 
             {showColorPicker && (
-              <div className="absolute left-0 top-6 flex items-center gap-1 p-1.5 bg-[#1e2025] border border-white/10 rounded-lg shadow-xl z-50">
+              <div className="absolute left-0 top-8 flex items-center gap-1.5 p-1.5 bg-[#181B20] border border-[#23262C] rounded-xl shadow-2xl z-50">
                 {(Object.keys(colorThemes) as NoteColor[]).map((c) => (
                   <button
                     key={c}
                     onClick={() => changeColor(c)}
-                    className={`w-4 h-4 rounded-full ${colorThemes[c].badge} hover:scale-110 transition-transform`}
+                    className={`w-4 h-4 rounded-full ${colorThemes[c].badge} transition-transform hover:scale-125 ${
+                      currentColor === c ? 'ring-2 ring-white/60' : ''
+                    }`}
                   />
                 ))}
               </div>
@@ -205,13 +213,13 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
                   });
                 }
               }}
-              className="bg-black/50 text-white text-xs px-1.5 py-0.5 rounded outline-none border border-white/20"
+              className="bg-[#0E0F12] text-[#E7E8EA] text-xs px-2 py-0.5 rounded-lg outline-none border border-[#8B93FF]"
             />
           ) : (
             <span
               onDoubleClick={() => setIsEditingTitle(true)}
-              className="text-xs font-semibold text-zinc-200 hover:text-white cursor-text truncate max-w-[170px]"
-              title="Double click to rename (pins title)"
+              className="text-xs font-medium text-[#E7E8EA] hover:text-white cursor-text truncate max-w-[170px]"
+              title="Clique duas vezes para renomear"
             >
               {node.content.title}
             </span>
@@ -220,12 +228,12 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
           {/* Pin Button */}
           <button
             onClick={togglePin}
-            className={`p-0.5 rounded transition-colors ${
+            className={`p-1 rounded-lg transition-colors ${
               node.content.isNamePinned
-                ? 'text-yellow-400 rotate-45'
-                : 'text-zinc-500 hover:text-zinc-300'
+                ? 'text-[#8B93FF] rotate-45'
+                : 'text-[#8A8F98]/50 hover:text-[#8A8F98]'
             }`}
-            title={node.content.isNamePinned ? 'Title Pinned' : 'Auto-Title from First Line'}
+            title={node.content.isNamePinned ? 'Título fixado' : 'Título automático pela 1ª linha'}
           >
             <Pin className="w-3 h-3" />
           </button>
@@ -236,8 +244,8 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
           {/* Mode Switch (Edit / Preview) */}
           <button
             onClick={() => setMode(mode === 'edit' ? 'preview' : 'edit')}
-            className="p-1 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded transition-colors"
-            title={mode === 'edit' ? 'Preview Markdown' : 'Edit Markdown'}
+            className="w-7 h-7 flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#23262C] rounded-lg transition-colors"
+            title={mode === 'edit' ? 'Visualizar Markdown' : 'Editar Markdown'}
           >
             {mode === 'edit' ? <Eye className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
           </button>
@@ -245,8 +253,8 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
           {/* Delete Button */}
           <button
             onClick={() => onDelete(node.id)}
-            className="p-1 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-            title="Delete Note"
+            className="w-7 h-7 flex items-center justify-center text-[#8A8F98] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Excluir Nota"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -254,13 +262,13 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
       </div>
 
       {/* Note Body */}
-      <div className="flex-1 w-full h-[calc(100%-34px)] p-2 overflow-auto">
+      <div className="flex-1 w-full h-[calc(100%-36px)] p-3 overflow-auto bg-[#14161A]">
         {mode === 'edit' ? (
-          <div ref={editorContainerRef} className="w-full h-full text-xs font-mono" />
+          <div ref={editorContainerRef} className="w-full h-full text-xs font-mono text-[#E7E8EA]" />
         ) : (
           <div className="w-full h-full text-xs space-y-2 prose prose-invert max-w-none p-1">
-            <div className="whitespace-pre-wrap font-sans leading-relaxed text-zinc-200">
-              {node.content.body || '(Empty note)'}
+            <div className="whitespace-pre-wrap font-sans leading-relaxed text-[#E7E8EA]">
+              {node.content.body || '(Nota vazia)'}
             </div>
           </div>
         )}

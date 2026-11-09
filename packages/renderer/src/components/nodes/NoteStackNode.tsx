@@ -21,13 +21,13 @@ interface NoteStackNodeProps {
   onDelete: (id: string) => void;
 }
 
-const tabColors: Record<NoteColor, string> = {
-  yellow: 'border-l-yellow-400 text-yellow-300',
-  blue: 'border-l-blue-400 text-blue-300',
-  green: 'border-l-emerald-400 text-emerald-300',
-  pink: 'border-l-pink-400 text-pink-300',
-  purple: 'border-l-purple-400 text-purple-300',
-  gray: 'border-l-zinc-400 text-zinc-300',
+const tabColors: Record<NoteColor, { dot: string; text: string }> = {
+  yellow: { dot: 'bg-amber-400', text: 'text-amber-300' },
+  blue: { dot: 'bg-[#8B93FF]', text: 'text-[#8B93FF]' },
+  green: { dot: 'bg-[#5FD3A0]', text: 'text-[#5FD3A0]' },
+  pink: { dot: 'bg-pink-400', text: 'text-pink-300' },
+  purple: { dot: 'bg-purple-400', text: 'text-purple-300' },
+  gray: { dot: 'bg-zinc-400', text: 'text-zinc-300' },
 };
 
 export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
@@ -125,15 +125,15 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full h-full bg-[#181a20] border border-blue-500/30 rounded-xl overflow-hidden shadow-2xl">
+    <div className="flex flex-col w-full h-full bg-[#14161A] border border-[#23262C] rounded-2xl overflow-hidden shadow-2xl transition-all">
       {/* Header */}
-      <div className="node-drag-handle flex items-center justify-between px-3 py-1.5 bg-[#1f222a] border-b border-white/10 cursor-move">
+      <div className="node-drag-handle h-9 px-3 bg-[#181B20] border-b border-[#23262C] flex items-center justify-between cursor-move select-none">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-3.5 h-3.5 text-blue-400" />
-          <span className="text-xs font-semibold text-zinc-200 truncate max-w-[140px]">
+          <BookOpen className="w-3.5 h-3.5 text-[#8B93FF]" />
+          <span className="text-xs font-semibold text-[#E7E8EA] truncate max-w-[140px]">
             {content.title || 'Fichário'}
           </span>
-          <span className="text-[10px] text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] text-[#8A8F98] bg-[#0E0F12] border border-[#23262C] px-2 py-0.5 rounded-full font-mono">
             {activeIndex + 1} / {pages.length}
           </span>
         </div>
@@ -149,8 +149,8 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
                 content: { ...content, tabOrientation: next },
               });
             }}
-            className="p-1 text-zinc-400 hover:text-white rounded"
-            title="Toggle Tab Orientation (Side / Top)"
+            className="w-7 h-7 flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#23262C] rounded-lg transition-colors"
+            title="Alternar orientação das abas"
           >
             {tabOrientation === 'side' ? (
               <LayoutList className="w-3.5 h-3.5" />
@@ -162,8 +162,8 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
           {/* Add Page */}
           <button
             onClick={addPage}
-            className="p-1 text-zinc-400 hover:text-emerald-400 rounded hover:bg-emerald-500/10"
-            title="Add Page to Binder"
+            className="w-7 h-7 flex items-center justify-center text-[#8A8F98] hover:text-[#5FD3A0] hover:bg-[#5FD3A0]/10 rounded-lg transition-colors"
+            title="Adicionar página"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -172,8 +172,8 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
           <button
             onClick={removeActivePage}
             disabled={pages.length <= 1}
-            className="p-1 text-zinc-400 hover:text-red-400 rounded disabled:opacity-30"
-            title="Delete Current Page"
+            className="w-7 h-7 flex items-center justify-center text-[#8A8F98] hover:text-red-400 hover:bg-red-500/10 rounded-lg disabled:opacity-30 transition-colors"
+            title="Excluir página atual"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -181,8 +181,8 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
           {/* Close Stack */}
           <button
             onClick={() => onDelete(node.id)}
-            className="p-1 text-zinc-400 hover:text-red-400 rounded"
-            title="Close Stack"
+            className="w-7 h-7 flex items-center justify-center text-[#8A8F98] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Excluir fichário"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -199,25 +199,26 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
         <div
           className={`${
             tabOrientation === 'top'
-              ? 'flex flex-row overflow-x-auto border-b border-white/5 bg-[#14151a]'
-              : 'flex flex-col w-28 overflow-y-auto border-r border-white/5 bg-[#14151a]'
-          } p-1 gap-1 select-none scrollbar-thin`}
+              ? 'flex flex-row overflow-x-auto border-b border-[#23262C] bg-[#0E0F12]'
+              : 'flex flex-col w-32 overflow-y-auto border-r border-[#23262C] bg-[#0E0F12]'
+          } p-1.5 gap-1 select-none scrollbar-thin`}
         >
           {pages.map((p, idx) => {
             const isCurrent = idx === activeIndex;
-            const colorClass = tabColors[p.color || 'blue'] || tabColors.blue;
+            const colorMeta = tabColors[p.color || 'blue'] || tabColors.blue;
 
             return (
               <button
                 key={p.id}
                 onClick={() => setActivePage(idx)}
-                className={`flex items-center text-left text-xs px-2 py-1.5 rounded transition-all truncate border-l-2 ${
+                className={`flex items-center text-left text-xs px-2.5 py-1.5 rounded-lg transition-all truncate ${
                   isCurrent
-                    ? `bg-[#242731] font-semibold text-white ${colorClass}`
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border-l-transparent'
+                    ? 'bg-[#181B20] font-medium text-[#E7E8EA] border border-[#23262C] shadow-sm'
+                    : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#14161A]/60'
                 }`}
                 title={p.title}
               >
+                <span className={`w-2 h-2 rounded-full shrink-0 mr-2 ${colorMeta.dot}`} />
                 <span className="truncate">{p.title}</span>
               </button>
             );
@@ -225,27 +226,27 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
         </div>
 
         {/* Page Content Viewport */}
-        <div className="flex-1 flex flex-col p-3 overflow-hidden bg-[#181a20]">
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/5">
+        <div className="flex-1 flex flex-col p-3 overflow-hidden bg-[#14161A]">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#23262C]">
             <input
               type="text"
               value={activePage.title}
               onChange={(e) => updatePageTitle(e.target.value)}
-              className="bg-transparent font-medium text-xs text-white outline-none hover:border-b border-blue-500/40 w-2/3"
+              className="bg-transparent font-medium text-xs text-[#E7E8EA] outline-none focus:text-[#8B93FF] w-2/3 transition-colors"
             />
             {/* Quick page flippers */}
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setActivePage(Math.max(0, activeIndex - 1))}
                 disabled={activeIndex === 0}
-                className="p-1 text-zinc-400 hover:text-white disabled:opacity-20"
+                className="w-6 h-6 flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] rounded hover:bg-[#23262C] disabled:opacity-20 transition-colors"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setActivePage(Math.min(pages.length - 1, activeIndex + 1))}
                 disabled={activeIndex === pages.length - 1}
-                className="p-1 text-zinc-400 hover:text-white disabled:opacity-20"
+                className="w-6 h-6 flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] rounded hover:bg-[#23262C] disabled:opacity-20 transition-colors"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
@@ -255,8 +256,8 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
           <textarea
             value={activePage.body}
             onChange={(e) => updatePageBody(e.target.value)}
-            placeholder="Type page markdown notes..."
-            className="flex-1 w-full bg-transparent text-xs text-zinc-300 font-mono resize-none outline-none leading-relaxed"
+            placeholder="Digite anotações em Markdown..."
+            className="flex-1 w-full bg-transparent text-xs text-[#E7E8EA] font-mono resize-none outline-none leading-relaxed placeholder-[#8A8F98]/40"
           />
         </div>
       </div>

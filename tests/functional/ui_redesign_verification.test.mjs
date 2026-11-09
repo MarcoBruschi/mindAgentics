@@ -58,9 +58,11 @@ test('UI Redesign & Component Specification Verification', async (t) => {
 
     assert.ok(sidebarContent.includes('w-[248px]'), 'Sidebar is fixed at 248px width');
     assert.ok(sidebarContent.includes('ESPAÇOS DE TRABALHO'), 'Sidebar has uppercase label ESPAÇOS DE TRABALHO');
+    assert.ok(!sidebarContent.includes('Filtrar'), 'Sidebar search/filter bar has been removed');
+    assert.ok(sidebarContent.includes('backdropFilter'), 'Sidebar has translucent backdrop blur');
     assert.ok(gridContent.includes('24 * offset.zoom'), 'GridBackground dot step is 24px');
     assert.ok(gridContent.includes('#23262C'), 'GridBackground uses #23262C for dots');
-    assert.ok(canvasContent.includes('Canvas vazio — crie um terminal na barra acima para começar'), 'InfiniteCanvas includes empty state');
+    assert.ok(!canvasContent.includes('Canvas vazio'), 'InfiniteCanvas empty state removed');
   });
 
   await t.test('New Terminal Modal: CreateAgentModal.tsx complies with 480x700, switches and clean layout', () => {
