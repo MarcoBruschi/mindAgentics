@@ -4,19 +4,24 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 import * as fflate from 'fflate';
-import type {
-  AppStateDocument,
-  AppStatePayload,
-  PreferencesDocument,
-  PreferencesPayload,
-  ManifestDocument,
-  ManifestWorkspaceEntry,
-  Workspace,
-  WorkspaceDocument,
-  Routine,
-  RoutineHistoryRecord,
-  RoutinesDocument,
-  RoutineHistoryDocument
+import {
+  type AppStateDocument,
+  type AppStatePayload,
+  type PreferencesDocument,
+  type PreferencesPayload,
+  type ManifestDocument,
+  type ManifestWorkspaceEntry,
+  type Workspace,
+  type WorkspaceDocument,
+  type Routine,
+  type RoutineHistoryRecord,
+  type RoutinesDocument,
+  type RoutineHistoryDocument,
+  type UserProfile,
+  type OrchestratorStats,
+  type UserBadge,
+  createDefaultProfile,
+  calculateLevelAndXp
 } from '@mindagentics/shared';
 
 export class AsyncKeyedMutex {
@@ -328,6 +333,7 @@ export class DataService {
               command: 'claude',
               icon: 'seal',
               isActive: true,
+              orchestratorMode: false,
               maestroMode: false,
               startInChatMode: false,
               codexDaemonMigration: 'untouched'
@@ -339,6 +345,7 @@ export class DataService {
               command: 'codex --no-daemon',
               icon: 'brain',
               isActive: true,
+              orchestratorMode: false,
               maestroMode: false,
               startInChatMode: false,
               codexDaemonMigration: 'added'
@@ -350,6 +357,7 @@ export class DataService {
               command: 'agy',
               icon: 'zap',
               isActive: true,
+              orchestratorMode: false,
               maestroMode: false,
               startInChatMode: false,
               codexDaemonMigration: 'untouched'
@@ -379,6 +387,12 @@ export class DataService {
     const historyPath = path.join(this.dataDir, 'routine_history.json');
     if (!fs.existsSync(historyPath)) {
       await this.replaceFileAtomically(historyPath, JSON.stringify({ schemaVersion: 1, records: [] }, null, 2));
+    }
+
+    // Initialize profile.json if missing
+    const profilePath = path.join(this.dataDir, 'profile.json');
+    if (!fs.existsSync(profilePath)) {
+      await this.replaceFileAtomically(profilePath, JSON.stringify(createDefaultProfile(), null, 2));
     }
   }
 
@@ -968,5 +982,166 @@ export class DataService {
     } catch (err: any) {
       return { ok: false, error: err.message || String(err) };
     }
+  }
+
+  // ==========================================
+  // User Profile & Gamification (Pillar 3)
+  // ==========================================
+
+  private async getProfileInternal(): Promise<UserProfile> {
+    const profilePath = path.join(this.dataDir, 'profile.json');
+    if (!fs.existsSync(profilePath)) {
+      const def = createDefaultProfile();
+      await this.replaceFileAtomically(profilePath, JSON.stringify(def, null, 2));
+      return def;
+    }
+    try {
+      const raw = await fsp.readFile(profilePath, 'utf8');
+      const profile: UserProfile = JSON.parse(raw);
+
+      // Check daily streak
+      const today = new Date().toISOString().split('T')[0];
+      if (profile.lastActiveDate !== today) {
+        const lastDate = new Date(profile.lastActiveDate);
+        const currDate = new Date(today);
+        const diffTime = currDate.getTime() - lastDate.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+
+        if (diffDays === 1) {
+          profile.streakDays = (profile.streakDays || 0) + 1;
+        } else if (diffDays > 1) {
+          profile.streakDays = 1;
+        }
+        profile.lastActiveDate = today;
+
+        // Check "Em Chamas" badge progress
+        const emChamas = profile.badges.find((b) => b.id === 'badge-em-chamas');
+        if (emChamas) {
+          emChamas.progress = profile.streakDays;
+          if (!emChamas.unlockedAt && emChamas.progress >= (emChamas.maxProgress || 3)) {
+            emChamas.unlockedAt = new Date().toISOString();
+          }
+        }
+        await this.replaceFileAtomically(profilePath, JSON.stringify(profile, null, 2));
+      }
+
+      return profile;
+    } catch (err) {
+      console.warn('[DataService] Failed to read profile.json, recreating default:', err);
+      const def = createDefaultProfile();
+      await this.replaceFileAtomically(profilePath, JSON.stringify(def, null, 2));
+      return def;
+    }
+  }
+
+  public async getProfile(): Promise<UserProfile> {
+    return this.fileMutex.acquire('profile.json', () => this.getProfileInternal());
+  }
+
+  public async updateProfile(patch: Partial<UserProfile>): Promise<UserProfile> {
+    return this.fileMutex.acquire('profile.json', async () => {
+      const current = await this.getProfileInternal();
+      const updated: UserProfile = {
+        ...current,
+        ...patch,
+        stats: {
+          ...current.stats,
+          ...(patch.stats || {}),
+        },
+        badges: patch.badges || current.badges,
+      };
+
+      // Recalculate level & XP in case totalXp was patched
+      if (patch.totalXp !== undefined) {
+        const lvlInfo = calculateLevelAndXp(updated.totalXp);
+        updated.level = lvlInfo.level;
+        updated.currentXp = lvlInfo.currentXp;
+        updated.xpToNextLevel = lvlInfo.xpToNextLevel;
+        if (!patch.title) {
+          updated.title = lvlInfo.title;
+        }
+      }
+
+      const profilePath = path.join(this.dataDir, 'profile.json');
+      await this.replaceFileAtomically(profilePath, JSON.stringify(updated, null, 2));
+      return updated;
+    });
+  }
+
+  public async awardXp(
+    xp: number,
+    statKey?: keyof OrchestratorStats
+  ): Promise<{ profile: UserProfile; leveledUp: boolean; unlockedBadges: UserBadge[] }> {
+    return this.fileMutex.acquire('profile.json', async () => {
+      const profile = await this.getProfileInternal();
+      const previousLevel = profile.level;
+      profile.totalXp = Math.max(0, profile.totalXp + xp);
+
+      const lvlInfo = calculateLevelAndXp(profile.totalXp);
+      const leveledUp = lvlInfo.level > previousLevel;
+      profile.level = lvlInfo.level;
+      profile.currentXp = lvlInfo.currentXp;
+      profile.xpToNextLevel = lvlInfo.xpToNextLevel;
+      profile.title = lvlInfo.title;
+
+      if (statKey && profile.stats[statKey] !== undefined) {
+        profile.stats[statKey] = (profile.stats[statKey] || 0) + 1;
+      }
+
+      const unlockedBadges: UserBadge[] = [];
+      const nowIso = new Date().toISOString();
+
+      // Evaluate badge progress based on stats
+      for (const badge of profile.badges) {
+        if (badge.unlockedAt) continue;
+
+        let shouldUnlock = false;
+        if (badge.id === 'badge-primeira-sinfonia') {
+          if (profile.stats.recruitsCount >= 1 || profile.stats.tasksDelegated >= 1) {
+            badge.progress = 1;
+            shouldUnlock = true;
+          }
+        } else if (badge.id === 'badge-delegacao-cirurgica') {
+          badge.progress = profile.stats.tasksDelegated;
+          if (badge.progress >= (badge.maxProgress || 10)) {
+            shouldUnlock = true;
+          }
+        } else if (badge.id === 'badge-mapeador-neural') {
+          badge.progress = profile.stats.knowledgeGraphsBuilt;
+          if (badge.progress >= (badge.maxProgress || 1)) {
+            shouldUnlock = true;
+          }
+        } else if (badge.id === 'badge-ponte-conhecimento') {
+          badge.progress = profile.stats.portalsOpened;
+          if (badge.progress >= (badge.maxProgress || 5)) {
+            shouldUnlock = true;
+          }
+        } else if (badge.id === 'badge-sentinela-autonomo') {
+          badge.progress = profile.stats.routinesExecuted;
+          if (badge.progress >= (badge.maxProgress || 1)) {
+            shouldUnlock = true;
+          }
+        } else if (badge.id === 'badge-em-chamas') {
+          badge.progress = profile.streakDays;
+          if (badge.progress >= (badge.maxProgress || 3)) {
+            shouldUnlock = true;
+          }
+        }
+
+        if (shouldUnlock && !badge.unlockedAt) {
+          badge.unlockedAt = nowIso;
+          unlockedBadges.push(badge);
+        }
+      }
+
+      const profilePath = path.join(this.dataDir, 'profile.json');
+      await this.replaceFileAtomically(profilePath, JSON.stringify(profile, null, 2));
+
+      return {
+        profile,
+        leveledUp,
+        unlockedBadges,
+      };
+    });
   }
 }

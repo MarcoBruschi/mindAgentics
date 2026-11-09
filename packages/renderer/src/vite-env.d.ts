@@ -38,6 +38,15 @@ interface MindAgenticsWindowBridge {
   canvas?: {
     sync: (data: { nodes: any[]; cableTies: any[]; workspaceId?: string; floorId?: string }) => void;
   };
+  profile?: {
+    get: () => Promise<import('@mindagentics/shared').UserProfile>;
+    update: (patch: Partial<import('@mindagentics/shared').UserProfile>) => Promise<import('@mindagentics/shared').UserProfile>;
+    awardXp: (xp: number, statKey?: keyof import('@mindagentics/shared').OrchestratorStats) => Promise<{
+      profile: import('@mindagentics/shared').UserProfile;
+      leveledUp: boolean;
+      unlockedBadges: import('@mindagentics/shared').UserBadge[];
+    }>;
+  };
 }
 
 

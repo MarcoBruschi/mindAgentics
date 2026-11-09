@@ -471,6 +471,9 @@ export const IPC_CHANNELS = {
   "remotePartituraPreviewResult": "mindagentics:remote:partituraPreviewResult",
   "remotePortalReloadRequest": "mindagentics:remote:portalReloadRequest",
   "remotePortalReloadResult": "mindagentics:remote:portalReloadResult",
+  "profileGet": "mindagentics:profile:get",
+  "profileUpdate": "mindagentics:profile:update",
+  "profileAwardXp": "mindagentics:profile:awardXp",
 } as const;
 
 export type IpcChannelKey = keyof typeof IPC_CHANNELS;

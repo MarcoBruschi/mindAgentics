@@ -54,7 +54,7 @@ export const WindowControls: React.FC = () => {
         className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 rounded transition-colors cursor-pointer"
         title="Minimizar"
       >
-        <Minus className="w-3.5 h-3.5" />
+        <Minus className="w-3.5 h-3.5" strokeWidth={1.75} />
       </button>
 
       {/* Maximize / Restore */}
@@ -64,9 +64,9 @@ export const WindowControls: React.FC = () => {
         title={isMaximized ? 'Restaurar' : 'Maximizar'}
       >
         {isMaximized ? (
-          <Copy className="w-3 h-3 rotate-180" />
+          <Copy className="w-3 h-3 rotate-180" strokeWidth={1.75} />
         ) : (
-          <Square className="w-3 h-3" />
+          <Square className="w-3 h-3" strokeWidth={1.75} />
         )}
       </button>
 
@@ -76,7 +76,7 @@ export const WindowControls: React.FC = () => {
         className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#e81123] rounded transition-colors cursor-pointer"
         title="Fechar"
       >
-        <X className="w-3.5 h-3.5" />
+        <X className="w-3.5 h-3.5" strokeWidth={1.75} />
       </button>
     </div>
   );

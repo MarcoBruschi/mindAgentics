@@ -75,6 +75,9 @@ workspaces
 tmp
 temp
 .gemini
+.agent/
+.agents/
+.opencode/
 
 # IDE & Editor files
 .vscode/*

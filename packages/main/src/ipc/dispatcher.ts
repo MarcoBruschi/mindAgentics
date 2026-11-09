@@ -660,6 +660,11 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   handle(C.dataImportBackup, (zipPath: string) => dataService.importBackup(zipPath));
   handle(C.dataStorageLocation, () => dataService.getDataDir());
 
+  // User Profile & Gamification (Pillar 3)
+  handle('mindagentics:profile:get', async () => dataService.getProfile());
+  handle('mindagentics:profile:update', async (patch: any) => dataService.updateProfile(patch));
+  handle('mindagentics:profile:awardXp', async (xp: number, statKey?: any) => dataService.awardXp(xp, statKey));
+
   // Knowledge Graph (Graphify) - Integrated Platform Service
   handle('mindagentics:graphify:build', async (params: { target: string; isGitUrl?: boolean; branch?: string; directed?: boolean }) => {
     const onProgress = (message: string) => {

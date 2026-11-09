@@ -37,6 +37,7 @@ export interface TerminalContent {
   agentRole?: string;
   isLocked?: boolean;
   account?: string;
+  orchestratorMode?: boolean;
   maestroMode?: boolean;
   status?: TerminalStatus;
   command?: string;

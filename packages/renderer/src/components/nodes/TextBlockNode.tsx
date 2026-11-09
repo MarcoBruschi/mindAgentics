@@ -185,6 +185,10 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
         style={{
           whiteSpace: 'nowrap',
           writingMode: 'horizontal-tb',
+          backfaceVisibility: 'hidden',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          transform: 'translateZ(0)',
         }}
       >
         {/* Invisible bridge covering gap between toolbar (-top-12) and text block (top-0) */}
@@ -430,6 +434,11 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
             minWidth: '180px',
             width: 'max-content',
             display: 'inline-block',
+            WebkitFontSmoothing: 'antialiased',
+            MozOsxFontSmoothing: 'grayscale',
+            textRendering: 'geometricPrecision',
+            backfaceVisibility: 'hidden',
+            transform: 'translateZ(0)',
           }}
           title="Clique ou duplo clique para editar"
         >
@@ -458,6 +467,11 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
               writingMode: 'horizontal-tb',
               minWidth: '180px',
               display: 'inline-block',
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale',
+              textRendering: 'geometricPrecision',
+              backfaceVisibility: 'hidden',
+              transform: 'translateZ(0)',
             }}
           >
             {text || 'Escreva algo no workspace...'}
@@ -509,6 +523,11 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
               whiteSpace: 'nowrap',
               writingMode: 'horizontal-tb',
               minWidth: '180px',
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale',
+              textRendering: 'geometricPrecision',
+              backfaceVisibility: 'hidden',
+              transform: 'translateZ(0)',
             }}
             className="absolute inset-0 w-full h-full bg-transparent border-none outline-none px-2 py-0.5 whitespace-nowrap transition-colors placeholder:text-[#8A8F98]/40 leading-tight"
           />

@@ -35,3 +35,5 @@ export const isCreateWorkspaceModalOpenAtom = atom<boolean>(false);
 export const isAgentLimitsModalOpenAtom = atom<boolean>(false);
 
 export const isCreateGraphModalOpenAtom = atom<boolean>(false);
+export const isProfileModalOpenAtom = atom<boolean>(false);
+export const isOnboardingModalOpenAtom = atom<boolean>(false);

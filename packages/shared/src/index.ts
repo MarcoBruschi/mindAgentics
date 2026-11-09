@@ -15,6 +15,13 @@ export * from './models/appState.js';
 export * from './models/manifest.js';
 export * from './models/routines.js';
 export * from './models/accounts.js';
+export * from './models/profile.js';
+export {
+  createDefaultProfile,
+  calculateLevelAndXp,
+  getTitleForLevel,
+  INITIAL_BADGES,
+} from './models/profile.js';
 
 // Utilities
 export * from './utils/id.js';

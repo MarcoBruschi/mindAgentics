@@ -3,6 +3,7 @@ import { useAtom } from 'jotai';
 import { isCreateGraphModalOpenAtom } from '@/atoms/ui';
 import { nodesAtom, activeWorkspaceAtom } from '@/atoms/workspace';
 import { canvasOffsetAtom, selectedNodeIdsAtom } from '@/atoms/canvas';
+import { useAwardXp } from '@/atoms/profile';
 import {
   FolderOpen,
   GitBranch,
@@ -18,6 +19,7 @@ export const CreateGraphModal: React.FC = () => {
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
   const [offset] = useAtom(canvasOffsetAtom);
   const [, setSelectedIds] = useAtom(selectedNodeIdsAtom);
+  const awardXp = useAwardXp();
 
   const [sourceType, setSourceType] = useState<'local' | 'git'>('local');
   const [localPath, setLocalPath] = useState('');
@@ -138,6 +140,7 @@ export const CreateGraphModal: React.FC = () => {
         setSelectedIds([id]);
       }
 
+      awardXp(100, 'knowledgeGraphsBuilt');
       setIsOpen(false);
     } catch (err: any) {
       setError(err?.message || 'Erro inesperado ao gerar o grafo.');

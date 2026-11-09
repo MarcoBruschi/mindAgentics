@@ -9,14 +9,14 @@ export const TitleBar: React.FC = () => {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 h-14 flex items-center justify-between px-3 z-50 pointer-events-none select-none"
+      className={`fixed top-0 right-0 h-14 flex items-center justify-between px-3 z-40 pointer-events-none select-none transition-all duration-300 ease-in-out ${
+        isSidebarOpen ? 'left-[248px]' : 'left-0'
+      }`}
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Left: Hamburger menu toggle button */}
       <div
-        className={`flex items-center pointer-events-auto transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? 'ml-[268px]' : 'ml-0'
-        }`}
+        className="flex items-center pointer-events-auto ml-1"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
@@ -30,7 +30,7 @@ export const TitleBar: React.FC = () => {
           }}
           title={isSidebarOpen ? 'Esconder barra lateral' : 'Mostrar barra lateral'}
         >
-          <Menu className="w-4 h-4" strokeWidth={2} />
+          <Menu className="w-4 h-4" strokeWidth={1.75} />
         </button>
       </div>
 

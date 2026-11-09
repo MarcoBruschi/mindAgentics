@@ -1,5 +1,6 @@
 import electron from 'electron';
 import { IPC_CHANNELS as C } from '@mindagentics/shared';
+import type { UserProfile, OrchestratorStats, UserBadge } from '@mindagentics/shared';
 
 const LICENSE_EXPIRED = "licenseExpired";
 function licenseFailureKind(error: any): string | null {
@@ -1692,6 +1693,17 @@ app: {
       return () => {
         electron.ipcRenderer.removeListener('mindagentics:graphify:progress', subscription);
       };
+    }
+  },
+  profile: {
+    get(): Promise<UserProfile> {
+      return electron.ipcRenderer.invoke(C.profileGet);
+    },
+    update(patch: Partial<UserProfile>): Promise<UserProfile> {
+      return electron.ipcRenderer.invoke(C.profileUpdate, patch);
+    },
+    awardXp(xp: number, statKey?: keyof OrchestratorStats): Promise<{ profile: UserProfile; leveledUp: boolean; unlockedBadges: UserBadge[] }> {
+      return electron.ipcRenderer.invoke(C.profileAwardXp, xp, statKey);
     }
   }
 };

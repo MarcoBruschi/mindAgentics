@@ -9,16 +9,18 @@ import {
   activeBrushTypeAtom,
 } from '@/atoms/canvas';
 import { nodesAtom, drawingsAtom, activeWorkspaceAtom } from '@/atoms/workspace';
-import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom, isCreateGraphModalOpenAtom } from '@/atoms/ui';
+import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom, isCreateGraphModalOpenAtom, isSidebarOpenAtom } from '@/atoms/ui';
+import { useAwardXp } from '@/atoms/profile';
 import { snapToGrid } from '@/utils/layout';
 import {
   MousePointer2,
-  SquareTerminal,
-  Scroll,
-  Paperclip,
-  Folder,
-  Globe,
+  Terminal,
+  StickyNote,
+  Cable,
+  Layers,
+  Compass,
   Network,
+  Type,
   Pencil,
   Eraser,
   Minus,
@@ -53,7 +55,9 @@ export const CanvasToolbar: React.FC = () => {
   const [, setIsCreateAgentOpen] = useAtom(isCreateAgentModalOpenAtom);
   const [, setIsAgentLimitsOpen] = useAtom(isAgentLimitsModalOpenAtom);
   const [, setIsCreateGraphOpen] = useAtom(isCreateGraphModalOpenAtom);
+  const [isSidebarOpen] = useAtom(isSidebarOpenAtom);
   const [installedAgents, setInstalledAgents] = useState<InstalledAgentReport[]>([]);
+  const awardXp = useAwardXp();
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -205,6 +209,7 @@ export const CanvasToolbar: React.FC = () => {
         },
       },
     ]);
+    awardXp(20, 'portalsOpened');
     setMode('select');
   };
 
@@ -277,104 +282,107 @@ export const CanvasToolbar: React.FC = () => {
     <>
       {/* Top Floating Centered Toolbar: Compact Capsule */}
       <div
-        className="absolute top-2.5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-40 select-none pointer-events-auto"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        className="absolute top-2.5 -translate-x-1/2 flex flex-col items-center gap-2 z-40 select-none pointer-events-auto transition-all duration-300 ease-in-out"
+        style={{
+          left: isSidebarOpen ? 'calc(50% + 124px)' : '50%',
+          WebkitAppRegion: 'no-drag',
+        } as React.CSSProperties}
       >
-        <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl">
+        <div className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl">
           {/* 1. Selection Cursor */}
           <button
             onClick={() => setMode('select')}
-            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors cursor-pointer ${
               mode === 'select'
                 ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
                 : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
             }`}
             title="Selecionar (V)"
           >
-            <MousePointer2 className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <MousePointer2 className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* 2. Terminal / Agent */}
           <button
             onClick={() => setIsCreateAgentOpen(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
             title="Novo Terminal / Agente"
           >
-            <SquareTerminal className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <Terminal className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* 3. Sticky Note */}
           <button
             onClick={addStickyNote}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
-            title="Adicionar Nota"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+            title="Adicionar Nota Adesiva"
           >
-            <Scroll className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <StickyNote className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
-          {/* 4. Link / Conectar Componentes */}
+          {/* 4. Cable / Conectar Componentes */}
           <button
             onClick={() => setMode(mode === 'connect' ? 'select' : 'connect')}
-            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors cursor-pointer ${
               mode === 'connect'
                 ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
                 : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
             }`}
-            title="Conectar Componentes (C)"
+            title="Conectar Nós (C)"
           >
-            <Paperclip className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <Cable className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
-          {/* 5. Folder / Multi-Page Binder */}
+          {/* 5. Fichário de Páginas (NoteStack) */}
           <button
             onClick={addNoteStack}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
             title="Adicionar Fichário (Binder)"
           >
-            <Folder className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <Layers className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
-          {/* 6. Globe / Browser Portal */}
+          {/* 6. Portal Web / Navegador */}
           <button
             onClick={addPortal}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
             title="Adicionar Browser Portal"
           >
-            <Globe className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <Compass className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* 7. Knowledge Graph Tool (Graphify) */}
           <button
             onClick={() => setIsCreateGraphOpen(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
             title="Gerar Knowledge Graph (Graphify)"
           >
-            <Network className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <Network className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* Vertical Divider Isolating Aa and Caneta */}
-          <div className="w-[1px] h-4 bg-[#23262C] mx-1" />
+          <div className="w-[1px] h-4 bg-[#23262C] mx-0.5" />
 
           {/* 8. Tool Aa: Escrever no Workspace */}
           <button
             onClick={addTextBlock}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors font-semibold text-sm tracking-tight"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
             title="Escrever no Workspace (Aa)"
           >
-            <span>Aa</span>
+            <Type className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* 9. Pencil / Draw Mode */}
           <button
             onClick={() => setMode(mode === 'draw' ? 'select' : 'draw')}
-            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors cursor-pointer ${
               mode === 'draw'
                 ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
                 : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
             }`}
             title="Pintar no Canvas (D)"
           >
-            <Pencil className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <Pencil className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
         </div>
 
@@ -448,7 +456,7 @@ export const CanvasToolbar: React.FC = () => {
               className="p-1 text-[#8A8F98] hover:text-rose-400 rounded-full transition-colors"
               title="Limpar todos os desenhos"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
             </button>
           </div>
         )}
@@ -456,7 +464,7 @@ export const CanvasToolbar: React.FC = () => {
         {/* Floating Sub-Toolbar when in Erase Mode */}
         {mode === 'erase' && (
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-rose-500/20 backdrop-blur-md text-xs text-[#E7E8EA] animate-in fade-in zoom-in-95">
-            <Eraser className="w-3.5 h-3.5 text-rose-400" />
+            <Eraser className="w-3.5 h-3.5 text-rose-400" strokeWidth={1.75} />
             <span className="text-[11px] font-medium text-[#E7E8EA]">Borracha ativa</span>
             <div className="w-[1px] h-3.5 bg-[#23262C] mx-0.5" />
             <button
@@ -495,7 +503,7 @@ export const CanvasToolbar: React.FC = () => {
               className="w-6 h-6 flex items-center justify-center rounded-md hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
               title="Zoom Out (-)"
             >
-              <Minus className="w-3.5 h-3.5" strokeWidth={1.6} />
+              <Minus className="w-3.5 h-3.5" strokeWidth={1.75} />
             </button>
 
             <button
@@ -511,7 +519,7 @@ export const CanvasToolbar: React.FC = () => {
               className="w-6 h-6 flex items-center justify-center rounded-md hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
               title="Zoom In (+)"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={1.6} />
+              <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
             </button>
           </div>
         </div>

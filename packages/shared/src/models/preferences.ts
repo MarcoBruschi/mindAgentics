@@ -20,12 +20,15 @@ export interface AgentPreset {
   command: string;
   icon: string;
   isActive: boolean;
+  orchestratorMode?: boolean;
   maestroMode: boolean;
   startInChatMode: boolean;
   codexDaemonMigration?: 'untouched' | 'added' | 'migrated';
   account?: string;
   quickStart?: boolean;
 }
+
+export type Preset = AgentPreset;
 
 export interface PreferencesPayload {
   autosaveIntervalSeconds: number;

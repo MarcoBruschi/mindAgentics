@@ -88,13 +88,23 @@ async function createWindow(): Promise<BrowserWindow> {
     }
   });
 
-  const refreshMaterial = () => {
+  const refreshMaterial = (isMaximizedState?: boolean) => {
     if (material && process.platform === 'win32' && !win.isDestroyed()) {
+      // Retain the native window material (e.g. acrylic) consistently across maximized/restored states
+      // Switching to 'mica' on maximize strips transparency and causes opaque gray backgrounds.
+      const targetMaterial = material;
+
       const apply = () => {
         if (!win.isDestroyed()) {
           try {
             win.setBackgroundColor('#00000000');
-            (win as any).setBackgroundMaterial?.(material);
+            if ((win as any).setBackgroundMaterial) {
+              try {
+                (win as any).setBackgroundMaterial(targetMaterial);
+              } catch {
+                (win as any).setBackgroundMaterial(material);
+              }
+            }
           } catch (e) {
             console.warn('[refreshMaterial] Failed to apply material:', e);
           }
@@ -107,12 +117,17 @@ async function createWindow(): Promise<BrowserWindow> {
       setTimeout(apply, 150);
       setTimeout(apply, 300);
       setTimeout(apply, 500);
+    } else if (!win.isDestroyed()) {
+      try {
+        win.setBackgroundColor('#00000000');
+      } catch {}
     }
   };
 
   if (bounds.maximized) {
     win.maximize();
-    refreshMaterial();
+    win.setBackgroundColor('#00000000');
+    refreshMaterial(true);
   }
 
   let boundsSaveTimer: NodeJS.Timeout | null = null;
@@ -152,14 +167,17 @@ async function createWindow(): Promise<BrowserWindow> {
   win.on('move', saveBounds);
   win.on('maximize', () => {
     saveBounds();
-    refreshMaterial();
+    win.setBackgroundColor('#00000000');
+    refreshMaterial(true);
   });
   win.on('unmaximize', () => {
     saveBounds();
-    refreshMaterial();
+    win.setBackgroundColor('#00000000');
+    refreshMaterial(false);
   });
   win.on('restore', () => {
     saveBounds();
+    win.setBackgroundColor('#00000000');
     refreshMaterial();
   });
   win.on('enter-full-screen', () => {

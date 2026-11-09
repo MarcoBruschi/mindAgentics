@@ -9,9 +9,13 @@ import { CreateAgentModal } from '@/components/modals/CreateAgentModal';
 import { CreateGraphModal } from '@/components/modals/CreateGraphModal';
 import { CreateWorkspaceModal } from '@/components/modals/CreateWorkspaceModal';
 import { AgentLimitsModal } from '@/components/modals/AgentLimitsModal';
+import { ProfileModal } from '@/components/modals/ProfileModal';
+import { OnboardingModal } from '@/components/modals/OnboardingModal';
 import { TitleBar } from '@/components/window/TitleBar';
 import { isSidebarOpenAtom } from '@/atoms/ui';
+import { profileToastAtom } from '@/atoms/profile';
 import { isInputOrEditable, hasPrimaryModifier } from '@/utils/keyboard';
+import { X } from 'lucide-react';
 import {
   nodesAtom,
   cableTiesAtom,
@@ -33,6 +37,17 @@ export const App: React.FC = () => {
   const [, redo] = useAtom(redoAtom);
   const [, setNodes] = useAtom(nodesAtom);
   const [, setCableTies] = useAtom(cableTiesAtom);
+  const [profileToast, setProfileToast] = useAtom(profileToastAtom);
+
+  // Auto-dismiss celebratory level-up/badge toast after 5s
+  useEffect(() => {
+    if (profileToast) {
+      const timer = setTimeout(() => {
+        setProfileToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [profileToast, setProfileToast]);
 
   // Initial backend load with normalization for existing disk workspaces
   useEffect(() => {
@@ -272,15 +287,42 @@ export const App: React.FC = () => {
 
       {/* Main Workspace Body (Fills full viewport behind the floating chrome) */}
       <div className="w-full h-full flex overflow-hidden relative">
-        {/* Frosted Translucent Sidebar */}
-        <Sidebar />
-
-        {/* Full Canvas Viewport (runs next to the sidebar with solid canvas background) */}
-        <main className="flex-1 h-full relative overflow-hidden flex flex-col bg-[#1E1E1E]">
+        {/* Full Canvas Viewport (runs behind the sidebar with translucent canvas backing) */}
+        <main className="absolute inset-0 w-full h-full flex flex-col bg-transparent">
           <InfiniteCanvas />
           <CanvasToolbar />
         </main>
+
+        {/* Frosted Translucent Sidebar */}
+        <Sidebar />
       </div>
+
+      {/* Celebratory Level-Up / Badge Toast Banner */}
+      {profileToast && (
+        <div className="fixed top-16 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-[#14161A]/95 border border-[#8B93FF]/40 rounded-2xl shadow-2xl backdrop-blur-md text-[#E7E8EA] animate-in slide-in-from-top-4 duration-200">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#8B93FF] to-purple-600 flex items-center justify-center text-lg shadow-md shrink-0">
+            {profileToast.type === 'level-up' ? '👑' : '🏆'}
+          </div>
+          <div className="flex flex-col min-w-0 pr-2">
+            <span className="text-xs font-bold text-white tracking-tight flex items-center gap-1.5">
+              <span>{profileToast.title}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#8B93FF]/20 text-[#8B93FF] font-mono">
+                +XP
+              </span>
+            </span>
+            <span className="text-[11px] text-[#8A8F98] truncate mt-0.5">
+              {profileToast.description}
+            </span>
+          </div>
+          <button
+            onClick={() => setProfileToast(null)}
+            className="p-1 rounded-lg hover:bg-white/10 text-[#8A8F98] hover:text-white transition-colors cursor-pointer"
+            title="Fechar notificação"
+          >
+            <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+          </button>
+        </div>
+      )}
 
       {/* Modals */}
       <WorkspaceSettingsModal />
@@ -289,6 +331,8 @@ export const App: React.FC = () => {
       <CreateGraphModal />
       <CreateWorkspaceModal />
       <AgentLimitsModal />
+      <ProfileModal />
+      <OnboardingModal />
     </div>
   );
 };

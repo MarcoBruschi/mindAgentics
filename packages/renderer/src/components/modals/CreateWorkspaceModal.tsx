@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { isCreateWorkspaceModalOpenAtom } from '@/atoms/ui';
-import { workspacesAtom, activeWorkspaceIdAtom } from '@/atoms/workspace';
+import {
+  workspacesAtom,
+  activeWorkspaceIdAtom,
+  activeWorkspaceAtom,
+  normalizeWorkspace,
+} from '@/atoms/workspace';
 import { X, FolderOpen, Plus, Folder } from 'lucide-react';
 import { Workspace } from '@mindagentics/shared';
 
@@ -9,11 +14,22 @@ export const CreateWorkspaceModal: React.FC = () => {
   const [isOpen, setIsOpen] = useAtom(isCreateWorkspaceModalOpenAtom);
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom);
   const [, setActiveWorkspaceId] = useAtom(activeWorkspaceIdAtom);
+  const [activeWorkspace] = useAtom(activeWorkspaceAtom);
 
-  const [name, setName] = useState(`Workspace ${workspaces.length + 1}`);
-  const [workingDirectory, setWorkingDirectory] = useState('C:\\Users\\mabru\\Documents\\mindAgentics');
+  const [name, setName] = useState('');
+  const [workingDirectory, setWorkingDirectory] = useState('');
   const [preferredIde, setPreferredIde] = useState('vscode');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reset form states every time modal is opened so subsequent workspace creations are frictionless
+  useEffect(() => {
+    if (isOpen) {
+      setName(`Workspace ${workspaces.length + 1}`);
+      setWorkingDirectory(activeWorkspace?.workingDirectory || '');
+      setPreferredIde('vscode');
+      setIsSubmitting(false);
+    }
+  }, [isOpen, workspaces.length, activeWorkspace?.workingDirectory]);
 
   const handlePickDirectory = async () => {
     try {
@@ -50,8 +66,14 @@ export const CreateWorkspaceModal: React.FC = () => {
           preferredIde,
         });
         if (created) {
-          setWorkspaces((prev) => [...prev, created]);
-          setActiveWorkspaceId(created.id);
+          const norm = normalizeWorkspace(created);
+          setWorkspaces((prev) => [...prev, norm]);
+          setActiveWorkspaceId(norm.id);
+          try {
+            localStorage.setItem('mindagentics_active_ws', norm.id);
+          } catch {
+            // ignore
+          }
           setIsOpen(false);
           setIsSubmitting(false);
           return;
@@ -82,8 +104,14 @@ export const CreateWorkspaceModal: React.FC = () => {
       ],
     };
 
-    setWorkspaces((prev) => [...prev, fallbackWs]);
-    setActiveWorkspaceId(newWsId);
+    const normFallback = normalizeWorkspace(fallbackWs);
+    setWorkspaces((prev) => [...prev, normFallback]);
+    setActiveWorkspaceId(normFallback.id);
+    try {
+      localStorage.setItem('mindagentics_active_ws', normFallback.id);
+    } catch {
+      // ignore
+    }
     setIsOpen(false);
     setIsSubmitting(false);
   };
@@ -128,14 +156,14 @@ export const CreateWorkspaceModal: React.FC = () => {
                 type="text"
                 value={workingDirectory}
                 onChange={(e) => setWorkingDirectory(e.target.value)}
-                placeholder="ex.: C:\Users\usuario\Projetos\app"
+                placeholder="ex.: C:/Users/usuario/Projetos/app"
                 className="flex-1 px-3 py-2 bg-[#101115] border border-white/10 rounded-xl text-white font-mono text-[11px] outline-none focus:border-blue-500"
                 required
               />
               <button
                 type="button"
                 onClick={handlePickDirectory}
-                className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-zinc-300 flex items-center gap-1.5 shrink-0 transition-colors"
+                className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-zinc-300 flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                 title="Procurar Pasta"
               >
                 <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
@@ -166,14 +194,14 @@ export const CreateWorkspaceModal: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-3.5 py-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+              className="px-3.5 py-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl shadow-md flex items-center gap-1.5 transition-colors"
+              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl shadow-md flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{isSubmitting ? 'Criando...' : 'Criar Workspace'}</span>

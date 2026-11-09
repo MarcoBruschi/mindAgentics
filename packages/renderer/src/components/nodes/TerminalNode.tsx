@@ -18,7 +18,15 @@ import {
   Globe,
   Layers,
   Cpu,
+  Wand2,
 } from 'lucide-react';
+import {
+  ClaudeIcon,
+  CodexIcon,
+  AntigravityIcon,
+  OpenCodeIcon,
+  ShellIcon,
+} from '../icons/AgentBrandIcons';
 import { useAtom, useAtomValue } from 'jotai';
 import { agentPresetsAtom } from '@/atoms/presets';
 import { cableTiesAtom, nodesAtom, activeWorkspaceAtom } from '@/atoms/workspace';
@@ -64,7 +72,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   const agentCommand = node.content.command !== undefined ? node.content.command : (preset.command || '');
   const agentName = node.content.title || preset.name;
   const hasAttention = node.content.hasAttention || false;
-  const isMaestro = Boolean(node.content.maestroMode);
+  const isOrchestrator = Boolean(node.content.orchestratorMode ?? node.content.maestroMode);
 
   // Find components linked via Cable Ties to this node (memoized for high frame-rate performance)
   const linkedNodes = React.useMemo(() => {
@@ -91,15 +99,17 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   const getAgentIcon = (presetName?: string) => {
     const nameLower = (presetName || '').toLowerCase();
     if (nameLower.includes('claude')) {
-      return <ShieldCheck className="w-3.5 h-3.5 text-orange-400" />;
-    } else if (nameLower.includes('codex')) {
-      return <Brain className="w-3.5 h-3.5 text-purple-400" />;
+      return <ClaudeIcon size={15} className="text-amber-500 shrink-0" />;
+    } else if (nameLower.includes('codex') || nameLower.includes('openai')) {
+      return <CodexIcon size={15} className="text-emerald-400 shrink-0" />;
     } else if (nameLower.includes('antigravity') || nameLower.includes('agy')) {
-      return <Sparkles className="w-3.5 h-3.5 text-blue-400" />;
+      return <AntigravityIcon size={15} className="text-indigo-400 shrink-0" />;
+    } else if (nameLower.includes('opencode') || nameLower.includes('code')) {
+      return <OpenCodeIcon size={15} className="text-sky-400 shrink-0" />;
     } else if (nameLower.includes('ollama')) {
-      return <Cpu className="w-3.5 h-3.5 text-emerald-400" />;
+      return <Cpu className="w-3.5 h-3.5 text-emerald-400 shrink-0" strokeWidth={1.75} />;
     } else {
-      return <TerminalIcon className="w-3.5 h-3.5 text-emerald-400" />;
+      return <ShellIcon size={15} className="text-zinc-400 shrink-0" />;
     }
   };
 
@@ -275,7 +285,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
               instructions: node.content.instructions,
               isAutonomous: node.content.isAutonomous ?? true,
               presetId: preset.id,
-              maestroMode: isMaestro,
+              orchestratorMode: isOrchestrator,
+              maestroMode: isOrchestrator,
             });
           } catch (err: any) {
             console.warn('[terminal.spawn error]', err);
@@ -371,19 +382,24 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     });
   };
 
-  const toggleMaestro = (e: React.MouseEvent) => {
+  const toggleOrchestrator = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const nextMaestro = !isMaestro;
+    const nextOrchestrator = !isOrchestrator;
     onUpdate({
       ...nodeRef.current,
       content: {
         ...nodeRef.current.content,
-        maestroMode: nextMaestro,
+        orchestratorMode: nextOrchestrator,
+        maestroMode: nextOrchestrator,
       },
     });
-    const setMaestroFn = window.mindAgentics?.terminal?.setMaestroMode || (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.setMaestroMode;
-    if (setMaestroFn) {
-      setMaestroFn(node.content.terminalId, nextMaestro).catch(() => {});
+    const setOrchestratorFn =
+      window.mindAgentics?.terminal?.setOrchestratorMode ||
+      window.mindAgentics?.terminal?.setMaestroMode ||
+      (window.mindAgentics?.terminal || (window.api as any)?.terminal)?.setOrchestratorMode ||
+      (window.mindAgentics?.terminal || (window.api as any)?.terminal)?.setMaestroMode;
+    if (setOrchestratorFn) {
+      setOrchestratorFn(node.content.terminalId, nextOrchestrator).catch(() => {});
     }
   };
 
@@ -441,14 +457,14 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   return (
     <div
       className={`flex flex-col w-full h-full bg-[#0d0e11] text-zinc-300 transition-all ${
-        isMaestro ? 'ring-1 ring-amber-500/30' : ''
+        isOrchestrator ? 'ring-1 ring-amber-500/30' : ''
       }`}
     >
       {/* Node Header */}
       <div
         onPointerDown={() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}
         className={`node-drag-handle flex items-center justify-between px-3 py-2 border-b cursor-move transition-colors ${
-          isMaestro
+          isOrchestrator
             ? 'bg-[#16181d] border-amber-500/20'
             : 'bg-[#16181d] border-white/5'
         }`}
@@ -495,39 +511,29 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
             {agentCommand ? agentCommand.split(' ')[0] : 'shell'}
           </span>
 
-          {/* Maestro Toggle Badge (Discreto e Simples) */}
+          {/* Orchestrator Toggle Badge (Discreto e Simples) */}
           <button
             type="button"
-            onClick={toggleMaestro}
+            onClick={toggleOrchestrator}
             className={`px-2 py-0.5 text-[10px] font-medium rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
-              isMaestro
+              isOrchestrator
                 ? 'bg-amber-500/10 text-amber-300 border border-amber-500/25 hover:bg-amber-500/15'
                 : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.07] border border-white/[0.06]'
             }`}
             title={
-              isMaestro
-                ? 'Modo Maestro Ativo: Este agente é o Orquestrador da Equipe. Clique para desativar.'
-                : 'Ativar Modo Maestro: Promove este agente a Orquestrador da Equipe.'
+              isOrchestrator
+                ? 'Modo Orquestrador Ativo: Este agente é o Orquestrador da Equipe. Clique para desativar.'
+                : 'Ativar Modo Orquestrador: Promove este agente a Orquestrador da Equipe.'
             }
           >
-            <span className="text-[10px] leading-none opacity-80">🎼</span>
-            <span>Maestro</span>
+            <Wand2 className="w-3 h-3 text-amber-400/90" strokeWidth={1.75} />
+            <span>Orquestrador</span>
             <span
               className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                isMaestro ? 'bg-amber-400/90' : 'bg-zinc-600'
+                isOrchestrator ? 'bg-amber-400/90' : 'bg-zinc-600'
               }`}
             />
           </button>
-
-          {isMaestro && (
-            <span
-              className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium tracking-wide bg-purple-500/10 text-purple-300/90 border border-purple-500/20"
-              title="Este agente possui o papel de Maestro / Orquestrador Central"
-            >
-              <span className="opacity-80">👑</span>
-              <span>Orquestrador</span>
-            </span>
-          )}
 
           {/* Mode Badge (Autonomous vs Normal - Discreto e Simples) */}
           {node.content.isAutonomous ? (
@@ -563,7 +569,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
             }`}
             title="Toggle Attention Flag"
           >
-            <Bell className="w-3.5 h-3.5" />
+            <Bell className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
 
           {/* Close Button */}
@@ -572,7 +578,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
             className="p-1 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
             title="Close Terminal"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
         </div>
       </div>
@@ -581,7 +587,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       {linkedNodes.length > 0 && (
         <div className="flex items-center gap-1.5 px-3 py-1 bg-[#13151a] border-b border-white/5 overflow-x-auto text-[11px]">
           <span className="flex items-center gap-1 text-zinc-400 font-medium">
-            <LinkIcon className="w-3 h-3 text-blue-400" />
+            <LinkIcon className="w-3 h-3 text-blue-400" strokeWidth={1.75} />
             <span>Linked:</span>
           </span>
           {linkedNodes.map((lNode) => {
@@ -601,10 +607,10 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
                 className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 hover:bg-blue-500/20 hover:text-blue-300 text-zinc-300 border border-white/10 transition-colors truncate max-w-[140px]"
                 title={`Click to reference in terminal (${lTitle})`}
               >
-                {lNode.kind === 'note' && <FileText className="w-2.5 h-2.5 text-yellow-400" />}
-                {lNode.kind === 'portal' && <Globe className="w-2.5 h-2.5 text-emerald-400" />}
-                {lNode.kind === 'noteStack' && <Layers className="w-2.5 h-2.5 text-purple-400" />}
-                {lNode.kind === 'terminal' && <Sparkles className="w-2.5 h-2.5 text-blue-400" />}
+                {lNode.kind === 'note' && <FileText className="w-2.5 h-2.5 text-yellow-400" strokeWidth={1.75} />}
+                {lNode.kind === 'portal' && <Globe className="w-2.5 h-2.5 text-emerald-400" strokeWidth={1.75} />}
+                {lNode.kind === 'noteStack' && <Layers className="w-2.5 h-2.5 text-purple-400" strokeWidth={1.75} />}
+                {lNode.kind === 'terminal' && <Sparkles className="w-2.5 h-2.5 text-blue-400" strokeWidth={1.75} />}
                 <span className="truncate">{lTitle}</span>
               </button>
             );

@@ -3,6 +3,7 @@ import { useAtom } from 'jotai';
 import { isCreateAgentModalOpenAtom } from '@/atoms/ui';
 import { nodesAtom, activeWorkspaceAtom, cableTiesAtom } from '@/atoms/workspace';
 import { canvasOffsetAtom } from '@/atoms/canvas';
+import { useAwardXp } from '@/atoms/profile';
 import { TerminalNode as TerminalNodeType, CableTie } from '@mindagentics/shared';
 import {
   FolderOpen,
@@ -22,6 +23,7 @@ export const CreateAgentModal: React.FC = () => {
   const [nodes, setNodes] = useAtom(nodesAtom);
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
   const [offset] = useAtom(canvasOffsetAtom);
+  const awardXp = useAwardXp();
 
   const [activeTab, setActiveTab] = useState<'detalhes' | 'aparencia' | 'agente'>('detalhes');
   const [selectedPresetId, setSelectedPresetId] = useState<string>('antigravity');
@@ -243,6 +245,7 @@ export const CreateAgentModal: React.FC = () => {
       }).catch(() => {});
     }
 
+    awardXp(50, 'recruitsCount');
     setIsOpen(false);
   };
 

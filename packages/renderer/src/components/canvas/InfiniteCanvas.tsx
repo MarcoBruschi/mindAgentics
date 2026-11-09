@@ -864,9 +864,12 @@ export const InfiniteCanvas: React.FC = () => {
 
       {/* Canvas World Container */}
       <div
-        className="absolute origin-top-left will-change-transform"
+        className={`absolute origin-top-left ${isPanning ? 'will-change-transform' : ''}`}
         style={{
-          transform: `translate(${offset.x}px, ${offset.y}px) scale(${offset.zoom})`,
+          transform: `translate(${Math.round(offset.x)}px, ${Math.round(offset.y)}px) scale(${offset.zoom})`,
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          textRendering: 'geometricPrecision',
         }}
       >
         {/* Bands Layer */}

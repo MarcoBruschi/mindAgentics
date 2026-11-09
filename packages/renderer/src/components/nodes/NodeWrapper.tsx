@@ -245,7 +245,7 @@ const NodeWrapperComponent: React.FC<NodeWrapperProps> = ({
 
   const isConnectingOrigin = connectingFromId === node.id;
   const isTextBlock = node.kind === 'textBlock';
-  const isMaestroNode = node.kind === 'terminal' && Boolean((node.content as any)?.maestroMode);
+  const isOrchestratorNode = node.kind === 'terminal' && Boolean((node.content as any)?.orchestratorMode ?? (node.content as any)?.maestroMode);
 
   return (
     <div
@@ -257,10 +257,10 @@ const NodeWrapperComponent: React.FC<NodeWrapperProps> = ({
             : 'hover:ring-1 hover:ring-white/20 rounded-lg'
           : `rounded-xl overflow-hidden transition-[box-shadow,border-color] duration-150 group/node ${
               isSelected
-                ? isMaestroNode
+                ? isOrchestratorNode
                   ? 'ring-2 ring-amber-400/80 shadow-xl'
                   : 'ring-2 ring-blue-500 shadow-xl'
-                : isMaestroNode
+                : isOrchestratorNode
                 ? 'ring-1 ring-amber-500/30 hover:ring-amber-500/50 shadow-xl'
                 : 'ring-1 ring-white/10 hover:ring-white/20 shadow-2xl'
             } ${
@@ -276,14 +276,16 @@ const NodeWrapperComponent: React.FC<NodeWrapperProps> = ({
       style={{
         left: 0,
         top: 0,
-        transform: `translate3d(${node.x}px, ${node.y}px, 0)`,
+        transform: isTextBlock
+          ? `translate(${Math.round(node.x)}px, ${Math.round(node.y)}px)`
+          : `translate3d(${node.x}px, ${node.y}px, 0)`,
         width: isTextBlock ? 'max-content' : `${node.width}px`,
         height: isTextBlock ? 'auto' : `${node.height}px`,
         minWidth: isTextBlock ? '180px' : undefined,
         whiteSpace: isTextBlock ? 'nowrap' : undefined,
         writingMode: isTextBlock ? 'horizontal-tb' : undefined,
         zIndex: isDragging ? 9999 : node.zIndex,
-        willChange: 'transform',
+        willChange: isTextBlock ? (isDragging ? 'transform' : 'auto') : 'transform',
       }}
     >
       {/* Passing header drag handler to children via header container */}
