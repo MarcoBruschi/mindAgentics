@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import {
   canvasModeAtom,
@@ -9,9 +9,8 @@ import {
   activeBrushTypeAtom,
 } from '@/atoms/canvas';
 import { nodesAtom, drawingsAtom, activeWorkspaceAtom } from '@/atoms/workspace';
-import { agentPresetsAtom } from '@/atoms/presets';
 import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom, isCreateGraphModalOpenAtom } from '@/atoms/ui';
-import { framePlacedNextTo, DEFAULT_NODE_DIMENSIONS, snapToGrid } from '@/utils/layout';
+import { snapToGrid } from '@/utils/layout';
 import {
   MousePointer2,
   SquareTerminal,
@@ -26,7 +25,6 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { UsageRing } from '../common/UsageRing';
 
 interface InstalledAgentReport {
   id: string;
@@ -45,7 +43,6 @@ export const CanvasToolbar: React.FC = () => {
   const [mode, setMode] = useAtom(canvasModeAtom);
   const [offset, setOffset] = useAtom(canvasOffsetAtom);
   const [, setSelectedIds] = useAtom(selectedNodeIdsAtom);
-  const [presets] = useAtom(agentPresetsAtom);
   const [nodes, setNodes] = useAtom(nodesAtom);
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
   const [, setDrawings] = useAtom(drawingsAtom);
@@ -63,7 +60,7 @@ export const CanvasToolbar: React.FC = () => {
       try {
         const getLimits =
           window.mindAgentics?.terminal?.getAgentLimits ||
-          (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits ?.terminal?.getAgentLimits) ||
+          (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits) ||
           window.api?.terminal?.getAgentLimits;
 
         if (typeof getLimits === 'function') {
@@ -74,7 +71,7 @@ export const CanvasToolbar: React.FC = () => {
           }
         }
 
-        const detectFn = window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents ?.terminal?.detectAgents);
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents;
         if (detectFn) {
           const detected = await detectFn();
           if (Array.isArray(detected)) {
@@ -107,13 +104,11 @@ export const CanvasToolbar: React.FC = () => {
     }));
   };
 
-  // Helper to place new items directly in front of the user's current view
   const getViewportCenter = (width: number, height: number) => {
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
     const centerX = (-offset.x + screenW / 2) / offset.zoom - width / 2;
     const centerY = (-offset.y + screenH / 2) / offset.zoom - height / 2;
-    // Stagger slightly so creating multiple items in a row creates a nice cascaded fan
     const stagger = (nodes.length % 6) * 24;
     return {
       x: snapToGrid(centerX + stagger),
@@ -213,36 +208,6 @@ export const CanvasToolbar: React.FC = () => {
     setMode('select');
   };
 
-  const addKnowledgeGraph = () => {
-    const id = `node-portal-${Date.now()}`;
-    const placed = getViewportCenter(850, 560);
-    const targetDir = activeWorkspace?.workingDirectory || '';
-    const htmlUrl = targetDir ? `file:///${targetDir.replace(/\\/g, '/')}/graphify-out/graph.html` : 'https://graphify.com';
-
-    setNodes((prev) => [
-      ...prev,
-      {
-        id,
-        kind: 'portal',
-        x: placed.x,
-        y: placed.y,
-        width: 850,
-        height: 560,
-        zIndex: Math.max(...prev.map((n) => n.zIndex || 1), 10) + 1,
-        content: {
-          portalKind: 'browser',
-          title: 'Knowledge Graph (Graphify)',
-          url: htmlUrl,
-          viewport: { width: 1280, height: 800 },
-          actionTags: [],
-        },
-      },
-    ]);
-    setMode('select');
-  };
-
-
-  // Tool Aa: add text block to workspace
   const addTextBlock = () => {
     const id = `node-text-${Date.now()}`;
     const placed = getViewportCenter(240, 50);
@@ -260,7 +225,7 @@ export const CanvasToolbar: React.FC = () => {
         content: {
           text: 'Texto',
           fontSize: 24,
-          color: '#ffffff',
+          color: '#FFFFFF',
           fontFamily: "'Inter', system-ui, sans-serif",
           fontWeight: 'normal',
           fontStyle: 'normal',
@@ -298,115 +263,118 @@ export const CanvasToolbar: React.FC = () => {
     { id: 'neon', label: 'Neon' },
   ];
 
+  const agentCount = installedAgents.length > 0 ? installedAgents.length : 3;
+  const avgQuota = installedAgents.length > 0
+    ? Math.round(
+        installedAgents.reduce((acc, a) => {
+          const frac = a.primaryUsedFraction ?? (a.quotaPercent ? a.quotaPercent / 100 : 0.15);
+          return acc + frac;
+        }, 0) / installedAgents.length * 100
+      )
+    : 15;
+
   return (
     <>
-      {/* Top Floating Centered Toolbar */}
-      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-40 select-none pointer-events-auto" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <div
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-          style={{
-            backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-          }}
-        >
-          {/* 1. Selection Cursor (Hollow, Tilted Left, Light Blue #3B82F6) */}
+      {/* Top Floating Centered Toolbar: Compact Capsule */}
+      <div
+        className="absolute top-2.5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-40 select-none pointer-events-auto"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl">
+          {/* 1. Selection Cursor */}
           <button
             onClick={() => setMode('select')}
-            className={`p-2 rounded-full transition-all ${
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
               mode === 'select'
-                ? 'text-[#3B82F6]'
-                : 'text-[#E5E5EA] hover:text-white hover:bg-white/5'
+                ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
+                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
             }`}
             title="Selecionar (V)"
           >
-            <MousePointer2
-              className="w-[19px] h-[19px]"
-              strokeWidth={1.75}
-              fill="none"
-            />
+            <MousePointer2 className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
-          {/* 2. Terminal / Agent (Framed in rounded square) */}
+          {/* 2. Terminal / Agent */}
           <button
             onClick={() => setIsCreateAgentOpen(true)}
-            className="p-2 rounded-full text-[#E5E5EA] hover:text-white hover:bg-white/5 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
             title="Novo Terminal / Agente"
           >
-            <SquareTerminal className="w-[19px] h-[19px]" strokeWidth={1.75} />
+            <SquareTerminal className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* 3. Sticky Note */}
           <button
             onClick={addStickyNote}
-            className="p-2 rounded-full text-[#E5E5EA] hover:text-white hover:bg-white/5 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
             title="Adicionar Nota"
           >
-            <Scroll className="w-[19px] h-[19px]" strokeWidth={1.75} />
+            <Scroll className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
-          {/* 4. Link / Conectar Componentes (Paperclip) */}
+          {/* 4. Link / Conectar Componentes */}
           <button
             onClick={() => setMode(mode === 'connect' ? 'select' : 'connect')}
-            className={`p-2 rounded-full transition-all ${
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
               mode === 'connect'
-                ? 'text-[#3B82F6] bg-blue-500/15 ring-1 ring-blue-500/40'
-                : 'text-[#E5E5EA] hover:text-white hover:bg-white/5'
+                ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
+                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
             }`}
             title="Conectar Componentes (C)"
           >
-            <Paperclip className="w-[19px] h-[19px]" strokeWidth={1.75} />
+            <Paperclip className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* 5. Folder / Multi-Page Binder */}
           <button
             onClick={addNoteStack}
-            className="p-2 rounded-full text-[#E5E5EA] hover:text-white hover:bg-white/5 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
             title="Adicionar Fichário (Binder)"
           >
-            <Folder className="w-[19px] h-[19px]" strokeWidth={1.75} />
+            <Folder className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* 6. Globe / Browser Portal */}
           <button
             onClick={addPortal}
-            className="p-2 rounded-full text-[#E5E5EA] hover:text-white hover:bg-white/5 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
             title="Adicionar Browser Portal"
           >
-            <Globe className="w-[19px] h-[19px]" strokeWidth={1.75} />
+            <Globe className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
-          {/* 6.5 Knowledge Graph Tool (Graphify) */}
+          {/* 7. Knowledge Graph Tool (Graphify) */}
           <button
             onClick={() => setIsCreateGraphOpen(true)}
-            className="p-2 rounded-full text-[#E5E5EA] hover:text-white hover:bg-white/5 transition-all group relative"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
             title="Gerar Knowledge Graph (Graphify)"
           >
-            <Network className="w-[19px] h-[19px] text-indigo-400 group-hover:scale-110 transition-transform" strokeWidth={1.75} />
+            <Network className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
-          {/* 7. Tool Aa: Escrever no Workspace */}
+          {/* Vertical Divider Isolating Aa and Caneta */}
+          <div className="w-[1px] h-4 bg-[#23262C] mx-1" />
+
+          {/* 8. Tool Aa: Escrever no Workspace */}
           <button
             onClick={addTextBlock}
-            className="w-[35px] h-[35px] rounded-full text-[#E5E5EA] hover:text-white hover:bg-white/5 transition-all flex items-center justify-center font-bold text-[15px] tracking-tight"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors font-semibold text-sm tracking-tight"
             title="Escrever no Workspace (Aa)"
           >
             <span>Aa</span>
           </button>
 
-          {/* 8. Pencil / Draw Mode */}
+          {/* 9. Pencil / Draw Mode */}
           <button
             onClick={() => setMode(mode === 'draw' ? 'select' : 'draw')}
-            className={`p-2 rounded-full transition-all ${
+            className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
               mode === 'draw'
-                ? 'text-[#3B82F6] bg-blue-500/10 ring-1 ring-blue-500/30'
-                : 'text-[#E5E5EA] hover:text-white hover:bg-white/5'
+                ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
+                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
             }`}
             title="Pintar no Canvas (D)"
           >
-            <Pencil className="w-[19px] h-[19px]" strokeWidth={1.75} />
+            <Pencil className="w-[18px] h-[18px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
         </div>
 
@@ -487,22 +455,13 @@ export const CanvasToolbar: React.FC = () => {
 
         {/* Floating Sub-Toolbar when in Erase Mode */}
         {mode === 'erase' && (
-          <div
-            className="flex items-center gap-2 px-3 py-1 rounded-full shadow-2xl animate-fade-in text-xs text-zinc-300"
-            style={{
-              backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-            }}
-          >
-            <Eraser className="w-3.5 h-3.5 text-red-400" />
-            <span className="text-[11px] font-medium text-zinc-300">Borracha ativa</span>
-            <span className="text-[10px] text-zinc-500">· Arraste para apagar como lápis</span>
-            <div className="w-[1px] h-3.5 bg-white/10 mx-0.5" />
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-rose-500/20 backdrop-blur-md text-xs text-[#E7E8EA] animate-in fade-in zoom-in-95">
+            <Eraser className="w-3.5 h-3.5 text-rose-400" />
+            <span className="text-[11px] font-medium text-[#E7E8EA]">Borracha ativa</span>
+            <div className="w-[1px] h-3.5 bg-[#23262C] mx-0.5" />
             <button
               onClick={clearDrawings}
-              className="text-[11px] text-red-400 hover:text-red-300 font-medium hover:underline"
+              className="text-[11px] text-rose-400 hover:text-rose-300 font-medium hover:underline"
             >
               Apagar tudo
             </button>
@@ -510,80 +469,51 @@ export const CanvasToolbar: React.FC = () => {
         )}
       </div>
 
-      {/* Bottom-Right Corner: Dynamic Limits Pill Button + Zoom Controls */}
-      <div className="absolute bottom-6 right-6 flex items-center gap-2 z-40 select-none">
-        {/* Indicators Pill (Status / Agent Limits) */}
-        <button
-          data-agent-limits-trigger="true"
-          onClick={() => setIsAgentLimitsOpen((prev) => !prev)}
-          className="h-[40px] px-3.5 rounded-full flex items-center gap-2.5 transition-all cursor-pointer hover:brightness-110"
-          style={{
-            backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '9999px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-          }}
-          title="Uso e Limites dos Agentes"
-        >
-          {installedAgents.length > 0 ? (
-            installedAgents.slice(0, 2).map((agent) => (
-              <UsageRing
-                key={agent.id}
-                primaryFraction={agent.primaryUsedFraction ?? (agent.quotaPercent ? agent.quotaPercent / 100 : 0.05)}
-                secondaryFraction={agent.secondaryUsedFraction}
-                colorHex={agent.colorHex || (agent.id === 'codex' ? '#10B981' : agent.id === 'antigravity' ? '#3B82F6' : '#A855F7')}
-                size={26}
-                strokeWidth={2.4}
-                showDot={true}
-                title={`${agent.name}: ${Math.round((agent.primaryUsedFraction ?? (agent.quotaPercent ? agent.quotaPercent / 100 : 0.05)) * 100)}%`}
-              />
-            ))
-          ) : (
-            <div className="relative w-[26px] h-[26px] flex items-center justify-center shrink-0">
-              <svg className="w-[26px] h-[26px]" viewBox="0 0 28 28" fill="none">
-                <circle cx="14" cy="14" r="11" stroke="#3B82F6" strokeWidth="2.5" strokeOpacity="0.3" />
-              </svg>
-            </div>
-          )}
-        </button>
-
-        {/* Zoom Controls */}
-        <div
-          className="h-[40px] px-4 rounded-full flex items-center gap-3"
-          style={{
-            backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '9999px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-          }}
-        >
+      {/* Bottom-Right Corner: Unified Floating Capsule (Agent Usage + Zoom Controls) */}
+      <div className="absolute bottom-6 right-6 flex items-center z-40 select-none">
+        <div className="h-9 px-3 rounded-full flex items-center gap-3 bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl text-xs text-[#E7E8EA]">
+          {/* Agent Usage Indicator */}
           <button
-            onClick={() => handleZoom(-0.1)}
-            className="p-1 text-[#D1D1D6] hover:text-white transition-colors flex items-center justify-center"
-            title="Zoom Out (-)"
+            data-agent-limits-trigger="true"
+            onClick={() => setIsAgentLimitsOpen((prev) => !prev)}
+            className="flex items-center gap-2 text-[#E7E8EA] hover:text-white transition-colors cursor-pointer outline-none"
+            title="Uso e Limites dos Agentes"
           >
-            <Minus className="w-4 h-4" strokeWidth={2.2} />
+            <div className="w-2 h-2 rounded-full bg-[#5FD3A0] shadow-[0_0_6px_rgba(95,211,160,0.6)] shrink-0" />
+            <span className="text-[11px] font-medium tracking-tight">
+              {agentCount} agentes · {avgQuota}%
+            </span>
           </button>
 
-          <button
-            onClick={handleResetZoom}
-            className="px-1 text-[13px] font-bold text-white hover:opacity-80 transition-opacity"
-            title="Reset Zoom (100%)"
-          >
-            {zoomPercent}%
-          </button>
+          {/* Thin Vertical Divider */}
+          <div className="w-[1px] h-3.5 bg-[#23262C]" />
 
-          <button
-            onClick={() => handleZoom(0.1)}
-            className="p-1 text-[#D1D1D6] hover:text-white transition-colors flex items-center justify-center"
-            title="Zoom In (+)"
-          >
-            <Plus className="w-4 h-4" strokeWidth={2.2} />
-          </button>
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-1 text-[#8A8F98]">
+            <button
+              onClick={() => handleZoom(-0.1)}
+              className="w-6 h-6 flex items-center justify-center rounded-md hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
+              title="Zoom Out (-)"
+            >
+              <Minus className="w-3.5 h-3.5" strokeWidth={1.6} />
+            </button>
+
+            <button
+              onClick={handleResetZoom}
+              className="px-1 text-[11px] font-mono text-[#E7E8EA] hover:text-[#8B93FF] transition-colors min-w-[36px] text-center"
+              title="Reset Zoom (100%)"
+            >
+              {zoomPercent}%
+            </button>
+
+            <button
+              onClick={() => handleZoom(0.1)}
+              className="w-6 h-6 flex items-center justify-center rounded-md hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
+              title="Zoom In (+)"
+            >
+              <Plus className="w-3.5 h-3.5" strokeWidth={1.6} />
+            </button>
+          </div>
         </div>
       </div>
     </>
