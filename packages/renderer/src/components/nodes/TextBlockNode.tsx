@@ -36,14 +36,13 @@ const FONT_SIZES = [
 ];
 
 const FONT_COLORS = [
-  { label: 'Branco', value: '#ffffff' },
-  { label: 'Cinza', value: '#a1a1aa' },
-  { label: 'Azul', value: '#60a5fa' },
-  { label: 'Esmeralda', value: '#34d399' },
-  { label: 'Amarelo', value: '#facc15' },
-  { label: 'Rosa', value: '#fb7185' },
-  { label: 'Roxo', value: '#c084fc' },
-  { label: 'Laranja', value: '#fb923c' },
+  { label: 'Branco', value: '#FFFFFF' },
+  { label: 'Índigo', value: '#8B93FF' },
+  { label: 'Verde', value: '#5FD3A0' },
+  { label: 'Amarelo', value: '#FACC15' },
+  { label: 'Coral', value: '#F87171' },
+  { label: 'Roxo', value: '#C084FC' },
+  { label: 'Ciano', value: '#38BDF8' },
 ];
 
 export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
@@ -67,7 +66,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
 
   const text = node.content?.text ?? 'Texto';
   const fontSize = node.content?.fontSize || 24;
-  const color = node.content?.color || '#ffffff';
+  const color = node.content?.color || '#FFFFFF';
   const fontFamily = node.content?.fontFamily || "'Inter', system-ui, sans-serif";
   const fontWeight = node.content?.fontWeight || 'normal';
   const fontStyle = node.content?.fontStyle || 'normal';
@@ -172,7 +171,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
         width: 'max-content',
       }}
     >
-      {/* Floating Formatting Toolbar */}
+      {/* Floating Formatting Toolbar (Capsule style) */}
       <div
         ref={toolbarRef}
         onMouseEnter={handleMouseEnter}
@@ -180,7 +179,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
         onMouseDown={(e) => {
           e.stopPropagation();
         }}
-        className={`absolute -top-12 left-0 flex items-center gap-1.5 px-2.5 py-1 bg-[#1a1b22]/95 border border-white/10 rounded-full shadow-2xl backdrop-blur-md z-40 transition-opacity duration-150 select-none ${
+        className={`absolute -top-12 left-0 flex items-center gap-1.5 px-3 py-1.5 bg-[#14161A]/95 border border-[#23262C] rounded-full shadow-2xl backdrop-blur-md z-40 transition-opacity duration-150 select-none ${
           isBarVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         style={{
@@ -193,7 +192,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
 
         {/* Drag Handle */}
         <div
-          className="node-drag-handle p-1 text-zinc-400 hover:text-white cursor-move rounded"
+          className="node-drag-handle p-1 text-[#8A8F98] hover:text-[#E7E8EA] cursor-move rounded-md"
           title="Arrastar Texto"
           onMouseDown={(e) => {
             e.stopPropagation();
@@ -202,7 +201,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
           <GripHorizontal className="w-3.5 h-3.5" />
         </div>
 
-        <div className="w-[1px] h-3.5 bg-white/10 mx-0.5" />
+        <div className="w-[1px] h-3.5 bg-[#23262C] mx-0.5" />
 
         {/* Font Family Selector */}
         <div className="relative">
@@ -218,14 +217,14 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
               e.stopPropagation();
               setShowFontMenu(!showFontMenu);
             }}
-            className="flex items-center gap-1 px-2 py-0.5 text-xs text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs text-[#E7E8EA] hover:bg-[#181B20] rounded-lg transition-colors border border-transparent hover:border-[#23262C]"
             title="Tipo de Fonte"
           >
-            <Type className="w-3 h-3 text-blue-400" />
-            <span className="max-w-[80px] truncate text-[11px]">
+            <Type className="w-3.5 h-3.5 text-[#8B93FF]" />
+            <span className="max-w-[80px] truncate text-[11px] font-medium">
               {FONT_FAMILIES.find((f) => f.value === fontFamily)?.label.split(' ')[0] || 'Fonte'}
             </span>
-            <ChevronDown className="w-3 h-3 text-zinc-400" />
+            <ChevronDown className="w-3 h-3 text-[#8A8F98]" />
           </button>
 
           {showFontMenu && (
@@ -235,7 +234,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
                 e.stopPropagation();
               }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="absolute top-full left-0 mt-1.5 w-44 bg-[#1e2029] border border-white/10 rounded-xl shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95"
+              className="absolute top-full left-0 mt-1.5 w-48 bg-[#14161A] border border-[#23262C] rounded-xl shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95"
             >
               {FONT_FAMILIES.map((f) => (
                 <button
@@ -257,8 +256,8 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
                   style={{ fontFamily: f.value }}
                   className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center justify-between ${
                     fontFamily === f.value
-                      ? 'bg-blue-600/20 text-blue-300 font-bold'
-                      : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                      ? 'bg-[#181B20] text-[#8B93FF] font-semibold'
+                      : 'text-[#8A8F98] hover:bg-[#181B20] hover:text-[#E7E8EA]'
                   }`}
                 >
                   <span>{f.label}</span>
@@ -268,7 +267,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
           )}
         </div>
 
-        <div className="w-[1px] h-3.5 bg-white/10 mx-0.5" />
+        <div className="w-[1px] h-3.5 bg-[#23262C] mx-0.5" />
 
         {/* Font Size Selector */}
         <div
@@ -290,22 +289,22 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
                 inputRef.current.focus();
               }
             }}
-            className="px-1.5 py-0.5 bg-[#121316] border border-white/10 rounded text-[11px] text-zinc-300 outline-none hover:border-white/20 cursor-pointer"
+            className="px-2 py-0.5 bg-[#181B20] border border-[#23262C] rounded-lg text-[11px] text-[#E7E8EA] outline-none hover:border-[#8B93FF]/40 cursor-pointer"
             title="Tamanho da Fonte"
           >
             {FONT_SIZES.map((s) => (
-              <option key={s.value} value={s.value}>
+              <option key={s.value} value={s.value} className="bg-[#14161A] text-[#E7E8EA]">
                 {s.label}
               </option>
             ))}
           </select>
         </div>
 
-        <div className="w-[1px] h-3.5 bg-white/10 mx-0.5" />
+        <div className="w-[1px] h-3.5 bg-[#23262C] mx-0.5" />
 
-        {/* Color Palette Buttons */}
+        {/* 7 Colors Palette Buttons */}
         <div
-          className="flex items-center gap-1"
+          className="flex items-center gap-1.5"
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -330,14 +329,16 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
               }}
               style={{ backgroundColor: c.value }}
               className={`w-3.5 h-3.5 rounded-full transition-transform ${
-                color === c.value ? 'scale-125 ring-2 ring-white shadow-md' : 'opacity-70 hover:opacity-100'
+                color === c.value
+                  ? 'scale-110 ring-2 ring-offset-2 ring-offset-[#14161A] ring-[#8B93FF]'
+                  : 'opacity-70 hover:opacity-100'
               }`}
               title={c.label}
             />
           ))}
         </div>
 
-        <div className="w-[1px] h-3.5 bg-white/10 mx-0.5" />
+        <div className="w-[1px] h-3.5 bg-[#23262C] mx-0.5" />
 
         {/* Bold & Italic */}
         <button
@@ -355,12 +356,14 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
               inputRef.current.focus();
             }
           }}
-          className={`p-1 rounded text-xs transition-colors ${
-            fontWeight === 'bold' ? 'bg-blue-600 text-white font-bold' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+          className={`p-1.5 rounded-lg text-xs transition-colors ${
+            fontWeight === 'bold'
+              ? 'bg-[#181B20] text-[#8B93FF] border border-[#23262C]'
+              : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
           }`}
           title="Negrito"
         >
-          <Bold className="w-3 h-3" />
+          <Bold className="w-3.5 h-3.5" />
         </button>
 
         <button
@@ -378,15 +381,17 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
               inputRef.current.focus();
             }
           }}
-          className={`p-1 rounded text-xs transition-colors ${
-            fontStyle === 'italic' ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+          className={`p-1.5 rounded-lg text-xs transition-colors ${
+            fontStyle === 'italic'
+              ? 'bg-[#181B20] text-[#8B93FF] border border-[#23262C]'
+              : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
           }`}
           title="Itálico"
         >
-          <Italic className="w-3 h-3" />
+          <Italic className="w-3.5 h-3.5" />
         </button>
 
-        <div className="w-[1px] h-3.5 bg-white/10 mx-0.5" />
+        <div className="w-[1px] h-3.5 bg-[#23262C] mx-0.5" />
 
         {/* Delete */}
         <button
@@ -401,10 +406,10 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
             e.stopPropagation();
             onDelete(node.id);
           }}
-          className="p-1 text-zinc-400 hover:text-red-400 rounded hover:bg-red-500/10 transition-colors"
+          className="p-1.5 text-[#8A8F98] hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-colors"
           title="Excluir Texto (Delete/Backspace)"
         >
-          <Trash2 className="w-3 h-3" />
+          <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
 
@@ -413,7 +418,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
         <div
           onClick={() => setIsEditing(true)}
           onDoubleClick={() => setIsEditing(true)}
-          className="node-drag-handle cursor-text whitespace-nowrap select-none px-2 py-0.5 leading-tight"
+          className="node-drag-handle cursor-text whitespace-nowrap select-none px-2 py-0.5 leading-tight rounded-lg border border-transparent hover:border-[#23262C] transition-colors"
           style={{
             fontFamily,
             fontSize: `${fontSize}px`,
@@ -432,7 +437,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
         </div>
       ) : (
         <div
-          className="relative inline-flex items-center whitespace-nowrap"
+          className="relative inline-flex items-center whitespace-nowrap rounded-lg border border-[#8B93FF] bg-[#181B20]/40 transition-all shadow-[0_0_0_1px_rgba(139,147,255,0.25)]"
           style={{
             minWidth: '180px',
             width: 'max-content',
@@ -505,7 +510,7 @@ export const TextBlockNode: React.FC<TextBlockNodeProps> = ({
               writingMode: 'horizontal-tb',
               minWidth: '180px',
             }}
-            className="absolute inset-0 w-full h-full bg-transparent border-none outline-none px-2 py-0.5 whitespace-nowrap transition-colors placeholder:text-zinc-600 focus:placeholder:text-zinc-700 leading-tight"
+            className="absolute inset-0 w-full h-full bg-transparent border-none outline-none px-2 py-0.5 whitespace-nowrap transition-colors placeholder:text-[#8A8F98]/40 leading-tight"
           />
         </div>
       )}

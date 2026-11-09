@@ -276,20 +276,19 @@ export const CanvasToolbar: React.FC = () => {
   };
 
   const brushColors = [
-    { label: 'Branco', value: '#f8fafc' },
-    { label: 'Azul', value: '#3b82f6' },
-    { label: 'Esmeralda', value: '#10b981' },
-    { label: 'Amarelo', value: '#eab308' },
-    { label: 'Rosa', value: '#f43f5e' },
-    { label: 'Roxo', value: '#a855f7' },
-    { label: 'Laranja', value: '#f97316' },
+    { label: 'Branco', value: '#FFFFFF' },
+    { label: 'Índigo', value: '#8B93FF' },
+    { label: 'Verde', value: '#5FD3A0' },
+    { label: 'Amarelo', value: '#FACC15' },
+    { label: 'Coral', value: '#F87171' },
+    { label: 'Roxo', value: '#C084FC' },
+    { label: 'Ciano', value: '#38BDF8' },
   ];
 
   const brushSizes = [
     { label: 'Fino', size: 2 },
     { label: 'Médio', size: 4 },
     { label: 'Grosso', size: 8 },
-    { label: 'Marcador', size: 14 },
   ];
 
   const brushTypes: { id: 'pen' | 'highlighter' | 'dashed' | 'neon'; label: string }[] = [
@@ -413,25 +412,17 @@ export const CanvasToolbar: React.FC = () => {
 
         {/* Floating Sub-Toolbar when in Draw Mode: Brush Type, Size, and Colors */}
         {mode === 'draw' && (
-          <div
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-2xl animate-fade-in text-xs"
-            style={{
-              backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-            }}
-          >
-            {/* Brush Type Selector */}
-            <div className="flex items-center gap-1 bg-black/30 p-0.5 rounded-full border border-white/5">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md text-xs select-none animate-in fade-in zoom-in-95">
+            {/* Brush Type Segmented Control */}
+            <div className="flex items-center p-0.5 bg-[#0E0F12] rounded-full border border-[#23262C]">
               {brushTypes.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setBrushType(t.id)}
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-all ${
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
                     brushType === t.id
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-[#181B20] text-[#8B93FF] border border-[#23262C] shadow-sm'
+                      : 'text-[#8A8F98] hover:text-[#E7E8EA]'
                   }`}
                 >
                   {t.label}
@@ -439,32 +430,32 @@ export const CanvasToolbar: React.FC = () => {
               ))}
             </div>
 
-            <div className="w-[1px] h-4 bg-white/10" />
+            <div className="w-[1px] h-4 bg-[#23262C]" />
 
-            {/* Brush Size Selector */}
+            {/* Brush 3 Sizes Selector */}
             <div className="flex items-center gap-1.5">
               {brushSizes.map((s) => (
                 <button
                   key={s.size}
                   onClick={() => setBrushSize(s.size)}
-                  className={`flex items-center justify-center w-5 h-5 rounded-full transition-all ${
+                  className={`flex items-center justify-center w-6 h-6 rounded-full transition-all ${
                     brushSize === s.size
-                      ? 'bg-white/15 text-white ring-1 ring-white/40'
-                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      ? 'bg-[#181B20] text-[#8B93FF] ring-1 ring-[#8B93FF]'
+                      : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
                   }`}
                   title={`Tamanho: ${s.label} (${s.size}px)`}
                 >
                   <div
                     className="rounded-full bg-current"
-                    style={{ width: `${Math.min(12, s.size + 2)}px`, height: `${Math.min(12, s.size + 2)}px` }}
+                    style={{ width: `${Math.min(10, s.size + 2)}px`, height: `${Math.min(10, s.size + 2)}px` }}
                   />
                 </button>
               ))}
             </div>
 
-            <div className="w-[1px] h-4 bg-white/10" />
+            <div className="w-[1px] h-4 bg-[#23262C]" />
 
-            {/* Brush Colors */}
+            {/* Brush 7 Colors */}
             <div className="flex items-center gap-1.5">
               {brushColors.map((c) => (
                 <button
@@ -473,7 +464,7 @@ export const CanvasToolbar: React.FC = () => {
                   style={{ backgroundColor: c.value }}
                   className={`w-3.5 h-3.5 rounded-full transition-transform ${
                     drawColor === c.value
-                      ? 'scale-125 ring-2 ring-white shadow-md'
+                      ? 'scale-110 ring-2 ring-offset-2 ring-offset-[#14161A] ring-[#8B93FF]'
                       : 'opacity-70 hover:opacity-100'
                   }`}
                   title={c.label}
@@ -481,12 +472,12 @@ export const CanvasToolbar: React.FC = () => {
               ))}
             </div>
 
-            <div className="w-[1px] h-4 bg-white/10" />
+            <div className="w-[1px] h-4 bg-[#23262C]" />
 
             {/* Clear Drawings Button */}
             <button
               onClick={clearDrawings}
-              className="p-1 text-zinc-400 hover:text-red-400 rounded-full transition-colors"
+              className="p-1 text-[#8A8F98] hover:text-rose-400 rounded-full transition-colors"
               title="Limpar todos os desenhos"
             >
               <Trash2 className="w-3.5 h-3.5" />
