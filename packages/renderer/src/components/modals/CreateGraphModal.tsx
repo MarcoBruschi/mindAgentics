@@ -4,12 +4,10 @@ import { isCreateGraphModalOpenAtom } from '@/atoms/ui';
 import { nodesAtom, activeWorkspaceAtom } from '@/atoms/workspace';
 import { canvasOffsetAtom, selectedNodeIdsAtom } from '@/atoms/canvas';
 import {
-  Network,
   FolderOpen,
   GitBranch,
   X,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   Sparkles,
 } from 'lucide-react';
@@ -44,7 +42,7 @@ export const CreateGraphModal: React.FC = () => {
   }, [isOpen, activeWorkspace?.workingDirectory]);
 
   useEffect(() => {
-    const api = (window as any).api || (window as any).mindAgentics ;
+    const api = (window as any).api || (window as any).mindAgentics;
     if (api?.graphify?.onProgress) {
       const unsub = api.graphify.onProgress((data: { message: string }) => {
         if (data?.message) {
@@ -61,7 +59,7 @@ export const CreateGraphModal: React.FC = () => {
 
   const handlePickDirectory = async () => {
     try {
-      const api = (window as any).api || (window as any).mindAgentics ;
+      const api = (window as any).api || (window as any).mindAgentics;
       if (api?.app?.pickDirectory) {
         const dir = await api.app.pickDirectory();
         if (dir) {
@@ -95,7 +93,7 @@ export const CreateGraphModal: React.FC = () => {
     );
 
     try {
-      const api = (window as any).api || (window as any).mindAgentics ;
+      const api = (window as any).api || (window as any).mindAgentics;
       const buildFn = api?.graphify?.buildGraph;
 
       if (!buildFn) {
@@ -150,144 +148,151 @@ export const CreateGraphModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
-      <div className="w-full max-w-[500px] bg-[#17181c] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-zinc-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
+      <div className="w-full max-w-[520px] max-h-[600px] bg-[#14161A] border border-[#23262C] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E7E8EA]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-[#121316]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-              <Network className="w-4.5 h-4.5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-white">Gerar Knowledge Graph</h2>
-              <p className="text-[11px] text-zinc-400">Indexação arquitetural via AST (Graphify)</p>
-            </div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#23262C] bg-[#121418] shrink-0">
+          <div>
+            <h2 className="text-base font-semibold text-[#E7E8EA] tracking-tight">Gerar Knowledge Graph</h2>
+            <p className="text-[12px] text-[#8A8F98] mt-0.5">Indexação arquitetural determinística via AST</p>
           </div>
           <button
             onClick={() => !loading && setIsOpen(false)}
             disabled={loading}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors disabled:opacity-50"
+            aria-label="Fechar"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-4">
-          {/* Source Tabs: Pasta Local vs Repositório Git */}
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+          {/* Segmented Control: Pasta local vs Repositório Git */}
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-2">Origem do Projeto</label>
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#121316] rounded-xl border border-white/5">
+            <label className="block text-[11px] font-semibold text-[#8A8F98] uppercase tracking-wider mb-2">
+              Origem do Projeto
+            </label>
+            <div className="grid grid-cols-2 p-1 bg-[#0E0F12] rounded-xl border border-[#23262C]">
               <button
                 type="button"
                 onClick={() => setSourceType('local')}
                 className={`py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
                   sourceType === 'local'
-                    ? 'bg-[#242630] text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-[#181B20] text-[#E7E8EA] border border-[#23262C] shadow-sm'
+                    : 'text-[#8A8F98] hover:text-[#E7E8EA]'
                 }`}
               >
-                <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
-                <span>Pasta Local</span>
+                <FolderOpen className="w-3.5 h-3.5 text-[#8B93FF]" />
+                <span>Pasta local</span>
               </button>
               <button
                 type="button"
                 onClick={() => setSourceType('git')}
                 className={`py-2 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
                   sourceType === 'git'
-                    ? 'bg-[#242630] text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-[#181B20] text-[#E7E8EA] border border-[#23262C] shadow-sm'
+                    : 'text-[#8A8F98] hover:text-[#E7E8EA]'
                 }`}
               >
-                <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
+                <GitBranch className="w-3.5 h-3.5 text-[#8B93FF]" />
                 <span>Repositório Git</span>
               </button>
             </div>
           </div>
 
-          {/* Source Specific Input */}
+          {/* Directory Input / Git URL */}
           {sourceType === 'local' ? (
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">Caminho da Pasta do Projeto</label>
+              <label className="block text-[11px] font-semibold text-[#8A8F98] uppercase tracking-wider mb-1.5">
+                Caminho do Projeto
+              </label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={localPath}
                   onChange={(e) => setLocalPath(e.target.value)}
                   placeholder="ex.: C:\Users\mabru\meu-projeto"
-                  className="flex-1 px-3 py-2 bg-[#121316] border border-white/10 rounded-xl text-xs font-mono text-white outline-none focus:border-indigo-500 transition-colors"
+                  className="flex-1 h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-[#8B93FF] transition-colors"
                 />
                 <button
                   type="button"
                   onClick={handlePickDirectory}
-                  className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-zinc-300 flex items-center gap-1.5 transition-colors shrink-0"
+                  className="h-9 px-3.5 bg-[#181B20] hover:bg-[#23262C] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] flex items-center gap-1.5 transition-colors shrink-0"
                 >
-                  <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <FolderOpen className="w-3.5 h-3.5 text-[#8B93FF]" />
                   <span>Procurar...</span>
                 </button>
               </div>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">URL do Repositório Git</label>
+                <label className="block text-[11px] font-semibold text-[#8A8F98] uppercase tracking-wider mb-1.5">
+                  URL do Repositório Git
+                </label>
                 <input
                   type="text"
                   value={gitUrl}
                   onChange={(e) => setGitUrl(e.target.value)}
                   placeholder="https://github.com/usuario/repositorio"
-                  className="w-full px-3 py-2 bg-[#121316] border border-white/10 rounded-xl text-xs font-mono text-white outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-[#8B93FF] transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">Branch (opcional)</label>
+                <label className="block text-[11px] font-semibold text-[#8A8F98] uppercase tracking-wider mb-1.5">
+                  Branch (opcional)
+                </label>
                 <input
                   type="text"
                   value={gitBranch}
                   onChange={(e) => setGitBranch(e.target.value)}
                   placeholder="main"
-                  className="w-full px-3 py-2 bg-[#121316] border border-white/10 rounded-xl text-xs font-mono text-white outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-[#8B93FF] transition-colors"
                 />
               </div>
             </div>
           )}
 
-          {/* Options */}
-          <div className="space-y-2.5 pt-2 border-t border-white/5">
-            <label className="flex items-center gap-2.5 cursor-pointer text-xs text-zinc-300">
+          {/* Simple Options */}
+          <div className="space-y-2.5 pt-3 border-t border-[#23262C]">
+            <label className="flex items-center gap-2.5 cursor-pointer text-xs text-[#E7E8EA]">
               <input
                 type="checkbox"
                 checked={autoOpenPortal}
                 onChange={(e) => setAutoOpenPortal(e.target.checked)}
-                className="w-4 h-4 rounded bg-[#121316] border border-white/20 text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                className="w-4 h-4 rounded border-[#23262C] bg-[#181B20] text-[#8B93FF] accent-[#8B93FF] focus:ring-0 focus:ring-offset-0 cursor-pointer"
               />
-              <span>Abrir Portal Browser no Canvas automaticamente ao concluir</span>
+              <span>Abrir portal no canvas ao concluir</span>
             </label>
 
-            <label className="flex items-center gap-2.5 cursor-pointer text-xs text-zinc-300">
+            <label className="flex items-center gap-2.5 cursor-pointer text-xs text-[#E7E8EA]">
               <input
                 type="checkbox"
                 checked={directed}
                 onChange={(e) => setDirected(e.target.checked)}
-                className="w-4 h-4 rounded bg-[#121316] border border-white/20 text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                className="w-4 h-4 rounded border-[#23262C] bg-[#181B20] text-[#8B93FF] accent-[#8B93FF] focus:ring-0 focus:ring-offset-0 cursor-pointer"
               />
-              <span>Preservar direção das chamadas de funções/imports (--directed)</span>
+              <span>Preservar direção de imports e chamadas (--directed)</span>
             </label>
           </div>
 
-          {/* Token Economy Callout */}
-          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-start gap-2.5 text-indigo-300 text-[11px] leading-relaxed">
-            <Sparkles className="w-4 h-4 shrink-0 text-indigo-400 mt-0.5" />
-            <div>
-              <strong>Custo Zero de Tokens:</strong> A extração de código é determinística (AST local). Ao concluir, todos os agentes do workspace podem consultar a arquitetura sem ler arquivos do disco.
+          {/* Zero Tokens Discrete Card */}
+          <div className="p-3.5 rounded-xl bg-[#14161A] border border-[#23262C] flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 shrink-0 text-[#8B93FF] mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="text-xs font-semibold text-[#8B93FF] block">Zero tokens</span>
+              <p className="text-[12px] leading-relaxed text-[#8A8F98]">
+                Extração de código determinística via AST local. Agentes consultam a arquitetura sem consumir tokens nem ler arquivos do disco.
+              </p>
             </div>
           </div>
 
           {/* Status Message / Loading */}
           {loading && (
-            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs animate-pulse">
-              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-blue-400" />
-              <span>{statusMessage}</span>
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-[#181B20] border border-[#8B93FF]/30 text-[#8B93FF] text-xs">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-[#8B93FF]" />
+              <span className="text-[#E7E8EA]">{statusMessage}</span>
             </div>
           )}
 
@@ -301,12 +306,12 @@ export const CreateGraphModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-white/10 bg-[#121316]">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#23262C] bg-[#121418] shrink-0">
           <button
             type="button"
             disabled={loading}
             onClick={() => setIsOpen(false)}
-            className="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+            className="h-9 px-4 rounded-xl text-xs font-medium text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -314,10 +319,10 @@ export const CreateGraphModal: React.FC = () => {
             type="button"
             disabled={loading}
             onClick={handleGenerate}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all disabled:opacity-50"
+            className="h-9 px-5 rounded-xl text-xs font-semibold bg-[#8B93FF] hover:bg-[#7a82f8] text-[#0E0F12] flex items-center gap-2 transition-colors disabled:opacity-50"
           >
             {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            <span>{loading ? 'Gerando Grafo...' : 'Gerar Grafo'}</span>
+            <span>{loading ? 'Gerando...' : 'Gerar grafo'}</span>
           </button>
         </div>
       </div>
