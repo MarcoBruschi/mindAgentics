@@ -6,12 +6,20 @@
 
 :root {
   color-scheme: dark;
-  --sidebar-bg: rgba(30, 32, 38, 0.45);
-  --sidebar-fg: #f5f5f7;
-  --sidebar-hover: #ffffff0f;
-  --sidebar-active: #ffffff1c;
-  --sidebar-border: #ffffff1a;
-  --canvas-bg: #1e1e1e;
+  --bg-primary: #0E0F12;
+  --sidebar-bg: #121418;
+  --sidebar-fg: #E7E8EA;
+  --sidebar-hover: #181B20;
+  --sidebar-active: #181B20;
+  --sidebar-border: #23262C;
+  --surface-primary: #14161A;
+  --surface-secondary: #181B20;
+  --border-subtle: #23262C;
+  --accent-indigo: #8B93FF;
+  --status-green: #5FD3A0;
+  --text-primary: #E7E8EA;
+  --text-secondary: #8A8F98;
+  --canvas-bg: #0E0F12;
 }
 
 html,
@@ -49,9 +57,11 @@ html.dark {
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   user-select: none;
   overflow: hidden;
+  color: #E7E8EA;
+  background-color: #0E0F12;
 }
 
 /* Custom scrollbars */
