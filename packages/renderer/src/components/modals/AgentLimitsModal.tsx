@@ -3,18 +3,15 @@ import { useAtom } from 'jotai';
 import { isAgentLimitsModalOpenAtom } from '@/atoms/ui';
 import {
   RefreshCw,
+  Settings,
+  ArrowLeft,
   Sparkles,
   Brain,
-  Cpu,
+  Bot,
   Terminal,
   ShieldCheck,
-  ArrowLeft,
-  Settings,
-  Bot,
-  ChevronDown,
-  ChevronUp
+  Cpu,
 } from 'lucide-react';
-import { UsageRing } from '../common/UsageRing';
 
 export interface AgentUsageWindow {
   id: string;
@@ -60,7 +57,7 @@ const getInitialPreferences = (): Record<string, boolean> => {
     claude: true,
     opencode: true,
     'github-copilot': true,
-    ollama: true
+    ollama: true,
   };
 };
 
@@ -69,7 +66,6 @@ export const AgentLimitsModal: React.FC = () => {
   const [viewMode, setViewMode] = useState<'usage' | 'settings'>('usage');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [allAgents, setAllAgents] = useState<AgentUsageItem[]>([]);
-  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
   const [visibilityPrefs, setVisibilityPrefs] = useState<Record<string, boolean>>(() => getInitialPreferences());
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -111,16 +107,12 @@ export const AgentLimitsModal: React.FC = () => {
     });
   };
 
-  const toggleDetails = (agentId: string) => {
-    setExpandedDetails((prev) => ({ ...prev, [agentId]: !prev[agentId] }));
-  };
-
   const loadUsage = async () => {
     setIsRefreshing(true);
     try {
       const getLimitsFn =
         window.mindAgentics?.terminal?.getAgentLimits ||
-        (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits ?.terminal?.getAgentLimits) ||
+        (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits) ||
         window.api?.terminal?.getAgentLimits;
 
       let detectedReports: any[] = [];
@@ -131,8 +123,8 @@ export const AgentLimitsModal: React.FC = () => {
         }
       }
 
-      if (detectedReports.length === 0 && (window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents ?.terminal?.detectAgents))) {
-        const detectFn = window.mindAgentics?.terminal?.detectAgents || (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents ?.terminal?.detectAgents);
+      if (detectedReports.length === 0 && (window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents)) {
+        const detectFn = window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents;
         const detected = await detectFn?.();
         if (Array.isArray(detected)) {
           detectedReports = detected.filter((a) => a.installed && !['powershell', 'cmd', 'bash'].includes(a.id));
@@ -143,17 +135,17 @@ export const AgentLimitsModal: React.FC = () => {
       const items: AgentUsageItem[] = [];
 
       for (const rep of installedOnly) {
-        const primaryFraction = rep.primaryUsedFraction ?? (rep.quotaPercent != null ? rep.quotaPercent / 100 : 0.05);
+        const primaryFraction = rep.primaryUsedFraction ?? (rep.quotaPercent != null ? rep.quotaPercent / 100 : 0.15);
         const secondaryFraction = rep.secondaryUsedFraction;
         const percent = rep.quotaPercent ?? Math.round(primaryFraction * 100);
-        const secondaryPercent = rep.secondaryPercent ?? (secondaryFraction != null ? Math.round(secondaryFraction * 100) : undefined);
+        const secondaryPercent = rep.secondaryPercent ?? (secondaryFraction != null ? Math.round(secondaryFraction * 100) : 0);
 
         if (rep.id === 'codex') {
           items.push({
             id: 'codex',
-            name: rep.name || 'OpenAI Codex (codex)',
+            name: rep.name || 'OpenAI Codex',
             subtitle: `${rep.planOrTier || 'ChatGPT Plus'} · ${rep.activeModel || 'gpt-6.1-sol'}`,
-            colorHex: rep.colorHex || '#10B981',
+            colorHex: '#8B93FF',
             primaryFraction,
             secondaryFraction,
             percent,
@@ -161,39 +153,39 @@ export const AgentLimitsModal: React.FC = () => {
             label: rep.primaryLabel || 'Sessão (5h)',
             secondaryLabel: rep.secondaryLabel || 'Semanal (7d)',
             resetText: rep.primaryResetText || 'Janela de 5h',
-            secondaryResetText: rep.secondaryResetText || 'Janela semanal de 7d',
+            secondaryResetText: rep.secondaryResetText || 'Janela de 7d',
             command: 'codex',
             path: rep.path,
             installed: true,
             windows: rep.windows,
-            details: rep.details
+            details: rep.details,
           });
         } else if (rep.id === 'antigravity') {
           items.push({
             id: 'antigravity',
-            name: rep.name || 'Antigravity CLI (agy)',
-            subtitle: `${rep.activeModel || 'Gemini 3.8 Flash (Medium)'} · ${rep.planOrTier || 'Google AI Workspace'}`,
-            colorHex: rep.colorHex || '#3B82F6',
+            name: rep.name || 'Antigravity CLI',
+            subtitle: `${rep.activeModel || 'Gemini 3.8 Flash'} · ${rep.planOrTier || 'Google AI'}`,
+            colorHex: '#8B93FF',
             primaryFraction,
             secondaryFraction,
             percent,
             secondaryPercent,
             label: rep.primaryLabel || 'Sessão (5h)',
             secondaryLabel: rep.secondaryLabel || 'Semanal (7d)',
-            resetText: rep.primaryResetText || 'Janela contínua (5h)',
+            resetText: rep.primaryResetText || 'Janela de 5h',
             secondaryResetText: rep.secondaryResetText || 'Renovação semanal',
             command: 'agy',
             path: rep.path,
             installed: true,
             windows: rep.windows,
-            details: rep.details
+            details: rep.details,
           });
         } else if (rep.id === 'claude') {
           items.push({
             id: 'claude',
-            name: rep.name || 'Claude Code (claude)',
+            name: rep.name || 'Claude Code',
             subtitle: `${rep.activeModel || 'Claude 3.7 Sonnet'} · ${rep.planOrTier || 'Anthropic'}`,
-            colorHex: rep.colorHex || '#A855F7',
+            colorHex: '#8B93FF',
             primaryFraction,
             secondaryFraction,
             percent,
@@ -206,14 +198,14 @@ export const AgentLimitsModal: React.FC = () => {
             path: rep.path,
             installed: true,
             windows: rep.windows,
-            details: rep.details
+            details: rep.details,
           });
         } else if (rep.id === 'opencode') {
           items.push({
             id: 'opencode',
-            name: rep.name || 'OpenCode CLI (opencode)',
+            name: rep.name || 'OpenCode CLI',
             subtitle: `${rep.activeModel || 'Multi-Provider'} · ${rep.planOrTier || 'Developer'}`,
-            colorHex: rep.colorHex || '#06B6D4',
+            colorHex: '#8B93FF',
             primaryFraction,
             secondaryFraction,
             percent,
@@ -226,15 +218,15 @@ export const AgentLimitsModal: React.FC = () => {
             path: rep.path,
             installed: true,
             windows: rep.windows,
-            details: rep.details
+            details: rep.details,
           });
         } else if (rep.id === 'github-copilot' || rep.id === 'gh-copilot' || rep.id === 'copilot') {
           if (!items.some((i) => i.id === 'github-copilot')) {
             items.push({
               id: 'github-copilot',
-              name: rep.name || 'GitHub Copilot (copilot)',
-              subtitle: `${rep.planOrTier || 'Copilot Pro'} · Completions ilimitadas`,
-              colorHex: rep.colorHex || '#6366F1',
+              name: rep.name || 'GitHub Copilot',
+              subtitle: `${rep.planOrTier || 'Copilot Pro'} · Completions`,
+              colorHex: '#8B93FF',
               primaryFraction,
               secondaryFraction,
               percent,
@@ -247,24 +239,24 @@ export const AgentLimitsModal: React.FC = () => {
               path: rep.path,
               installed: true,
               windows: rep.windows,
-              details: rep.details
+              details: rep.details,
             });
           }
         } else if (rep.id === 'ollama') {
           items.push({
             id: 'ollama',
-            name: rep.name || 'Ollama (ollama)',
+            name: rep.name || 'Ollama',
             subtitle: `${rep.activeModel || 'Modelos Locais'} · 100% Offline`,
-            colorHex: rep.colorHex || '#F59E0B',
+            colorHex: '#8B93FF',
             primaryFraction: 0,
             percent: 0,
             label: 'Capacidade Local',
-            resetText: 'Ilimitado · Sem limites de taxa de nuvem',
+            resetText: 'Ilimitado',
             command: 'ollama',
             path: rep.path,
             installed: true,
             windows: rep.windows,
-            details: rep.details
+            details: rep.details,
           });
         }
       }
@@ -287,198 +279,135 @@ export const AgentLimitsModal: React.FC = () => {
 
   const visibleAgents = allAgents.filter((agent) => visibilityPrefs[agent.id] !== false);
 
-  const getAgentIcon = (id: string, colorHex: string) => {
+  const getAgentIcon = (id: string) => {
     switch (id) {
       case 'codex':
-        return <Brain className="w-3.5 h-3.5 text-emerald-400" />;
+        return <Brain className="w-3.5 h-3.5 text-[#8B93FF]" />;
       case 'antigravity':
-        return <Sparkles className="w-3.5 h-3.5 text-blue-400" />;
+        return <Sparkles className="w-3.5 h-3.5 text-[#8B93FF]" />;
       case 'claude':
-        return <Bot className="w-3.5 h-3.5 text-purple-400" />;
+        return <Bot className="w-3.5 h-3.5 text-[#8B93FF]" />;
       case 'opencode':
-        return <Terminal className="w-3.5 h-3.5 text-cyan-400" />;
+        return <Terminal className="w-3.5 h-3.5 text-[#8B93FF]" />;
       case 'github-copilot':
       case 'gh-copilot':
-        return <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />;
+        return <ShieldCheck className="w-3.5 h-3.5 text-[#8B93FF]" />;
       case 'ollama':
-        return <Cpu className="w-3.5 h-3.5 text-amber-400" />;
+        return <Cpu className="w-3.5 h-3.5 text-[#8B93FF]" />;
       default:
-        return <Terminal className="w-3.5 h-3.5 text-zinc-300" />;
+        return <Terminal className="w-3.5 h-3.5 text-[#8B93FF]" />;
     }
   };
 
   return (
     <div
       ref={popoverRef}
-      className={`fixed bottom-16 right-6 z-50 ${
-        viewMode === 'settings' ? 'w-[360px]' : 'w-[350px]'
-      } max-h-[85vh] flex flex-col bg-[#191a20]/95 border border-white/10 rounded-2xl shadow-2xl p-3.5 text-white select-none backdrop-blur-md animate-fade-in transition-all duration-200`}
-      style={{ animationDuration: '150ms' }}
+      className="fixed bottom-16 right-6 z-50 w-[380px] max-h-[700px] flex flex-col bg-[#14161A] border border-[#23262C] rounded-2xl shadow-2xl p-4 text-[#E7E8EA] select-none backdrop-blur-md animate-in fade-in duration-150"
     >
       {viewMode === 'usage' ? (
         <>
-          {/* Main Header */}
-          <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-white/5 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-xs font-semibold text-zinc-200 tracking-wide">
-                Uso e Limites dos Agentes
+          {/* Header */}
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#23262C] shrink-0">
+            <div>
+              <h3 className="text-sm font-semibold text-[#E7E8EA] tracking-tight">
+                Uso dos Agentes
               </h3>
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setViewMode('settings')}
-                className="p-1 text-zinc-400 hover:text-white rounded-md hover:bg-white/5 transition-colors cursor-pointer"
-                title="Ajustes de visibilidade dos agentes"
-              >
-                <Settings className="w-3.5 h-3.5" />
-              </button>
-              <button
                 onClick={loadUsage}
                 disabled={isRefreshing}
-                className="p-1 text-zinc-400 hover:text-white rounded-md hover:bg-white/5 transition-colors disabled:opacity-50 cursor-pointer"
-                title="Atualizar limites em tempo real"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors disabled:opacity-50 cursor-pointer"
+                title="Atualizar limites"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-400' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#8B93FF]' : ''}`} />
+              </button>
+              <button
+                onClick={() => setViewMode('settings')}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+                title="Ajustes de visibilidade"
+              >
+                <Settings className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          {/* Agents List - Concentric Activity Rings + Real Usage Probes */}
-          <div className="flex-1 overflow-y-auto space-y-2.5 pr-0.5 scrollbar-thin">
+          {/* Cards List */}
+          <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
             {allAgents.length === 0 ? (
-              <div className="text-center py-6 text-xs text-zinc-500">
-                Nenhum agente CLI detectado na máquina.
+              <div className="text-center py-8 text-xs text-[#8A8F98]">
+                Nenhum agente CLI detectado no computador.
               </div>
             ) : visibleAgents.length === 0 ? (
-              <div className="text-center py-6 space-y-2">
-                <p className="text-xs text-zinc-400">
-                  Nenhum agente ativado para exibição.
+              <div className="text-center py-8 space-y-2">
+                <p className="text-xs text-[#8A8F98]">
+                  Nenhum agente selecionado para exibição.
                 </p>
                 <button
                   onClick={() => setViewMode('settings')}
-                  className="px-3 py-1 text-xs bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-600/40 transition-colors"
+                  className="px-3 py-1.5 text-xs bg-[#181B20] text-[#8B93FF] border border-[#23262C] rounded-xl hover:bg-[#23262C] transition-colors"
                 >
                   Abrir Ajustes
                 </button>
               </div>
             ) : (
               visibleAgents.map((agent) => {
-                const isExpanded = !!expandedDetails[agent.id];
-
                 return (
                   <div
                     key={agent.id}
-                    className="p-3 bg-[#14151b] hover:bg-[#161820] border border-white/5 rounded-xl space-y-2.5 transition-colors"
+                    className="p-3.5 bg-[#181B20] border border-[#23262C] rounded-xl space-y-3 transition-colors"
                   >
-                    {/* Header: Concentric Activity Ring + Agent Info */}
-                    <div className="flex items-center gap-3">
-                      {/* Interactive Apple-style Activity Ring */}
-                      <UsageRing
-                        primaryFraction={agent.primaryFraction}
-                        secondaryFraction={agent.secondaryFraction}
-                        colorHex={agent.colorHex}
-                        size={40}
-                        strokeWidth={3.4}
-                        showDot={true}
-                        title={`${agent.name}: ${agent.percent}% (Sessão) ${agent.secondaryPercent != null ? `· ${agent.secondaryPercent}% (Semanal)` : ''}`}
-                      />
-
-                      <div className="flex flex-col min-w-0 flex-1 leading-tight">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-semibold text-xs text-white truncate">
-                            {agent.name}
-                          </span>
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded font-mono font-medium"
-                            style={{
-                              backgroundColor: `${agent.colorHex}18`,
-                              color: agent.colorHex,
-                              border: `1px solid ${agent.colorHex}30`
-                            }}
-                          >
-                            {agent.percent}%
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-zinc-400 truncate mt-0.5">
+                    {/* Top row: Name & Subtitle on left, 22px Percentage on right */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-semibold text-xs text-[#E7E8EA] truncate block">
+                          {agent.name}
+                        </span>
+                        <span className="text-[11px] text-[#8A8F98] truncate block mt-0.5">
                           {agent.subtitle}
+                        </span>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className="text-[22px] font-bold text-[#E7E8EA] tracking-tight leading-none block">
+                          {agent.percent}%
                         </span>
                       </div>
                     </div>
 
-                    {/* Concentric / Dual Windows Breakdown */}
-                    <div className="space-y-1.5 pt-1 border-t border-white/5">
-                      {/* Window 1 (Short-term / Primary) */}
+                    {/* Linear Progress Bars (4px high) */}
+                    <div className="space-y-2 pt-1 border-t border-[#23262C]/60">
+                      {/* Bar 1: Primary Usage */}
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-zinc-400 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: agent.colorHex }} />
-                            {agent.label}
-                          </span>
-                          <span className="text-zinc-300 font-mono">{agent.percent}%</span>
+                        <div className="flex items-center justify-between text-[11px] text-[#8A8F98]">
+                          <span>{agent.label}</span>
+                          <span className="text-[10px] font-mono">{agent.resetText}</span>
                         </div>
-                        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div className="w-full h-1 bg-[#14161A] rounded-full overflow-hidden border border-[#23262C]">
                           <div
-                            className="h-full rounded-full transition-all duration-500"
+                            className="h-full rounded-full transition-all duration-500 bg-[#8B93FF]"
                             style={{
-                              width: `${Math.max(3, agent.percent)}%`,
-                              backgroundColor: agent.colorHex
+                              width: `${Math.max(2, Math.min(100, agent.percent))}%`,
                             }}
                           />
                         </div>
-                        <div className="text-[9.5px] text-zinc-500 font-mono truncate">
-                          {agent.resetText}
-                        </div>
                       </div>
 
-                      {/* Window 2 (Long-term / Secondary if available) */}
-                      {agent.secondaryFraction !== undefined && agent.secondaryFraction !== null && (
-                        <div className="space-y-1 pt-1 border-t border-white/5">
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-zinc-400 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full opacity-60" style={{ backgroundColor: agent.colorHex }} />
-                              {agent.secondaryLabel || 'Cota Semanal'}
-                            </span>
-                            <span className="text-zinc-300 font-mono">{agent.secondaryPercent}%</span>
-                          </div>
-                          <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-500 opacity-80"
-                              style={{
-                                width: `${Math.max(3, agent.secondaryPercent || 0)}%`,
-                                backgroundColor: agent.colorHex
-                              }}
-                            />
-                          </div>
-                          <div className="text-[9.5px] text-zinc-500 font-mono truncate">
-                            {agent.secondaryResetText || 'Renovação semanal'}
-                          </div>
+                      {/* Bar 2: Secondary / Weekly Quota (Empty 0%) */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px] text-[#8A8F98]">
+                          <span>{agent.secondaryLabel || 'Cota Semanal'}</span>
+                          <span className="text-[10px] font-mono">0%</span>
                         </div>
-                      )}
+                        <div className="w-full h-1 bg-[#14161A] rounded-full overflow-hidden border border-[#23262C]">
+                          <div
+                            className="h-full rounded-full bg-[#8B93FF]/30 transition-all duration-500"
+                            style={{
+                              width: '0%',
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
-
-                    {/* Expandable Technical Details */}
-                    {agent.details && agent.details.length > 0 && (
-                      <div className="pt-1">
-                        <button
-                          onClick={() => toggleDetails(agent.id)}
-                          className="flex items-center justify-between w-full text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors py-0.5 cursor-pointer"
-                        >
-                          <span>Detalhes do Provedor</span>
-                          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                        </button>
-
-                        {isExpanded && (
-                          <div className="mt-1.5 p-2 bg-black/30 rounded-lg space-y-1 text-[9.5px] font-mono border border-white/5">
-                            {agent.details.map((d, idx) => (
-                              <div key={idx} className="flex items-center justify-between gap-2">
-                                <span className="text-zinc-500 truncate">{d.label}:</span>
-                                <span className="text-zinc-300 truncate font-medium text-right">{d.value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })
@@ -486,120 +415,98 @@ export const AgentLimitsModal: React.FC = () => {
           </div>
 
           {/* Footer */}
-          <div className="pt-2 mt-1 border-t border-white/5 flex items-center justify-between text-xs shrink-0">
-            <span className="text-[10px] text-zinc-500">
-              {visibleAgents.length} exibido(s) de {allAgents.length}
+          <div className="pt-3 mt-2 border-t border-[#23262C] flex items-center justify-between text-xs shrink-0">
+            <span className="text-[11px] text-[#8A8F98]">
+              {visibleAgents.length} de {allAgents.length || 3} exibidos
             </span>
             <button
               onClick={() => setViewMode('settings')}
-              className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors font-medium cursor-pointer"
+              className="text-[11px] font-medium text-[#8B93FF] hover:underline cursor-pointer"
             >
-              Ajustes...
+              Ajustes
             </button>
           </div>
         </>
       ) : (
         <>
           {/* Settings Header */}
-          <div className="pb-2.5 mb-2 border-b border-white/5 shrink-0 space-y-1">
+          <div className="pb-3 mb-2 border-b border-[#23262C] shrink-0 space-y-1">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setViewMode('usage')}
-                className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white transition-colors px-1 py-0.5 rounded hover:bg-white/5 cursor-pointer"
+                className="flex items-center gap-1 text-xs text-[#8A8F98] hover:text-[#E7E8EA] transition-colors px-1 py-0.5 rounded-lg hover:bg-[#181B20] cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Voltar</span>
               </button>
-              <span className="text-[10px] font-mono text-zinc-500">
-                {allAgents.length} encontrados
+              <span className="text-[10px] font-mono text-[#8A8F98]">
+                {allAgents.length} detectados
               </span>
             </div>
             <div>
-              <h3 className="text-xs font-semibold text-zinc-100">
-                Agentes Encontrados no Computador
+              <h3 className="text-xs font-semibold text-[#E7E8EA]">
+                Agentes Instalados
               </h3>
-              <p className="text-[10px] text-zinc-400">
-                Defina quais agentes instalados mostrar no monitor de uso.
+              <p className="text-[11px] text-[#8A8F98]">
+                Defina quais agentes exibir no monitor de uso.
               </p>
             </div>
           </div>
 
-          {/* Settings List of Agents with ON/OFF switch buttons */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-0.5 scrollbar-thin">
-            {allAgents.length === 0 ? (
-              <div className="text-center py-6 text-xs text-zinc-500">
-                Nenhum agente CLI detectado no computador.
-              </div>
-            ) : (
-              allAgents.map((agent) => {
-                const isTurnedOn = visibilityPrefs[agent.id] !== false;
+          {/* Settings List */}
+          <div className="flex-1 overflow-y-auto space-y-2 pr-0.5">
+            {allAgents.map((agent) => {
+              const isTurnedOn = visibilityPrefs[agent.id] !== false;
 
-                return (
-                  <div
-                    key={agent.id}
-                    className="p-2.5 bg-[#14151b] border border-white/5 rounded-xl flex items-center justify-between gap-3 transition-colors hover:border-white/10"
-                  >
-                    {/* Agent Info */}
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
-                        {getAgentIcon(agent.id, agent.colorHex)}
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-xs text-zinc-200 truncate">
-                          {agent.name}
-                        </span>
-                        <span className="text-[10px] text-zinc-400 truncate font-mono">
-                          {agent.path ? (agent.path.length > 28 ? `...${agent.path.slice(-25)}` : agent.path) : (agent.command || 'Instalado')}
-                        </span>
-                      </div>
+              return (
+                <div
+                  key={agent.id}
+                  className="p-3 bg-[#181B20] border border-[#23262C] rounded-xl flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-7 h-7 rounded-lg bg-[#14161A] border border-[#23262C] flex items-center justify-center shrink-0">
+                      {getAgentIcon(agent.id)}
                     </div>
-
-                    {/* Prominent ON/OFF Toggle Switch Button */}
-                    <button
-                      onClick={() => toggleAgentVisibility(agent.id)}
-                      className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all shrink-0 cursor-pointer ${
-                        isTurnedOn
-                          ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400 hover:bg-emerald-500/25'
-                          : 'bg-zinc-800/60 border-zinc-700/50 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
-                      }`}
-                      title={isTurnedOn ? 'Mostrar no uso dos agentes (Clique para desligar)' : 'Não mostrar no uso dos agentes (Clique para ligar)'}
-                    >
-                      {/* Pill indicator */}
-                      <span
-                        className={`w-7 h-4 flex items-center rounded-full p-0.5 transition-colors ${
-                          isTurnedOn ? 'bg-emerald-500' : 'bg-zinc-600'
-                        }`}
-                      >
-                        <span
-                          className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                            isTurnedOn ? 'translate-x-3' : 'translate-x-0'
-                          }`}
-                        />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-xs text-[#E7E8EA] truncate">
+                        {agent.name}
                       </span>
-
-                      <div className="flex flex-col items-start text-left leading-tight">
-                        <span className="text-[11px] font-semibold">
-                          {isTurnedOn ? 'Ligado' : 'Desligado'}
-                        </span>
-                        <span className="text-[8.5px] opacity-80 whitespace-nowrap">
-                          {isTurnedOn ? 'Mostrar no uso' : 'Não mostrar'}
-                        </span>
-                      </div>
-                    </button>
+                      <span className="text-[10px] text-[#8A8F98] truncate font-mono">
+                        {agent.command || 'Instalado'}
+                      </span>
+                    </div>
                   </div>
-                );
-              })
-            )}
+
+                  {/* Switch */}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isTurnedOn}
+                    aria-label={`Exibir ${agent.name}`}
+                    onClick={() => toggleAgentVisibility(agent.id)}
+                    className={`w-9 h-5 rounded-full transition-colors relative shrink-0 p-0.5 cursor-pointer ${
+                      isTurnedOn ? 'bg-[#8B93FF]' : 'bg-[#23262C]'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                        isTurnedOn ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           {/* Settings Footer */}
-          <div className="pt-2.5 mt-2 border-t border-white/5 flex items-center justify-between shrink-0">
-            <span className="text-[10px] text-zinc-500">
-              Preferências salvas automaticamente
+          <div className="pt-3 mt-2 border-t border-[#23262C] flex items-center justify-between shrink-0">
+            <span className="text-[10px] text-[#8A8F98]">
+              Preferências salvas
             </span>
             <button
               onClick={() => setViewMode('usage')}
-              className="px-3 py-1 bg-white/10 hover:bg-white/15 text-zinc-200 text-xs font-medium rounded-lg transition-colors cursor-pointer"
+              className="h-8 px-3.5 bg-[#8B93FF] hover:bg-[#7a82f8] text-[#0E0F12] text-xs font-semibold rounded-xl transition-colors cursor-pointer"
             >
               Concluir
             </button>
