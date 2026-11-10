@@ -51,26 +51,26 @@ html.window-translucent .app-shell {
 }
 
 html.window-translucent {
-  --sidebar-bg: rgba(30, 32, 38, 0.45);
+  --sidebar-bg: rgba(10, 12, 16, 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
   html.window-translucent:not([data-theme="light"]) {
-    --sidebar-bg: rgba(30, 32, 38, 0.45);
+    --sidebar-bg: rgba(10, 12, 16, 0.22);
   }
 }
 
 html.window-translucent[data-theme="dark"],
 html.window-translucent.dark,
 html.dark {
-  --sidebar-bg: rgba(30, 32, 38, 0.45);
+  --sidebar-bg: rgba(10, 12, 16, 0.22);
 }
 
 /* Ensure sidebar preserves translucency continuously across maximization */
 aside {
-  background-color: rgba(10, 12, 16, 0.45) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
+  background-color: rgba(10, 12, 16, 0.22) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
 }
 
 body {

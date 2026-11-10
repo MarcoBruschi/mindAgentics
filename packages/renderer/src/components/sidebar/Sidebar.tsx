@@ -85,9 +85,9 @@ export const Sidebar: React.FC = () => {
           : 'w-[248px] opacity-100 pointer-events-auto'
       }`}
       style={{
-        backgroundColor: 'rgba(10, 12, 16, 0.45)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
+        backgroundColor: 'rgba(10, 12, 16, 0.22)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         transform: 'translateZ(0)',
         willChange: 'backdrop-filter, transform',
         WebkitAppRegion: 'no-drag',
@@ -141,20 +141,6 @@ export const Sidebar: React.FC = () => {
                 </span>
               </div>
             </div>
-
-            {/* Discrete Workspace Settings Shortcut */}
-            <button
-              type="button"
-              tabIndex={0}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsSettingsOpen(true);
-              }}
-              className="p-1.5 rounded-lg text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors"
-              title="Configurações do Workspace"
-            >
-              <Settings className="w-3.5 h-3.5" strokeWidth={1.5} />
-            </button>
           </div>
         </div>
 

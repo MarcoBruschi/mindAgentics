@@ -318,7 +318,7 @@ export const CanvasToolbar: React.FC = () => {
       <div
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`group absolute top-0 -translate-x-1/2 flex flex-col items-center gap-1.5 z-40 select-none pointer-events-none transition-all duration-200 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] ${
+        className={`group absolute top-0 -translate-x-1/2 flex flex-col items-center gap-1.5 z-40 select-none pointer-events-none transition-all duration-300 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] ${
           isExpanded
             ? 'translate-y-2'
             : 'translate-y-0'

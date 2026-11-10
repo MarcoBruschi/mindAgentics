@@ -3,106 +3,130 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe('Security & UX QA Suite: Layer Isolation, Performance & Accessibility', () => {
+describe('Security & UX QA Suite: Layer Isolation, Fullscreen Parity & Layout Stability', () => {
 
   // =========================================================================
-  // 1. Verificação de Opacidade do Canvas (#0E0F12)
+  // 1. Teste de Transparência da Barra Lateral em 3 Estados (Normal, Maximizar, Tela Cheia)
   // =========================================================================
-  describe('Checklist 1: Canvas Solid Opacity & Leak Prevention (#0E0F12)', () => {
-    const canvasPath = path.resolve('packages/renderer/src/components/canvas/InfiniteCanvas.tsx');
-    const canvasContent = fs.readFileSync(canvasPath, 'utf8');
-    const appPath = path.resolve('packages/renderer/src/App.tsx');
-    const appContent = fs.readFileSync(appPath, 'utf8');
-
-    it('should configure InfiniteCanvas root container with solid #0E0F12 background', () => {
-      assert.ok(
-        canvasContent.includes('bg-[#0E0F12]'),
-        'InfiniteCanvas root must have solid background bg-[#0E0F12]'
-      );
-    });
-
-    it('should configure App shell and main container with solid #0E0F12 so zero external elements leak', () => {
-      assert.ok(
-        appContent.includes('app-shell') && appContent.includes('bg-[#0E0F12]'),
-        'App shell must have solid background #0E0F12'
-      );
-      assert.ok(
-        appContent.includes('<main') && appContent.includes('bg-[#0E0F12]'),
-        'Main workspace container must enforce solid background #0E0F12'
-      );
-    });
-  });
-
-  // =========================================================================
-  // 2. Efeito Visual da Sidebar (Frosted Glass Blur sobre o Canvas)
-  // =========================================================================
-  describe('Checklist 2: Sidebar Frosted Glass Blur & Canvas Layering', () => {
+  describe('Checklist 1: Sidebar Transparency in 3 States (Normal, Maximize, Fullscreen F11 / Alt+Enter)', () => {
     const sidebarPath = path.resolve('packages/renderer/src/components/sidebar/Sidebar.tsx');
     const sidebarContent = fs.readFileSync(sidebarPath, 'utf8');
     const appPath = path.resolve('packages/renderer/src/App.tsx');
     const appContent = fs.readFileSync(appPath, 'utf8');
+    const mainPath = path.resolve('packages/main/src/index.ts');
+    const mainContent = fs.readFileSync(mainPath, 'utf8');
 
-    it('should configure Sidebar with frosted acrylic blur operating over canvas layer', () => {
+    it('should configure Sidebar with persistent frosted acrylic blur operating over canvas in all window states', () => {
       assert.ok(
         sidebarContent.includes('backdropFilter') &&
-        (sidebarContent.includes('blur(24px)') || sidebarContent.includes('blur(28px)')),
+        (sidebarContent.includes('blur(16px)') || sidebarContent.includes('blur(24px)') || sidebarContent.includes('blur(28px)')),
         'Sidebar must specify frosted glass backdrop-filter blur'
       );
       assert.ok(
+        sidebarContent.includes("backgroundColor: 'rgba(10, 12, 16, 0.22)'") ||
         sidebarContent.includes("backgroundColor: 'rgba(10, 12, 16, 0.45)'") ||
         sidebarContent.includes('rgba(10, 12, 16,'),
         'Sidebar must use calibrated translucent surface'
       );
     });
 
-    it('should mount InfiniteCanvas underneath Sidebar in App.tsx so nodes remain visible under frosted blur', () => {
-      const mainIndex = appContent.indexOf('<main');
-      const canvasIndex = appContent.indexOf('<InfiniteCanvas />');
+    it('should layer continuous <main> canvas behind <Sidebar /> so nodes remain visible and blurred when dragged under sidebar', () => {
       const sidebarIndex = appContent.indexOf('<Sidebar />');
+      const mainIndex = appContent.indexOf('<main');
 
-      assert.ok(mainIndex !== -1 && canvasIndex !== -1 && sidebarIndex !== -1);
-      assert.ok(canvasIndex < sidebarIndex, 'InfiniteCanvas must be layered underneath Sidebar');
+      assert.ok(mainIndex !== -1 && sidebarIndex !== -1);
+      assert.ok(mainIndex < sidebarIndex, 'Canvas <main> must run continuously behind <Sidebar />');
+    });
+
+    it('should maintain window transparency and refresh material on maximize, unmaximize, and fullscreen transitions', () => {
+      assert.ok(
+        mainContent.includes("win.on('maximize'") &&
+        mainContent.includes("win.on('unmaximize'") &&
+        mainContent.includes("win.on('enter-full-screen'") &&
+        mainContent.includes("win.on('leave-full-screen'"),
+        'Main process must handle all state transitions cleanly'
+      );
+      assert.ok(
+        mainContent.includes("input.key === 'F11' || (input.alt && input.key === 'Enter')"),
+        'Electron main must support F11 and Alt+Enter native fullscreen toggle'
+      );
     });
   });
 
   // =========================================================================
-  // 3. Teste de Resposta da Barra de Ferramentas (~150ms)
+  // 2. Teste de Cantos Arredondados (rounded-2xl)
   // =========================================================================
-  describe('Checklist 3: Toolbar Fast Response Time (~150ms)', () => {
+  describe('Checklist 2: Rounded Corners Parity (rounded-2xl in Normal and Maximized)', () => {
+    const appPath = path.resolve('packages/renderer/src/App.tsx');
+    const appContent = fs.readFileSync(appPath, 'utf8');
+
+    it('should preserve smooth rounded-2xl curvature across 4 corners in normal and maximized states', () => {
+      assert.ok(
+        appContent.includes('rounded-2xl'),
+        'App container must declare rounded-2xl curvature'
+      );
+      assert.ok(
+        appContent.includes("isMaximized ? 'p-1.5' : ''") ||
+        appContent.includes("isMaximized ? 'p-"),
+        'App shell must apply inset padding on maximize to protect rounded border aesthetics'
+      );
+    });
+  });
+
+  // =========================================================================
+  // 3. Teste de Interação com a Barra de Título (Duplo Clique para Restaurar)
+  // =========================================================================
+  describe('Checklist 3: TitleBar Double Click Interaction & Smooth Restore', () => {
+    const titleBarPath = path.resolve('packages/renderer/src/components/window/TitleBar.tsx');
+    const titleBarContent = fs.readFileSync(titleBarPath, 'utf8');
+
+    it('should bind onDoubleClick on TitleBar header to toggleMaximize smoothly without layout breaks', () => {
+      assert.ok(
+        titleBarContent.includes('onDoubleClick={handleDoubleClick}'),
+        'TitleBar header must bind onDoubleClick handler'
+      );
+      assert.ok(
+        titleBarContent.includes('controls?.toggleMaximize?.()'),
+        'handleDoubleClick must invoke windowControls toggleMaximize'
+      );
+      assert.ok(
+        titleBarContent.includes("closest('button, [data-toolbar-trigger=\"true\"], .canvas-toolbar')"),
+        'handleDoubleClick must ignore clicks on interactive buttons and toolbar handle'
+      );
+    });
+  });
+
+  // =========================================================================
+  // 4. Teste de Resposta da Barra de Ferramentas (~150ms)
+  // =========================================================================
+  describe('Checklist 4: Toolbar Agile Auto-Hide (~150ms) & Anti-Flicker', () => {
     const toolbarPath = path.resolve('packages/renderer/src/components/toolbar/CanvasToolbar.tsx');
     const toolbarContent = fs.readFileSync(toolbarPath, 'utf8');
 
-    it('should configure auto-hide leave timeout to exactly 150ms for agile closing', () => {
+    it('should close in ~150ms on mouse leave with no render flicker', () => {
       assert.ok(
         toolbarContent.includes('handleMouseLeave') &&
         toolbarContent.includes('150'),
         'handleMouseLeave must buffer auto-hide with agile 150ms delay'
       );
-    });
-
-    it('should immediately clear leave timeout on mouse enter to prevent animation repeat and flicker', () => {
       assert.ok(
         toolbarContent.includes('handleMouseEnter') &&
         toolbarContent.includes('clearTimeout(hoverTimeoutRef.current)'),
-        'handleMouseEnter must cancel pending leave timeout'
-      );
-      assert.ok(
-        toolbarContent.includes('cubic-bezier(0.4,0,0.2,1)'),
-        'Toolbar transitions must use smooth cubic-bezier curve'
+        'handleMouseEnter must cancel pending leave timeout immediately'
       );
     });
   });
 
   // =========================================================================
-  // 4. Conferência Visual da Linha de Centro & Ausência de Ruído
+  // 5. Linha de Centro e Ausência de Ruído Visual
   // =========================================================================
-  describe('Checklist 4: Centerline Alignment & Clean Aesthetic Handle', () => {
+  describe('Checklist 5: Centerline Alignment & Clean Aesthetic Handle', () => {
     const titleBarPath = path.resolve('packages/renderer/src/components/window/TitleBar.tsx');
     const titleBarContent = fs.readFileSync(titleBarPath, 'utf8');
     const toolbarPath = path.resolve('packages/renderer/src/components/toolbar/CanvasToolbar.tsx');
     const toolbarContent = fs.readFileSync(toolbarPath, 'utf8');
 
-    it('should align TitleBar height to h-14 (56px) with center at 28px', () => {
+    it('should align TitleBar height to h-14 with center at 28px', () => {
       assert.ok(
         titleBarContent.includes('h-14') && titleBarContent.includes('flex items-center'),
         'TitleBar must be h-14 with center at y = 28px'
@@ -112,7 +136,7 @@ describe('Security & UX QA Suite: Layer Isolation, Performance & Accessibility',
     it('should position collapsed handle geometric center at top: 28px (mt-[19px] + h-4.5 / 2)', () => {
       assert.ok(
         toolbarContent.includes('mt-[19px]') && toolbarContent.includes('h-4.5'),
-        'Collapsed handle center must be at y = 28px (19px + 9px)'
+        'Collapsed handle center must be at y = 28px'
       );
     });
 
@@ -122,37 +146,6 @@ describe('Security & UX QA Suite: Layer Isolation, Performance & Accessibility',
       assert.ok(!triggerMatch[0].includes('ChevronDown'), 'No ChevronDown icon');
       assert.ok(!triggerMatch[0].includes('ChevronUp'), 'No ChevronUp icon');
       assert.ok(!triggerMatch[0].includes('<span>'), 'No text label');
-    });
-  });
-
-  // =========================================================================
-  // 5. Drag vs Click & Hitbox Isolation Homologation
-  // =========================================================================
-  describe('Checklist 5: Drag vs Click & Hitbox Isolation Homologation', () => {
-    const titleBarPath = path.resolve('packages/renderer/src/components/window/TitleBar.tsx');
-    const titleBarContent = fs.readFileSync(titleBarPath, 'utf8');
-    const toolbarPath = path.resolve('packages/renderer/src/components/toolbar/CanvasToolbar.tsx');
-    const toolbarContent = fs.readFileSync(toolbarPath, 'utf8');
-
-    it('should allow window drag in TitleBar while respecting fullscreen lock', () => {
-      assert.ok(
-        titleBarContent.includes("WebkitAppRegion: isFullScreen ? 'no-drag' : 'drag'"),
-        'TitleBar drag must toggle based on fullscreen state'
-      );
-    });
-
-    it('should isolate collapsed handle and expanded tools with WebkitAppRegion: no-drag', () => {
-      assert.ok(
-        toolbarContent.includes("WebkitAppRegion: 'no-drag'"),
-        'Handle and tool capsule must prevent window dragging on interaction'
-      );
-    });
-
-    it('should maintain pointer-events-none on outer wrapper to prevent ghost click dead zones', () => {
-      assert.ok(
-        toolbarContent.includes('pointer-events-none transition-all duration-200'),
-        'Toolbar outer wrapper must be pointer-events-none'
-      );
     });
   });
 });

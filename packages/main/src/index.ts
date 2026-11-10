@@ -80,7 +80,7 @@ async function createWindow(): Promise<BrowserWindow> {
     titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     trafficLightPosition: { x: 14, y: 14 },
-    backgroundColor: '#0f1012',
+    backgroundColor: material ? '#00000000' : '#0f1012',
     ...(material === 'acrylic' ? { backgroundMaterial: 'acrylic' } : {}),
     ...(material === 'vibrancy' ? { vibrancy: 'sidebar' } : {}),
     webPreferences: {
@@ -150,10 +150,21 @@ async function createWindow(): Promise<BrowserWindow> {
     }
   };
 
+  const sendWindowControlsChanged = () => {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(C.windowControlsOnChanged, {
+        isMaximized: win.isMaximized(),
+        isFullScreen: win.isFullScreen(),
+        isMinimized: win.isMinimized()
+      });
+    }
+  };
+
   if (bounds.maximized) {
     win.maximize();
     win.setBackgroundColor('#00000000');
     refreshMaterial(true);
+    sendWindowControlsChanged();
   }
 
   let boundsSaveTimer: NodeJS.Timeout | null = null;
@@ -161,16 +172,9 @@ async function createWindow(): Promise<BrowserWindow> {
     if (!win.isDestroyed()) {
       const isMax = win.isMaximized();
       const isFull = win.isFullScreen();
-      const isMin = win.isMinimized();
       const currentBounds = win.getBounds();
 
-      if (!win.webContents.isDestroyed()) {
-        win.webContents.send(C.windowControlsOnChanged, {
-          isMaximized: isMax,
-          isFullScreen: isFull,
-          isMinimized: isMin
-        });
-      }
+      sendWindowControlsChanged();
 
       if (boundsSaveTimer) {
         clearTimeout(boundsSaveTimer);
@@ -198,35 +202,42 @@ async function createWindow(): Promise<BrowserWindow> {
   });
   win.on('move', saveBounds);
   win.on('maximize', () => {
+    sendWindowControlsChanged();
     saveBounds();
     win.setBackgroundColor('#00000000');
     refreshMaterial(true);
   });
   win.on('unmaximize', () => {
+    sendWindowControlsChanged();
     saveBounds();
     win.setBackgroundColor('#00000000');
     refreshMaterial(false);
   });
   win.on('minimize', () => {
+    sendWindowControlsChanged();
     saveBounds();
     clearRefreshTimers();
   });
   win.on('restore', () => {
+    sendWindowControlsChanged();
     saveBounds();
     win.setBackgroundColor('#00000000');
     refreshMaterial();
   });
   win.on('show', () => {
+    sendWindowControlsChanged();
     saveBounds();
     win.setBackgroundColor('#00000000');
     refreshMaterial();
   });
   win.on('enter-full-screen', () => {
+    sendWindowControlsChanged();
     saveBounds();
     win.setBackgroundColor('#00000000');
     refreshMaterial();
   });
   win.on('leave-full-screen', () => {
+    sendWindowControlsChanged();
     saveBounds();
     win.setBackgroundColor('#00000000');
     refreshMaterial();
@@ -239,6 +250,17 @@ async function createWindow(): Promise<BrowserWindow> {
 
   win.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Support F11 and Alt+Enter for native Fullscreen toggle
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown') {
+      if (input.key === 'F11' || (input.alt && input.key === 'Enter')) {
+        event.preventDefault();
+        win.setFullScreen(!win.isFullScreen());
+        sendWindowControlsChanged();
+      }
+    }
   });
 
   // Lock zoom levels and intercept zoom-changed attempts

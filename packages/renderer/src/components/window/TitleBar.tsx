@@ -7,6 +7,7 @@ import { Menu } from 'lucide-react';
 export const TitleBar: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useAtom(isSidebarOpenAtom);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
     const controls =
@@ -17,16 +18,22 @@ export const TitleBar: React.FC = () => {
 
     if (controls.state) {
       controls.state().then((res: any) => {
-        if (res && typeof res.isFullScreen === 'boolean') {
-          setIsFullScreen(res.isFullScreen);
+        if (res) {
+          if (typeof res.isFullScreen === 'boolean') {
+            setIsFullScreen(res.isFullScreen);
+          }
+          setIsMaximized(Boolean(res.isMaximized || res.isFullScreen));
         }
       }).catch(() => {});
     }
 
     if (controls.onChanged) {
       const unsub = controls.onChanged((payload: any) => {
-        if (payload && typeof payload.isFullScreen === 'boolean') {
-          setIsFullScreen(payload.isFullScreen);
+        if (payload) {
+          if (typeof payload.isFullScreen === 'boolean') {
+            setIsFullScreen(payload.isFullScreen);
+          }
+          setIsMaximized(Boolean(payload.isMaximized || payload.isFullScreen));
         }
       });
       return () => {
@@ -35,10 +42,24 @@ export const TitleBar: React.FC = () => {
     }
   }, []);
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, [data-toolbar-trigger="true"], .canvas-toolbar')) {
+      return;
+    }
+    const controls =
+      window.api?.windowControls ||
+      window.mindAgentics?.windowControls ||
+      (window.mindAgentics?.windowControls || window.api?.windowControls?.windowControls);
+    controls?.toggleMaximize?.();
+  };
+
   return (
     <header
       data-titlebar-drag="true"
-      className={`fixed top-0 right-0 h-14 flex items-center justify-between px-3 z-30 select-none pointer-events-auto transition-all duration-300 ease-in-out ${
+      onDoubleClick={handleDoubleClick}
+      className={`fixed top-0 right-0 h-14 flex items-center justify-between select-none pointer-events-auto transition-all duration-300 ease-in-out z-30 ${
+        isMaximized ? 'px-4 pt-1.5' : 'px-3'
+      } ${
         isSidebarOpen ? 'left-[248px]' : 'left-0'
       }`}
       style={{
@@ -54,9 +75,9 @@ export const TitleBar: React.FC = () => {
           onClick={() => setIsSidebarOpen((prev: boolean) => !prev)}
           className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-300 hover:text-white shadow-lg transition-all duration-200 cursor-pointer hover:bg-white/10"
           style={{
-            backgroundColor: 'var(--sidebar-bg, rgba(30, 32, 38, 0.45))',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            backgroundColor: 'var(--sidebar-bg, rgba(10, 12, 16, 0.22))',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
           title={isSidebarOpen ? 'Esconder barra lateral' : 'Mostrar barra lateral'}
