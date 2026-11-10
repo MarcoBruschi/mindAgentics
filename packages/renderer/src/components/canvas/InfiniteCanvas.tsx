@@ -261,6 +261,47 @@ export const InfiniteCanvas: React.FC = () => {
       const inInput = isInputOrEditable(activeEl);
       const isMod = e.ctrlKey || e.metaKey;
 
+      const isZoomIn = isMod && (e.key === '=' || e.key === '+' || e.code === 'NumpadAdd');
+      const isZoomOut = isMod && (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract');
+      const isResetZoom = isMod && (e.key === '0' || e.code === 'Numpad0');
+
+      // Master Zoom Handling (Ctrl++, Ctrl+=, Ctrl+-, Ctrl+NumpadAdd, Ctrl+NumpadSubtract, Ctrl+0)
+      // Immediately prevent native browser/Electron window zoom so UI chrome remains 100% crisp
+      if (isZoomIn || isZoomOut || isResetZoom) {
+        e.preventDefault();
+        if (isResetZoom) {
+          setOffset((prev) => {
+            if (prev.zoom === 1.0) return prev;
+            return { ...prev, zoom: 1.0 };
+          });
+          return;
+        }
+
+        const rect = containerRef.current?.getBoundingClientRect() || {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          left: 0,
+          top: 0,
+        };
+        const anchor = { x: rect.width / 2, y: rect.height / 2 };
+        const zoomMultiplier = isZoomIn ? 1.15 : 1 / 1.15;
+
+        setOffset((prev) => {
+          const currentZoom = Number.isFinite(prev.zoom) ? prev.zoom : 1.0;
+          const targetZoom = currentZoom * zoomMultiplier;
+          const clampedZoom = Math.min(3.0, Math.max(0.1, Number(targetZoom.toFixed(3))));
+
+          // DoS Visual & Infinite Re-render Protection:
+          // If already at the clamp boundary (0.1 or 3.0), return prev directly to prevent unnecessary renders/GPU churn
+          if (Math.abs(currentZoom - clampedZoom) < 0.001) {
+            return prev;
+          }
+
+          return zoomAtPoint(currentZoom, clampedZoom, prev, anchor);
+        });
+        return;
+      }
+
       // When focused inside an input, textarea, or terminal:
       // Allow Shift+Escape to blur out of the focused element to return control to the canvas.
       // Global canvas shortcuts must NOT hijack keystrokes (e.g. Ctrl+L for clear screen, Escape for Vim).
@@ -279,13 +320,6 @@ export const InfiniteCanvas: React.FC = () => {
       if (e.key === 'Escape') {
         setSelectedIds([]);
         setCanvasMode('select');
-        return;
-      }
-
-      // 1. Reset Zoom: Ctrl+0 / Cmd+0
-      if (isMod && e.key === '0') {
-        e.preventDefault();
-        setOffset((prev) => ({ ...prev, zoom: 1.0 }));
         return;
       }
 
@@ -402,8 +436,15 @@ export const InfiniteCanvas: React.FC = () => {
         return;
       }
 
-      // B for Draw mode
-      if (e.key.toLowerCase() === 'b' && !isMod) {
+      // C for Connect cable ties
+      if (e.key.toLowerCase() === 'c' && !isMod) {
+        e.preventDefault();
+        setCanvasMode((prev) => (prev === 'connect' ? 'select' : 'connect'));
+        return;
+      }
+
+      // D or B for Draw mode
+      if ((e.key.toLowerCase() === 'd' || e.key.toLowerCase() === 'b') && !isMod) {
         e.preventDefault();
         setCanvasMode((prev) => (prev === 'draw' ? 'select' : 'draw'));
         return;

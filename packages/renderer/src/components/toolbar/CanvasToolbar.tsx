@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAtom } from 'jotai';
 import {
   canvasModeAtom,
@@ -9,7 +9,7 @@ import {
   activeBrushTypeAtom,
 } from '@/atoms/canvas';
 import { nodesAtom, drawingsAtom, activeWorkspaceAtom } from '@/atoms/workspace';
-import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom, isCreateGraphModalOpenAtom, isSidebarOpenAtom } from '@/atoms/ui';
+import { isCreateAgentModalOpenAtom, isAgentLimitsModalOpenAtom, isCreateGraphModalOpenAtom, isSidebarOpenAtom, isToolbarCollapsedAtom } from '@/atoms/ui';
 import { useAwardXp } from '@/atoms/profile';
 import { snapToGrid } from '@/utils/layout';
 import {
@@ -26,6 +26,8 @@ import {
   Minus,
   Plus,
   Trash2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface InstalledAgentReport {
@@ -56,8 +58,40 @@ export const CanvasToolbar: React.FC = () => {
   const [, setIsAgentLimitsOpen] = useAtom(isAgentLimitsModalOpenAtom);
   const [, setIsCreateGraphOpen] = useAtom(isCreateGraphModalOpenAtom);
   const [isSidebarOpen] = useAtom(isSidebarOpenAtom);
+  const [isToolbarCollapsed, setIsToolbarCollapsed] = useAtom(isToolbarCollapsedAtom);
   const [installedAgents, setInstalledAgents] = useState<InstalledAgentReport[]>([]);
   const awardXp = useAwardXp();
+
+  // Hover-Reveal (Auto-Hide) state with delay buffer
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 150);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const isExpanded = (!isToolbarCollapsed && (isHovered || mode === 'draw' || mode === 'erase')) || isHovered;
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -280,15 +314,56 @@ export const CanvasToolbar: React.FC = () => {
 
   return (
     <>
-      {/* Top Floating Centered Toolbar: Compact Capsule */}
+      {/* Top Floating Centered Toolbar: Hitbox-Isolated Capsule with Upper Trigger */}
       <div
-        className="absolute top-2.5 -translate-x-1/2 flex flex-col items-center gap-2 z-40 select-none pointer-events-auto transition-all duration-300 ease-in-out"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={`group absolute top-0 -translate-x-1/2 flex flex-col items-center gap-1.5 z-40 select-none pointer-events-none transition-all duration-200 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] ${
+          isExpanded
+            ? 'translate-y-2'
+            : 'translate-y-0'
+        }`}
         style={{
           left: isSidebarOpen ? 'calc(50% + 124px)' : '50%',
-          WebkitAppRegion: 'no-drag',
         } as React.CSSProperties}
       >
-        <div className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl">
+        {/* Indicador Recolhido Unificado: Linha/Cápsula lisa, pura e minimalista (Eixo Central em 28px do topo) */}
+        <button
+          data-toolbar-trigger="true"
+          role="button"
+          tabIndex={isExpanded ? -1 : 0}
+          aria-expanded={isExpanded}
+          aria-label="Expandir Barra de Ferramentas"
+          onClick={() => {
+            setIsToolbarCollapsed(false);
+            setIsHovered(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsToolbarCollapsed(false);
+              setIsHovered(true);
+            }
+          }}
+          onMouseEnter={handleMouseEnter}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          className={`pointer-events-auto w-44 h-4.5 rounded-full bg-[#14161A]/85 hover:bg-[#181B20]/95 border border-[#23262C] hover:border-[#8B93FF]/40 backdrop-blur-md shadow-sm cursor-pointer transition-all duration-200 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] outline-none focus-visible:ring-2 focus-visible:ring-[#8B93FF] focus-visible:ring-offset-1 focus-visible:ring-offset-[#0E0F12] ${
+            isExpanded
+              ? 'opacity-0 -translate-y-2 pointer-events-none scale-95 absolute top-[19px]'
+              : 'opacity-100 translate-y-0 relative mt-[19px]'
+          }`}
+          title="Expandir Ferramentas"
+        />
+
+        {/* Barra de Ferramentas Aberta (Capsule) */}
+        <div
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          className={`flex items-center gap-1 px-2 py-1.5 rounded-full bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl transition-all duration-200 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] canvas-toolbar ${
+            isExpanded
+              ? 'pointer-events-auto opacity-100 translate-y-0'
+              : 'pointer-events-none opacity-0 -translate-y-8'
+          }`}
+        >
           {/* 1. Selection Cursor */}
           <button
             onClick={() => setMode('select')}
@@ -384,11 +459,39 @@ export const CanvasToolbar: React.FC = () => {
           >
             <Pencil className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
+
+          {/* Collapse Trigger Button */}
+          <div className="w-[1px] h-4 bg-[#23262C] mx-0.5" />
+          <button
+            tabIndex={isExpanded ? 0 : -1}
+            role="button"
+            aria-expanded={true}
+            aria-label="Recolher Barra de Ferramentas"
+            onClick={() => {
+              setIsToolbarCollapsed(true);
+              setIsHovered(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsToolbarCollapsed(true);
+                setIsHovered(false);
+              }
+            }}
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            className="w-7 h-7 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] focus-visible:ring-2 focus-visible:ring-[#8B93FF] focus-visible:outline-none transition-colors cursor-pointer"
+            title="Recolher Barra de Ferramentas (Enter ou Espaço)"
+          >
+            <ChevronUp className="w-3.5 h-3.5" strokeWidth={1.75} />
+          </button>
         </div>
 
         {/* Floating Sub-Toolbar when in Draw Mode: Brush Type, Size, and Colors */}
         {mode === 'draw' && (
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md text-xs select-none whitespace-nowrap shrink-0 animate-in fade-in zoom-in-95">
+          <div
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            className="pointer-events-auto flex items-center gap-2.5 px-3 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md text-xs select-none whitespace-nowrap shrink-0 animate-in fade-in zoom-in-95 translate-y-2"
+          >
             {/* Brush Type Segmented Control */}
             <div className="flex items-center gap-1 p-0.5 bg-[#0E0F12] rounded-full border border-[#23262C] shrink-0">
               {brushTypes.map((t) => (
@@ -463,7 +566,10 @@ export const CanvasToolbar: React.FC = () => {
 
         {/* Floating Sub-Toolbar when in Erase Mode */}
         {mode === 'erase' && (
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-rose-500/20 backdrop-blur-md text-xs text-[#E7E8EA] animate-in fade-in zoom-in-95">
+          <div
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            className="pointer-events-auto flex items-center gap-2 px-3.5 py-1.5 rounded-full shadow-2xl bg-[#14161A]/95 border border-rose-500/20 backdrop-blur-md text-xs text-[#E7E8EA] animate-in fade-in zoom-in-95 translate-y-2"
+          >
             <Eraser className="w-3.5 h-3.5 text-rose-400" strokeWidth={1.75} />
             <span className="text-[11px] font-medium text-[#E7E8EA]">Borracha ativa</span>
             <div className="w-[1px] h-3.5 bg-[#23262C] mx-0.5" />
@@ -478,8 +584,8 @@ export const CanvasToolbar: React.FC = () => {
       </div>
 
       {/* Bottom-Right Corner: Unified Floating Capsule (Agent Usage + Zoom Controls) */}
-      <div className="absolute bottom-6 right-6 flex items-center z-40 select-none">
-        <div className="h-9 px-3 rounded-full flex items-center gap-3 bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl text-xs text-[#E7E8EA]">
+      <div className="absolute bottom-6 right-6 flex items-center z-40 select-none pointer-events-none">
+        <div className="h-9 px-3 rounded-full flex items-center gap-3 bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl text-xs text-[#E7E8EA] pointer-events-auto">
           {/* Agent Usage Indicator */}
           <button
             data-agent-limits-trigger="true"

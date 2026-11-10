@@ -1,6 +1,14 @@
-import electron from 'electron';
+import electron, { webFrame } from 'electron';
 import { IPC_CHANNELS as C } from '@mindagentics/shared';
 import type { UserProfile, OrchestratorStats, UserBadge } from '@mindagentics/shared';
+
+// Double-lock visual zoom level limits in preload
+try {
+  webFrame.setVisualZoomLevelLimits(1, 1);
+  webFrame.setZoomLevel(0);
+} catch (e) {
+  console.warn('[preload] Failed to lock webFrame zoom levels:', e);
+}
 
 const LICENSE_EXPIRED = "licenseExpired";
 function licenseFailureKind(error: any): string | null {

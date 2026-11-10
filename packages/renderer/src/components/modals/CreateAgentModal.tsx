@@ -276,7 +276,7 @@ export const CreateAgentModal: React.FC = () => {
             <span className="block text-[11px] font-semibold text-[#8A8F98] uppercase tracking-wider mb-2">
               Início Rápido
             </span>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               {presets.map((preset) => {
                 const isSelected = selectedPresetId === preset.id;
 
@@ -285,13 +285,13 @@ export const CreateAgentModal: React.FC = () => {
                     key={preset.id}
                     type="button"
                     onClick={() => handleSelectPreset(preset)}
-                    className={`py-2 px-1 rounded-xl text-xs transition-all border text-center truncate ${
+                    className={`py-2 px-2.5 rounded-xl text-xs transition-all border text-center ${
                       isSelected
-                        ? 'bg-[#8B93FF]/15 border-[#8B93FF] text-[#8B93FF] font-semibold shadow-sm'
+                        ? 'bg-indigo-500/15 border-indigo-500 text-indigo-400 font-semibold shadow-sm'
                         : 'bg-[#181B20] border-[#23262C] text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]/80'
                     }`}
                   >
-                    <span className="text-[11px] font-medium leading-tight truncate block">
+                    <span className="text-[11px] font-medium leading-tight block">
                       {preset.name}
                     </span>
                   </button>
@@ -351,7 +351,7 @@ export const CreateAgentModal: React.FC = () => {
                     value={terminalName}
                     onChange={(e) => setTerminalName(e.target.value)}
                     placeholder="Nome do terminal"
-                    className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] placeholder-[#8A8F98]/40 outline-none focus:border-[#8B93FF] transition-colors"
+                    className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] placeholder-[#8A8F98]/40 outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
                 <div>
@@ -363,7 +363,7 @@ export const CreateAgentModal: React.FC = () => {
                     value={command}
                     onChange={(e) => setCommand(e.target.value)}
                     placeholder="ex.: agy, codex"
-                    className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/40 outline-none focus:border-[#8B93FF] transition-colors"
+                    className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/40 outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
               </div>
@@ -376,7 +376,7 @@ export const CreateAgentModal: React.FC = () => {
                 <select
                   value={executionTarget}
                   onChange={(e) => setExecutionTarget(e.target.value)}
-                  className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] outline-none focus:border-[#8B93FF] cursor-pointer"
+                  className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] outline-none focus:border-indigo-500 cursor-pointer"
                 >
                   <option value="workspace_default" className="bg-[#14161A] text-[#E7E8EA]">Padrão do espaço de trabalho (Local)</option>
                   <option value="local" className="bg-[#14161A] text-[#E7E8EA]">Local Host</option>
@@ -395,14 +395,14 @@ export const CreateAgentModal: React.FC = () => {
                     value={workingDirectory}
                     onChange={(e) => setWorkingDirectory(e.target.value)}
                     placeholder="ex.: C:\Users\mabru\meu-projeto"
-                    className="flex-1 h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/40 outline-none focus:border-[#8B93FF] transition-colors"
+                    className="flex-1 h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/40 outline-none focus:border-indigo-500 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={handlePickDirectory}
                     className="h-9 px-3.5 bg-[#181B20] hover:bg-[#23262C] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] flex items-center gap-1.5 transition-colors shrink-0"
                   >
-                    <FolderOpen className="w-3.5 h-3.5 text-[#8B93FF]" />
+                    <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Procurar...</span>
                   </button>
                 </div>
@@ -425,7 +425,7 @@ export const CreateAgentModal: React.FC = () => {
                     aria-label="Monitorar atividade"
                     onClick={() => setMonitorActivity(!monitorActivity)}
                     className={`w-9 h-5 rounded-full transition-colors relative shrink-0 p-0.5 cursor-pointer ${
-                      monitorActivity ? 'bg-[#8B93FF]' : 'bg-[#23262C]'
+                      monitorActivity ? 'bg-indigo-600' : 'bg-[#23262C]'
                     }`}
                   >
                     <div
@@ -443,7 +443,7 @@ export const CreateAgentModal: React.FC = () => {
                   <div className="flex flex-col">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-medium text-[#E7E8EA]">Modo Maestro</span>
-                      <Wand2 className="w-3 h-3 text-[#8B93FF]" />
+                      <Wand2 className="w-3 h-3 text-indigo-400" />
                     </div>
                     <span className="text-[11px] text-[#8A8F98] leading-tight">
                       Promove este terminal a maestro coordenador da equipe no canvas.
@@ -456,7 +456,7 @@ export const CreateAgentModal: React.FC = () => {
                     aria-label="Modo Maestro"
                     onClick={() => setIsMaestro(!isMaestro)}
                     className={`w-9 h-5 rounded-full transition-colors relative shrink-0 p-0.5 cursor-pointer ${
-                      isMaestro ? 'bg-[#8B93FF]' : 'bg-[#23262C]'
+                      isMaestro ? 'bg-indigo-600' : 'bg-[#23262C]'
                     }`}
                   >
                     <div
@@ -474,7 +474,7 @@ export const CreateAgentModal: React.FC = () => {
                   <div className="flex flex-col">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-medium text-[#E7E8EA]">Ancorar Knowledge Graph</span>
-                      <Network className="w-3 h-3 text-[#8B93FF]" />
+                      <Network className="w-3 h-3 text-indigo-400" />
                     </div>
                     <span className="text-[11px] text-[#8A8F98] leading-tight">
                       Injeta a arquitetura pré-computada e ativa GraphRAG com economia de tokens.
@@ -487,7 +487,7 @@ export const CreateAgentModal: React.FC = () => {
                     aria-label="Ancorar Knowledge Graph"
                     onClick={() => setInjectKnowledgeGraph(!injectKnowledgeGraph)}
                     className={`w-9 h-5 rounded-full transition-colors relative shrink-0 p-0.5 cursor-pointer ${
-                      injectKnowledgeGraph ? 'bg-[#8B93FF]' : 'bg-[#23262C]'
+                      injectKnowledgeGraph ? 'bg-indigo-600' : 'bg-[#23262C]'
                     }`}
                   >
                     <div
@@ -670,7 +670,7 @@ export const CreateAgentModal: React.FC = () => {
             type="button"
             onClick={handleCreate}
             style={{ flex: 2 }}
-            className="h-10 rounded-xl text-xs font-semibold bg-[#8B93FF] hover:bg-[#7a82f8] text-[#0E0F12] flex items-center justify-center gap-2 transition-colors"
+            className="h-10 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             <span>Criar terminal</span>
           </button>

@@ -162,6 +162,17 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   on(C.appShutdownPainted, () => console.log('[Renderer] Shutdown painted'));
 
   // Window Controls
+  const sendWindowControlsChanged = () => {
+    const win = getWin();
+    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(C.windowControlsOnChanged, {
+        isMaximized: win.isMaximized(),
+        isFullScreen: win.isFullScreen(),
+        isMinimized: win.isMinimized()
+      });
+    }
+  };
+
   handle(C.windowControlsState, () => {
     const win = getWin();
     return {
@@ -173,7 +184,10 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
 
   handle(C.windowControlsMinimize, () => {
     const win = getWin();
-    if (win) win.minimize();
+    if (win) {
+      win.minimize();
+      sendWindowControlsChanged();
+    }
   });
 
   handle(C.windowControlsToggleMaximize, () => {
@@ -181,6 +195,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     if (win) {
       if (win.isMaximized()) win.unmaximize();
       else win.maximize();
+      sendWindowControlsChanged();
     }
   });
 

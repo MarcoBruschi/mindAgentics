@@ -186,7 +186,7 @@ export const CreateGraphModal: React.FC = () => {
                     : 'text-[#8A8F98] hover:text-[#E7E8EA]'
                 }`}
               >
-                <FolderOpen className="w-3.5 h-3.5 text-[#8B93FF]" />
+                <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Pasta local</span>
               </button>
               <button
@@ -198,7 +198,7 @@ export const CreateGraphModal: React.FC = () => {
                     : 'text-[#8A8F98] hover:text-[#E7E8EA]'
                 }`}
               >
-                <GitBranch className="w-3.5 h-3.5 text-[#8B93FF]" />
+                <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Repositório Git</span>
               </button>
             </div>
@@ -216,14 +216,14 @@ export const CreateGraphModal: React.FC = () => {
                   value={localPath}
                   onChange={(e) => setLocalPath(e.target.value)}
                   placeholder="ex.: C:\Users\mabru\meu-projeto"
-                  className="flex-1 h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-[#8B93FF] transition-colors"
+                  className="flex-1 h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-indigo-500 transition-colors"
                 />
                 <button
                   type="button"
                   onClick={handlePickDirectory}
                   className="h-9 px-3.5 bg-[#181B20] hover:bg-[#23262C] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] flex items-center gap-1.5 transition-colors shrink-0"
                 >
-                  <FolderOpen className="w-3.5 h-3.5 text-[#8B93FF]" />
+                  <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
                   <span>Procurar...</span>
                 </button>
               </div>
@@ -239,7 +239,7 @@ export const CreateGraphModal: React.FC = () => {
                   value={gitUrl}
                   onChange={(e) => setGitUrl(e.target.value)}
                   placeholder="https://github.com/usuario/repositorio"
-                  className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-[#8B93FF] transition-colors"
+                  className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
               <div>
@@ -251,7 +251,7 @@ export const CreateGraphModal: React.FC = () => {
                   value={gitBranch}
                   onChange={(e) => setGitBranch(e.target.value)}
                   placeholder="main"
-                  className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-[#8B93FF] transition-colors"
+                  className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/50 outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
             </div>
@@ -264,7 +264,7 @@ export const CreateGraphModal: React.FC = () => {
                 type="checkbox"
                 checked={autoOpenPortal}
                 onChange={(e) => setAutoOpenPortal(e.target.checked)}
-                className="w-4 h-4 rounded border-[#23262C] bg-[#181B20] text-[#8B93FF] accent-[#8B93FF] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                className="w-4 h-4 rounded border-[#23262C] bg-[#181B20] text-indigo-600 accent-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
               />
               <span>Abrir portal no canvas ao concluir</span>
             </label>
@@ -274,7 +274,7 @@ export const CreateGraphModal: React.FC = () => {
                 type="checkbox"
                 checked={directed}
                 onChange={(e) => setDirected(e.target.checked)}
-                className="w-4 h-4 rounded border-[#23262C] bg-[#181B20] text-[#8B93FF] accent-[#8B93FF] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                className="w-4 h-4 rounded border-[#23262C] bg-[#181B20] text-indigo-600 accent-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
               />
               <span>Preservar direção de imports e chamadas (--directed)</span>
             </label>
@@ -293,8 +293,8 @@ export const CreateGraphModal: React.FC = () => {
 
           {/* Status Message / Loading */}
           {loading && (
-            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-[#181B20] border border-[#8B93FF]/30 text-[#8B93FF] text-xs">
-              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-[#8B93FF]" />
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-[#181B20] border border-indigo-500/30 text-indigo-400 text-xs">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-indigo-400" />
               <span className="text-[#E7E8EA]">{statusMessage}</span>
             </div>
           )}
@@ -322,7 +322,7 @@ export const CreateGraphModal: React.FC = () => {
             type="button"
             disabled={loading}
             onClick={handleGenerate}
-            className="h-9 px-5 rounded-xl text-xs font-semibold bg-[#8B93FF] hover:bg-[#7a82f8] text-[#0E0F12] flex items-center gap-2 transition-colors disabled:opacity-50"
+            className="h-9 px-5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
           >
             {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             <span>{loading ? 'Gerando...' : 'Gerar grafo'}</span>

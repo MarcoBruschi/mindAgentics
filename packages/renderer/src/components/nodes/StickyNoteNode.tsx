@@ -19,51 +19,51 @@ const colorThemes: Record<
 > = {
   yellow: {
     bg: 'bg-[#14161A]',
-    border: 'border-[#23262C] hover:border-amber-500/40',
+    border: 'border-amber-500/25 hover:border-amber-500/50 shadow-amber-500/5',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-amber-400',
-    dot: 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]',
+    dot: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.7)]',
   },
   blue: {
     bg: 'bg-[#14161A]',
-    border: 'border-[#23262C] hover:border-[#8B93FF]/40',
+    border: 'border-indigo-500/25 hover:border-indigo-500/50 shadow-indigo-500/5',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
-    badge: 'bg-[#8B93FF]',
-    dot: 'bg-[#8B93FF] shadow-[0_0_6px_rgba(139,147,255,0.6)]',
+    badge: 'bg-indigo-400',
+    dot: 'bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.7)]',
   },
   green: {
     bg: 'bg-[#14161A]',
-    border: 'border-[#23262C] hover:border-[#5FD3A0]/40',
+    border: 'border-emerald-500/25 hover:border-emerald-500/50 shadow-emerald-500/5',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
-    badge: 'bg-[#5FD3A0]',
-    dot: 'bg-[#5FD3A0] shadow-[0_0_6px_rgba(95,211,160,0.6)]',
+    badge: 'bg-emerald-400',
+    dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.7)]',
   },
   pink: {
     bg: 'bg-[#14161A]',
-    border: 'border-[#23262C] hover:border-pink-500/40',
+    border: 'border-pink-500/25 hover:border-pink-500/50 shadow-pink-500/5',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-pink-400',
-    dot: 'bg-pink-400 shadow-[0_0_6px_rgba(244,114,182,0.6)]',
+    dot: 'bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.7)]',
   },
   purple: {
     bg: 'bg-[#14161A]',
-    border: 'border-[#23262C] hover:border-purple-500/40',
+    border: 'border-purple-500/25 hover:border-purple-500/50 shadow-purple-500/5',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-purple-400',
-    dot: 'bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]',
+    dot: 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.7)]',
   },
   gray: {
     bg: 'bg-[#14161A]',
-    border: 'border-[#23262C] hover:border-zinc-500/40',
+    border: 'border-[#282B34] hover:border-zinc-500/40',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-zinc-400',
-    dot: 'bg-zinc-400',
+    dot: 'bg-zinc-400 shadow-[0_0_6px_rgba(161,161,170,0.5)]',
   },
 };
 
@@ -213,12 +213,12 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
                   });
                 }
               }}
-              className="bg-[#0E0F12] text-[#E7E8EA] text-xs px-2 py-0.5 rounded-lg outline-none border border-[#8B93FF]"
+              className="bg-[#0E0F12] text-[#E7E8EA] text-xs px-2 py-0.5 rounded-lg outline-none border border-indigo-500"
             />
           ) : (
             <span
               onDoubleClick={() => setIsEditingTitle(true)}
-              className="text-xs font-medium text-[#E7E8EA] hover:text-white cursor-text truncate max-w-[170px]"
+              className="text-xs font-semibold text-[#E7E8EA] hover:text-white cursor-text truncate max-w-[170px]"
               title="Clique duas vezes para renomear"
             >
               {node.content.title}
@@ -230,7 +230,7 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
             onClick={togglePin}
             className={`p-1 rounded-lg transition-colors ${
               node.content.isNamePinned
-                ? 'text-[#8B93FF] rotate-45'
+                ? 'text-amber-400 rotate-45'
                 : 'text-[#8A8F98]/50 hover:text-[#8A8F98]'
             }`}
             title={node.content.isNamePinned ? 'Título fixado' : 'Título automático pela 1ª linha'}

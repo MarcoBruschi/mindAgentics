@@ -55,8 +55,8 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
 
   const toggleDevice = () => {
     const nextKind = isAndroid ? 'browser' : 'android';
-    const newWidth = nextKind === 'android' ? 390 : 720;
-    const newHeight = nextKind === 'android' ? 640 : 480;
+    const newWidth = nextKind === 'android' ? 380 : 720;
+    const newHeight = nextKind === 'android' ? 680 : 480;
 
     onUpdate({
       ...nodeRef.current,
@@ -199,18 +199,18 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
       {/* Main Viewport Container */}
       <div
         onClick={handleContainerClick}
-        className={`flex-1 w-full h-[calc(100%-42px)] relative overflow-hidden bg-black flex items-center justify-center ${
-          isAddingTag ? 'cursor-crosshair' : ''
-        }`}
+        className={`flex-1 w-full h-[calc(100%-42px)] relative overflow-hidden bg-[#0A0B0E] flex items-center justify-center ${
+          isAndroid ? 'p-2' : ''
+        } ${isAddingTag ? 'cursor-crosshair' : ''}`}
       >
         {isAndroid ? (
-          /* Android Frame Simulation */
-          <div className="w-[390px] h-[780px] max-h-full rounded-[40px] border-[10px] border-[#22242b] shadow-2xl relative overflow-hidden bg-[#0a0a0d] flex flex-col">
+          /* Android / Mobile Phone Frame Simulation (responsive to container) */
+          <div className="w-full h-full max-w-[360px] rounded-[32px] border-[6px] border-[#20222A] shadow-2xl relative overflow-hidden bg-[#0A0A0D] flex flex-col ring-1 ring-white/10">
             {/* Notch / Speaker Bar */}
-            <div className="w-full h-7 bg-[#22242b] flex items-center justify-between px-6 select-none">
+            <div className="w-full h-7 bg-[#1C1E24] flex items-center justify-between px-5 select-none shrink-0 border-b border-black/20">
               <span className="text-[10px] font-semibold text-zinc-300">9:41</span>
-              <div className="w-16 h-3.5 bg-black rounded-full" />
-              <div className="flex items-center gap-1 text-[10px] text-zinc-300">
+              <div className="w-16 h-3 bg-black rounded-full" />
+              <div className="flex items-center gap-1 text-[10px] text-zinc-300 font-mono">
                 <span>5G</span>
                 <span>100%</span>
               </div>
@@ -223,6 +223,11 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
               className="w-full flex-1 border-none bg-white"
               sandbox="allow-same-origin allow-scripts allow-forms"
             />
+
+            {/* Mobile Bottom Home Bar Indicator */}
+            <div className="w-full h-4 bg-[#1C1E24] flex items-center justify-center shrink-0 border-t border-black/10">
+              <div className="w-24 h-1 bg-white/30 rounded-full" />
+            </div>
           </div>
         ) : (
           /* Standard Browser Webview */

@@ -145,7 +145,7 @@ export const ProfileModal: React.FC = () => {
       case 'flame':
         return <Flame className="w-4 h-4 text-rose-400" strokeWidth={1.75} />;
       default:
-        return <Award className="w-4 h-4 text-[#8B93FF]" strokeWidth={1.75} />;
+        return <Award className="w-4 h-4 text-indigo-400" strokeWidth={1.75} />;
     }
   };
 
@@ -164,7 +164,7 @@ export const ProfileModal: React.FC = () => {
         {/* Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#23262C] bg-[#121418] shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-[#8B93FF]/10 flex items-center justify-center border border-[#8B93FF]/20 text-[#8B93FF]">
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/25 text-indigo-400">
               <Award className="w-4 h-4" strokeWidth={1.75} />
             </div>
             <div>
@@ -190,7 +190,7 @@ export const ProfileModal: React.FC = () => {
         {/* Scrollable Content Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6" style={{ WebkitAppRegion: 'no-drag' } as any}>
           {/* Section 1: Level & Title Showcase Card (with Real-time Preview) */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-[#181B20] to-[#121418] border border-[#23262C] shadow-lg flex flex-col gap-4">
+          <div className="p-5 rounded-2xl bg-[#181B20] border border-[#23262C] shadow-lg flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 {/* Active Avatar or Custom Photo (Clickable to change) */}
@@ -201,7 +201,7 @@ export const ProfileModal: React.FC = () => {
                   title="Clique para alterar a foto ou carregar uma imagem"
                 >
                   {avatarUrl ? (
-                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-[#8B93FF]/40 shadow-md bg-[#0E0F12]">
+                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-indigo-500/40 shadow-md bg-[#0E0F12]">
                       <img
                         src={avatarUrl}
                         alt={name}
@@ -228,11 +228,11 @@ export const ProfileModal: React.FC = () => {
                     <span className="text-lg font-bold text-white tracking-tight">
                       {name.trim() || profile?.name || 'Orquestrador'}
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold bg-[#8B93FF]/15 text-[#8B93FF] border border-[#8B93FF]/30">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
                       {callsign.trim() || profile?.callsign || 'ARCHITECT-01'}
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-[#8B93FF] mt-0.5">
+                  <p className="text-sm font-medium text-indigo-400 mt-0.5">
                     {profile?.title || 'Aprendiz de Orquestrador'}
                   </p>
                 </div>
@@ -240,11 +240,11 @@ export const ProfileModal: React.FC = () => {
 
               {/* Big Level Pill & Streak */}
               <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <div className="px-3.5 py-1.5 rounded-xl bg-[#8B93FF]/10 border border-[#8B93FF]/30 flex items-center gap-1.5 shadow-sm">
+                <div className="px-3.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-1.5 shadow-sm">
                   <span className="text-xs uppercase tracking-wider text-[#8A8F98] font-semibold">
                     Nível
                   </span>
-                  <span className="text-lg font-black text-[#8B93FF] leading-none">
+                  <span className="text-lg font-black text-indigo-400 leading-none">
                     {profile?.level || 1}
                   </span>
                 </div>
@@ -263,13 +263,13 @@ export const ProfileModal: React.FC = () => {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-[#8A8F98] font-medium">Progresso de Experiência</span>
                 <span className="font-mono text-[#E7E8EA]">
-                  <strong className="text-[#8B93FF]">{profile?.currentXp || 0}</strong> /{' '}
+                  <strong className="text-indigo-400">{profile?.currentXp || 0}</strong> /{' '}
                   {xpTotalRequired} XP
                 </span>
               </div>
               <div className="w-full h-2.5 bg-[#0E0F12] rounded-full overflow-hidden p-0.5 border border-[#23262C]">
                 <div
-                  className="h-full bg-gradient-to-r from-[#8B93FF] via-indigo-500 to-purple-500 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(139,147,255,0.4)]"
+                  className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(99,102,241,0.4)]"
                   style={{ width: `${xpPercent}%` }}
                 />
               </div>
@@ -300,8 +300,8 @@ export const ProfileModal: React.FC = () => {
                 onChange={handlePhotoUpload}
               />
 
-              {/* Avatars & Photo Upload Grid */}
-              <div className="grid grid-cols-5 sm:grid-cols-9 gap-2">
+              {/* Avatars & Photo Upload Grid (5 columns: prevents label truncation) */}
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
                 {AVATAR_OPTIONS.map((av) => {
                   const isSel = !avatarUrl && selectedAvatarId === av.id;
                   return (
@@ -312,20 +312,20 @@ export const ProfileModal: React.FC = () => {
                         setSelectedAvatarId(av.id);
                         setAvatarUrl('');
                       }}
-                      className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all cursor-pointer ${
+                      className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
                         isSel
-                          ? 'bg-[#181B20] border-[#8B93FF] ring-2 ring-[#8B93FF]/30 shadow-md scale-105'
+                          ? 'bg-[#181B20] border-indigo-500 ring-2 ring-indigo-500/30 shadow-md scale-[1.02]'
                           : 'bg-[#14161A] border-[#23262C] hover:border-[#8A8F98]/50 hover:bg-[#181B20]'
                       }`}
                       title={av.label}
                     >
                       <div
-                        className={`w-9 h-9 rounded-xl bg-gradient-to-br ${av.bgGradient} flex items-center justify-center text-lg shadow-sm`}
+                        className={`w-10 h-10 rounded-xl bg-gradient-to-br ${av.bgGradient} flex items-center justify-center text-lg shadow-sm`}
                       >
                         {av.icon}
                       </div>
-                      <span className="text-[10px] text-[#8A8F98] truncate max-w-full font-medium">
-                        {av.label.split(' ')[0]}
+                      <span className="text-[11px] text-[#8A8F98] truncate max-w-full font-medium">
+                        {av.label}
                       </span>
                     </button>
                   );
@@ -335,17 +335,17 @@ export const ProfileModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all cursor-pointer ${
+                  className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
                     avatarUrl
-                      ? 'bg-[#181B20] border-[#8B93FF] ring-2 ring-[#8B93FF]/30 shadow-md scale-105'
+                      ? 'bg-[#181B20] border-indigo-500 ring-2 ring-indigo-500/30 shadow-md scale-[1.02]'
                       : 'bg-[#14161A] border-[#23262C] hover:border-[#8A8F98]/50 hover:bg-[#181B20]'
                   }`}
                   title="Carregar foto personalizada do computador"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-[#8B93FF]/30 flex items-center justify-center text-[#8B93FF] shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-sm">
                     <Upload className="w-4 h-4" strokeWidth={1.75} />
                   </div>
-                  <span className="text-[10px] text-[#8B93FF] font-medium truncate max-w-full">
+                  <span className="text-[11px] text-indigo-400 font-medium truncate max-w-full">
                     Upload
                   </span>
                 </button>
@@ -355,7 +355,7 @@ export const ProfileModal: React.FC = () => {
               {avatarUrl && (
                 <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-xl bg-[#181B20] border border-[#23262C] text-xs">
                   <span className="text-[#8A8F98] flex items-center gap-2">
-                    <Camera className="w-3.5 h-3.5 text-[#8B93FF]" strokeWidth={1.75} />
+                    <Camera className="w-3.5 h-3.5 text-indigo-400" strokeWidth={1.75} />
                     <span>Foto personalizada selecionada</span>
                   </span>
                   <button
@@ -380,7 +380,7 @@ export const ProfileModal: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={32}
-                  className="w-full bg-[#181B20] border border-[#23262C] focus:border-[#8B93FF] rounded-xl px-3 py-1.5 text-xs text-[#E7E8EA] outline-none transition-colors"
+                  className="w-full bg-[#181B20] border border-[#23262C] focus:border-indigo-500 rounded-xl px-3 py-1.5 text-xs text-[#E7E8EA] outline-none transition-colors"
                   placeholder="Nome do Orquestrador"
                 />
               </div>
@@ -394,7 +394,7 @@ export const ProfileModal: React.FC = () => {
                   value={callsign}
                   onChange={(e) => setCallsign(e.target.value.toUpperCase())}
                   maxLength={16}
-                  className="w-full bg-[#181B20] border border-[#23262C] focus:border-[#8B93FF] rounded-xl px-3 py-1.5 text-xs text-[#E7E8EA] outline-none font-mono uppercase transition-colors"
+                  className="w-full bg-[#181B20] border border-[#23262C] focus:border-indigo-500 rounded-xl px-3 py-1.5 text-xs text-[#E7E8EA] outline-none font-mono uppercase transition-colors"
                   placeholder="CALLSIGN"
                 />
               </div>
@@ -409,7 +409,7 @@ export const ProfileModal: React.FC = () => {
               )}
               <button
                 type="submit"
-                className="px-3.5 py-1.5 rounded-xl bg-[#8B93FF] hover:bg-[#7A82F8] text-white text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-md"
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/20"
               >
                 <Save className="w-3.5 h-3.5" strokeWidth={1.75} />
                 <span>Salvar perfil</span>
@@ -423,7 +423,7 @@ export const ProfileModal: React.FC = () => {
               <span className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
                 Conquistas do Orquestrador
               </span>
-              <span className="text-xs font-mono font-medium text-[#8B93FF]">
+              <span className="text-xs font-mono font-medium text-indigo-400">
                 {unlockedBadges.length} / {badges.length} desbloqueadas
               </span>
             </div>

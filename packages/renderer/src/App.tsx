@@ -281,14 +281,14 @@ export const App: React.FC = () => {
   }, [undo, redo, setIsSidebarOpen]);
 
   return (
-    <div className="app-shell w-screen h-screen overflow-hidden bg-transparent text-zinc-100 select-none font-sans relative">
+    <div className="app-shell w-screen h-screen overflow-hidden bg-[#0E0F12] text-zinc-100 select-none font-sans relative">
       {/* Top Floating Chrome Bar (Search, Hamburger, Right Utilities, Window Controls) */}
       <TitleBar />
 
       {/* Main Workspace Body (Fills full viewport behind the floating chrome) */}
       <div className="w-full h-full flex overflow-hidden relative">
         {/* Full Canvas Viewport (runs behind the sidebar with translucent canvas backing) */}
-        <main className="absolute inset-0 w-full h-full flex flex-col bg-transparent">
+        <main className="absolute inset-0 w-full h-full flex flex-col bg-[#0E0F12]">
           <InfiniteCanvas />
           <CanvasToolbar />
         </main>

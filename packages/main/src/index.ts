@@ -73,10 +73,14 @@ async function createWindow(): Promise<BrowserWindow> {
     height: bounds.height || 800,
     minWidth: 900,
     minHeight: 600,
+    resizable: true,
+    movable: true,
+    minimizable: true,
+    maximizable: true,
     titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     trafficLightPosition: { x: 14, y: 14 },
-    backgroundColor: material ? '#00000000' : '#0f1012',
+    backgroundColor: '#0f1012',
     ...(material === 'acrylic' ? { backgroundMaterial: 'acrylic' } : {}),
     ...(material === 'vibrancy' ? { vibrancy: 'sidebar' } : {}),
     webPreferences: {
@@ -88,14 +92,33 @@ async function createWindow(): Promise<BrowserWindow> {
     }
   });
 
+  // Disable native visual zoom on window creation
+  win.webContents.setVisualZoomLevelLimits(1, 1);
+
+  let activeRefreshTimers: NodeJS.Timeout[] = [];
+  const clearRefreshTimers = () => {
+    for (const t of activeRefreshTimers) {
+      clearTimeout(t);
+    }
+    activeRefreshTimers = [];
+  };
+
   const refreshMaterial = (isMaximizedState?: boolean) => {
-    if (material && process.platform === 'win32' && !win.isDestroyed()) {
+    if (win.isDestroyed() || win.isMinimized()) return;
+
+    // Force transparent background before reapplying material to avoid losing alpha channel
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
+
+    if (material && process.platform === 'win32') {
+      clearRefreshTimers();
       // Retain the native window material (e.g. acrylic) consistently across maximized/restored states
       // Switching to 'mica' on maximize strips transparency and causes opaque gray backgrounds.
       const targetMaterial = material;
 
       const apply = () => {
-        if (!win.isDestroyed()) {
+        if (!win.isDestroyed() && !win.isMinimized()) {
           try {
             win.setBackgroundColor('#00000000');
             if ((win as any).setBackgroundMaterial) {
@@ -113,14 +136,17 @@ async function createWindow(): Promise<BrowserWindow> {
 
       // Direct apply without stripping material with 'none'
       apply();
-      setTimeout(apply, 50);
-      setTimeout(apply, 150);
-      setTimeout(apply, 300);
-      setTimeout(apply, 500);
-    } else if (!win.isDestroyed()) {
+      activeRefreshTimers.push(setTimeout(apply, 50));
+      activeRefreshTimers.push(setTimeout(apply, 150));
+      activeRefreshTimers.push(setTimeout(apply, 300));
+    } else if (material && process.platform === 'darwin') {
       try {
-        win.setBackgroundColor('#00000000');
-      } catch {}
+        if ((win as any).setVibrancy) {
+          (win as any).setVibrancy('sidebar');
+        }
+      } catch (e) {
+        console.warn('[refreshMaterial] Failed to apply vibrancy:', e);
+      }
     }
   };
 
@@ -135,13 +161,16 @@ async function createWindow(): Promise<BrowserWindow> {
     if (!win.isDestroyed()) {
       const isMax = win.isMaximized();
       const isFull = win.isFullScreen();
+      const isMin = win.isMinimized();
       const currentBounds = win.getBounds();
 
-      win.webContents.send(C.windowControlsOnChanged, {
-        isMaximized: isMax,
-        isFullScreen: isFull,
-        isMinimized: win.isMinimized()
-      });
+      if (!win.webContents.isDestroyed()) {
+        win.webContents.send(C.windowControlsOnChanged, {
+          isMaximized: isMax,
+          isFullScreen: isFull,
+          isMinimized: isMin
+        });
+      }
 
       if (boundsSaveTimer) {
         clearTimeout(boundsSaveTimer);
@@ -163,7 +192,10 @@ async function createWindow(): Promise<BrowserWindow> {
     }
   };
 
-  win.on('resize', saveBounds);
+  win.on('resize', () => {
+    saveBounds();
+    refreshMaterial();
+  });
   win.on('move', saveBounds);
   win.on('maximize', () => {
     saveBounds();
@@ -175,22 +207,51 @@ async function createWindow(): Promise<BrowserWindow> {
     win.setBackgroundColor('#00000000');
     refreshMaterial(false);
   });
+  win.on('minimize', () => {
+    saveBounds();
+    clearRefreshTimers();
+  });
   win.on('restore', () => {
+    saveBounds();
+    win.setBackgroundColor('#00000000');
+    refreshMaterial();
+  });
+  win.on('show', () => {
     saveBounds();
     win.setBackgroundColor('#00000000');
     refreshMaterial();
   });
   win.on('enter-full-screen', () => {
     saveBounds();
+    win.setBackgroundColor('#00000000');
     refreshMaterial();
   });
   win.on('leave-full-screen', () => {
     saveBounds();
+    win.setBackgroundColor('#00000000');
+    refreshMaterial();
+  });
+
+  win.once('ready-to-show', () => {
+    win.setBackgroundColor('#00000000');
     refreshMaterial();
   });
 
   win.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Lock zoom levels and intercept zoom-changed attempts
+  win.webContents.on('did-finish-load', () => {
+    win.webContents.setZoomLevel(0);
+    win.webContents.setVisualZoomLevelLimits(1, 1);
+    win.setBackgroundColor('#00000000');
+    refreshMaterial();
+  });
+
+  win.webContents.on('zoom-changed', (event) => {
+    event.preventDefault();
+    win.webContents.setZoomLevel(0);
   });
 
   // Forward renderer console and errors to terminal
@@ -219,10 +280,34 @@ async function createWindow(): Promise<BrowserWindow> {
 if (process.platform === 'win32') {
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
+  // Prevent DWM direct composition visual tree destruction during window minimize/maximize
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 }
 
 if (app && typeof app.whenReady === 'function') {
   app.whenReady().then(async () => {
+    // Webview & Guest WebContents Isolation Policy
+    app.on('web-contents-created', (_event, contents) => {
+      // Strict isolation for any guest webviews attached
+      contents.on('will-attach-webview', (_waEvent, webPreferences, _params) => {
+        delete webPreferences.preload;
+        webPreferences.nodeIntegration = false;
+        webPreferences.nodeIntegrationInSubFrames = false;
+        webPreferences.contextIsolation = true;
+        webPreferences.sandbox = true;
+        webPreferences.webSecurity = true;
+      });
+
+      // Strict visual zoom lock: guarantee all windows and webviews stay at 100% crispness
+      try {
+        contents.setVisualZoomLevelLimits(1, 1);
+        contents.on('zoom-changed', (event) => {
+          event.preventDefault();
+          contents.setZoomLevel(0);
+        });
+      } catch {}
+    });
+
     // Strip X-Frame-Options and frame-ancestors CSP so portal nodes can embed external URLs
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
       const responseHeaders = { ...(details.responseHeaders || {}) };

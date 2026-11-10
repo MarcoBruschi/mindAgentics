@@ -162,16 +162,32 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         return true;
       }
 
-      // Copy selection on Ctrl+C / Cmd+C when text is selected
-      if ((arg.ctrlKey || arg.metaKey) && arg.key.toLowerCase() === 'c' && term.hasSelection()) {
-        const selectedText = term.getSelection();
-        if (selectedText) {
-          navigator.clipboard.writeText(selectedText).catch(() => {});
-        }
+      // 1. Zoom shortcuts: Ctrl++/Ctrl=/Ctrl-/Ctrl+NumpadAdd/Subtract/0
+      // Suppress from xterm to prevent emitting spurious/corrupt escape sequences (e.g. \x1f) to the shell
+      const isZoomKey = (arg.ctrlKey || arg.metaKey) && (
+        arg.key === '+' || arg.key === '=' || arg.key === '-' || arg.key === '_' ||
+        arg.code === 'NumpadAdd' || arg.code === 'NumpadSubtract' ||
+        arg.key === '0' || arg.code === 'Numpad0'
+      );
+      if (isZoomKey) {
+        arg.preventDefault();
         return false;
       }
 
-      // Paste on Ctrl+V / Cmd+V
+      // 2. Copy selection on Ctrl+C / Cmd+C when text is selected
+      if ((arg.ctrlKey || arg.metaKey) && arg.key.toLowerCase() === 'c') {
+        if (term.hasSelection()) {
+          const selectedText = term.getSelection();
+          if (selectedText) {
+            navigator.clipboard.writeText(selectedText).catch(() => {});
+          }
+          return false;
+        }
+        // When NO selection, allow Ctrl+C (SIGINT) directly to shell
+        return true;
+      }
+
+      // 3. Paste on Ctrl+V / Cmd+V
       if ((arg.ctrlKey || arg.metaKey) && arg.key.toLowerCase() === 'v' && !arg.shiftKey) {
         navigator.clipboard.readText().then((clipText) => {
           if (clipText && termBridge) {
@@ -181,7 +197,16 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         return false;
       }
 
-      // Allow Ctrl+P, Ctrl+K, Ctrl+H and all standard shell readline navigation through to xterm
+      // 4. Crucial terminal shortcuts: Ctrl+C (no selection), Ctrl+D (EOF), Ctrl+Z (SIGTSTP), Ctrl+L (clear screen)
+      // Must pass through cleanly without interception
+      if (arg.ctrlKey || arg.metaKey) {
+        const key = arg.key.toLowerCase();
+        if (key === 'c' || key === 'd' || key === 'z' || key === 'l') {
+          return true;
+        }
+      }
+
+      // Allow all standard shell readline navigation through to xterm
       return true;
     });
 

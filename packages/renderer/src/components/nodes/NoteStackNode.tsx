@@ -22,12 +22,12 @@ interface NoteStackNodeProps {
 }
 
 const tabColors: Record<NoteColor, { dot: string; text: string }> = {
-  yellow: { dot: 'bg-amber-400', text: 'text-amber-300' },
-  blue: { dot: 'bg-[#8B93FF]', text: 'text-[#8B93FF]' },
-  green: { dot: 'bg-[#5FD3A0]', text: 'text-[#5FD3A0]' },
-  pink: { dot: 'bg-pink-400', text: 'text-pink-300' },
-  purple: { dot: 'bg-purple-400', text: 'text-purple-300' },
-  gray: { dot: 'bg-zinc-400', text: 'text-zinc-300' },
+  yellow: { dot: 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]', text: 'text-amber-300' },
+  blue: { dot: 'bg-indigo-400 shadow-[0_0_6px_rgba(99,102,241,0.6)]', text: 'text-indigo-300' },
+  green: { dot: 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.6)]', text: 'text-emerald-300' },
+  pink: { dot: 'bg-pink-400 shadow-[0_0_6px_rgba(244,114,182,0.6)]', text: 'text-pink-300' },
+  purple: { dot: 'bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.6)]', text: 'text-purple-300' },
+  gray: { dot: 'bg-zinc-400 shadow-[0_0_4px_rgba(161,161,170,0.5)]', text: 'text-zinc-300' },
 };
 
 export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
@@ -129,7 +129,7 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
       {/* Header */}
       <div className="node-drag-handle h-9 px-3 bg-[#181B20] border-b border-[#23262C] flex items-center justify-between cursor-move select-none">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-3.5 h-3.5 text-[#8B93FF]" />
+          <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
           <span className="text-xs font-semibold text-[#E7E8EA] truncate max-w-[140px]">
             {content.title || 'Fichário'}
           </span>
@@ -232,7 +232,7 @@ export const NoteStackNode: React.FC<NoteStackNodeProps> = ({
               type="text"
               value={activePage.title}
               onChange={(e) => updatePageTitle(e.target.value)}
-              className="bg-transparent font-medium text-xs text-[#E7E8EA] outline-none focus:text-[#8B93FF] w-2/3 transition-colors"
+              className="bg-transparent font-semibold text-xs text-[#E7E8EA] outline-none focus:text-indigo-400 w-2/3 transition-colors"
             />
             {/* Quick page flippers */}
             <div className="flex items-center gap-1">

@@ -36,16 +36,24 @@ export function zoomAtPoint(
   prevOffset: { x: number; y: number },
   screenAnchor: { x: number; y: number }
 ): { x: number; y: number; zoom: number } {
-  const clampedZoom = Math.min(3.0, Math.max(0.1, Number(nextZoom.toFixed(3))));
-  const canvasPointX = (screenAnchor.x - prevOffset.x) / prevZoom;
-  const canvasPointY = (screenAnchor.y - prevOffset.y) / prevZoom;
+  const safePrevZoom = Number.isFinite(prevZoom) && prevZoom > 0 ? prevZoom : 1.0;
+  const rawNextZoom = Number.isFinite(nextZoom) ? nextZoom : safePrevZoom;
+  const clampedZoom = Math.min(3.0, Math.max(0.1, Number(rawNextZoom.toFixed(3))));
 
-  const newX = screenAnchor.x - canvasPointX * clampedZoom;
-  const newY = screenAnchor.y - canvasPointY * clampedZoom;
+  const anchorX = Number.isFinite(screenAnchor?.x) ? screenAnchor.x : 0;
+  const anchorY = Number.isFinite(screenAnchor?.y) ? screenAnchor.y : 0;
+  const offsetX = Number.isFinite(prevOffset?.x) ? prevOffset.x : 0;
+  const offsetY = Number.isFinite(prevOffset?.y) ? prevOffset.y : 0;
+
+  const canvasPointX = (anchorX - offsetX) / safePrevZoom;
+  const canvasPointY = (anchorY - offsetY) / safePrevZoom;
+
+  const newX = anchorX - canvasPointX * clampedZoom;
+  const newY = anchorY - canvasPointY * clampedZoom;
 
   return {
-    x: Math.round(newX),
-    y: Math.round(newY),
+    x: Math.round(Number.isFinite(newX) ? newX : offsetX),
+    y: Math.round(Number.isFinite(newY) ? newY : offsetY),
     zoom: clampedZoom,
   };
 }

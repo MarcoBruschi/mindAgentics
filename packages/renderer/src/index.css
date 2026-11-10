@@ -54,6 +54,13 @@ html.dark {
   --sidebar-bg: rgba(30, 32, 38, 0.45);
 }
 
+/* Ensure sidebar preserves translucency continuously across maximization */
+aside {
+  background-color: rgba(10, 12, 16, 0.45) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+}
+
 body {
   margin: 0;
   padding: 0;

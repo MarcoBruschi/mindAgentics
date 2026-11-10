@@ -77,13 +77,14 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`relative h-full border-r border-[#23262C]/80 flex flex-col z-30 pointer-events-auto select-none text-[#E7E8EA] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+      aria-hidden={isCollapsed}
+      className={`relative h-full border-r border-[#23262C]/80 flex flex-col z-30 select-none text-[#E7E8EA] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
         isCollapsed
           ? 'w-0 border-r-0 opacity-0 pointer-events-none'
-          : 'w-[248px] opacity-100'
+          : 'w-[248px] opacity-100 pointer-events-auto'
       }`}
       style={{
-        backgroundColor: 'rgba(10, 12, 16, 0.65)',
+        backgroundColor: 'rgba(10, 12, 16, 0.45)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         transform: 'translateZ(0)',
@@ -104,7 +105,7 @@ export const Sidebar: React.FC = () => {
                 setIsProfileOpen(true);
               }
             }}
-            className="group flex flex-col gap-2 p-2.5 rounded-xl bg-[#14161A]/80 hover:bg-[#181B20] border border-[#23262C]/80 hover:border-[#8B93FF]/40 cursor-pointer transition-all shadow-sm select-none"
+            className="group flex flex-col gap-2.5 p-2.5 rounded-xl bg-[#14161A]/50 hover:bg-[#181B20]/75 border border-[#23262C]/70 hover:border-indigo-500/40 cursor-pointer transition-all shadow-sm select-none"
             style={{ WebkitAppRegion: 'no-drag' } as any}
             title="Clique para abrir o Perfil do Orquestrador e Conquistas"
           >
@@ -130,7 +131,7 @@ export const Sidebar: React.FC = () => {
                     {avatar.icon}
                   </div>
                 )}
-                <span className="absolute -bottom-1 -right-1 px-1 py-0.2 bg-[#121418] text-[#8B93FF] border border-[#8B93FF]/40 rounded-full text-[9px] font-bold tracking-tight shadow-sm">
+                <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-[#0E0F12]/80 text-indigo-400 border border-indigo-500/40 rounded-full text-[9px] font-bold tracking-tight shadow-sm">
                   Nv. {profile?.level || 1}
                 </span>
               </div>
@@ -142,10 +143,10 @@ export const Sidebar: React.FC = () => {
                     {profile?.name || 'Orquestrador'}
                   </span>
                   <span
-                    className="text-[10px] text-amber-400 font-medium flex items-center gap-1 shrink-0"
+                    className="text-[10px] text-amber-400 font-semibold flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md shrink-0"
                     title="Sequência de dias ativos orquestrando"
                   >
-                    <Flame className="w-3 h-3 text-amber-400" strokeWidth={1.75} />
+                    <Flame className="w-3 h-3 text-amber-400" strokeWidth={2} />
                     <span>{profile?.streakDays || 1}d</span>
                   </span>
                 </div>
@@ -157,15 +158,17 @@ export const Sidebar: React.FC = () => {
 
             {/* Linear XP Progress Bar */}
             <div className="w-full flex flex-col gap-1">
-              <div className="w-full h-1 bg-[#23262C] rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-[#0E0F12]/60 border border-[#23262C]/60 rounded-full overflow-hidden p-[1px]">
                 <div
-                  className="h-full bg-gradient-to-r from-[#8B93FF] to-purple-500 rounded-full transition-all duration-300"
+                  className="h-full bg-[#8B93FF] rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(139,147,255,0.4)]"
                   style={{ width: `${xpPercent}%` }}
                 />
               </div>
               <div className="flex items-center justify-between text-[9px] text-[#8A8F98] font-mono px-0.5">
-                <span>{profile?.currentXp || 0} XP</span>
-                <span>{xpTotalRequired} XP</span>
+                <span>
+                  <strong className="text-[#8B93FF] font-semibold">{profile?.currentXp || 0}</strong> / {xpTotalRequired} XP
+                </span>
+                <span className="text-[9px] text-[#8A8F98]">{xpPercent}%</span>
               </div>
             </div>
           </div>
@@ -177,9 +180,17 @@ export const Sidebar: React.FC = () => {
             <div className="flex items-center justify-between px-2.5 py-2 text-[11px] font-semibold text-[#8A8F98] uppercase tracking-wider">
               <span>ESPAÇOS DE TRABALHO</span>
               <button
+                tabIndex={0}
                 onClick={() => setIsCreateWorkspaceOpen(true)}
-                className="w-6 h-6 flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] rounded-lg hover:bg-[#181B20] transition-colors cursor-pointer"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsCreateWorkspaceOpen(true);
+                  }
+                }}
+                className="w-6 h-6 flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] focus:text-[#E7E8EA] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B93FF] rounded-lg hover:bg-[#181B20] transition-colors cursor-pointer"
                 title="Adicionar Novo Workspace"
+                aria-label="Adicionar Novo Workspace"
               >
                 <Plus className="w-4 h-4" strokeWidth={1.75} />
               </button>
@@ -198,8 +209,8 @@ export const Sidebar: React.FC = () => {
                     onClick={() => setActiveWorkspaceId(ws.id)}
                     className={`group flex items-center justify-between h-9 px-3 text-xs cursor-pointer rounded-xl transition-all ${
                       isActive
-                        ? 'bg-[#181B20]/90 text-[#E7E8EA] font-medium border border-[#23262C]'
-                        : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#14161A]/60 border border-transparent'
+                        ? 'bg-[#181B20]/75 text-[#E7E8EA] font-medium border border-[#23262C]/80'
+                        : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.04] border border-transparent'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 truncate flex-1 min-w-0 mr-2">
@@ -251,11 +262,20 @@ export const Sidebar: React.FC = () => {
         {/* Bottom Panel Actions */}
         <div className="p-3 border-t border-[#23262C]/50 flex items-center justify-between bg-transparent">
           <button
+            tabIndex={0}
             onClick={() => setIsCreateWorkspaceOpen(true)}
-            className="flex items-center gap-2 text-xs text-[#8A8F98] hover:text-[#E7E8EA] transition-colors cursor-pointer"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsCreateWorkspaceOpen(true);
+              }
+            }}
+            className="flex items-center gap-2 text-xs text-[#8A8F98] hover:text-[#E7E8EA] focus:text-[#E7E8EA] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B93FF] rounded px-1.5 py-1 transition-colors cursor-pointer"
+            title="Criar Novo Workspace"
+            aria-label="Criar Novo Workspace"
           >
             <Folder className="w-4 h-4 text-[#8A8F98]" strokeWidth={1.75} />
-            <span>Novo grupo</span>
+            <span>Novo Workspace</span>
           </button>
 
           <button

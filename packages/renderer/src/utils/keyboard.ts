@@ -14,13 +14,15 @@ export const isMac =
 export function isInputOrEditable(element: Element | null): boolean {
   if (!element) return false;
   const tag = element.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'IFRAME' || tag === 'WEBVIEW') return true;
   if ((element as HTMLElement).isContentEditable || element.closest?.('[contenteditable="true"]') !== null) return true;
   if (
     element.classList?.contains('xterm-helper-textarea') ||
     element.classList?.contains('cm-content') ||
     element.closest?.('.xterm') !== null ||
-    element.closest?.('.xterm-helper-textarea') !== null
+    element.closest?.('.xterm-helper-textarea') !== null ||
+    element.closest?.('iframe') !== null ||
+    element.closest?.('webview') !== null
   ) {
     return true;
   }
@@ -41,6 +43,8 @@ export const DEFAULT_SHORTCUTS = {
   redo: isMac ? '⌘⇧Z' : 'Ctrl+Y / Ctrl+Shift+Z',
   tidy: isMac ? '⌘⇧T' : 'Ctrl+Shift+T',
   resetZoom: isMac ? '⌘0' : 'Ctrl+0',
+  zoomIn: isMac ? '⌘+ / ⌘=' : 'Ctrl++ / Ctrl+=',
+  zoomOut: isMac ? '⌘-' : 'Ctrl+-',
   zoomToggle: isMac ? '⌘\\' : 'Ctrl+\\',
   zoomToSelection: isMac ? '⌘⌥\\' : 'Ctrl+Alt+\\',
   connectTie: isMac ? '⌘L' : 'Ctrl+L',
