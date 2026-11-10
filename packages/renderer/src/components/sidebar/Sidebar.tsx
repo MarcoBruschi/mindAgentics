@@ -13,6 +13,7 @@ import {
   isProfileModalOpenAtom,
 } from '@/atoms/ui';
 import { useUserProfile, getAvatarOption } from '@/atoms/profile';
+import { AvatarIcon } from '@/components/profile/AvatarIcon';
 import {
   Folder,
   Settings,
@@ -93,7 +94,7 @@ export const Sidebar: React.FC = () => {
       } as any}
     >
       <div className="w-[248px] h-full flex flex-col shrink-0 pt-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
-        {/* Profile & Gamification Card Widget (Top of Sidebar) */}
+        {/* Minimalist Operator / Runtime Badge (Anti-AI-Slop) */}
         <div className="px-2 pb-2 shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
           <div
             role="button"
@@ -105,72 +106,55 @@ export const Sidebar: React.FC = () => {
                 setIsProfileOpen(true);
               }
             }}
-            className="group flex flex-col gap-2.5 p-2.5 rounded-xl bg-[#14161A]/50 hover:bg-[#181B20]/75 border border-[#23262C]/70 hover:border-indigo-500/40 cursor-pointer transition-all shadow-sm select-none"
+            data-streak={profile?.streakDays || 1}
+            data-xp={profile?.currentXp || 0}
+            className="group flex items-center justify-between p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.12] cursor-pointer transition-all select-none"
             style={{ WebkitAppRegion: 'no-drag' } as any}
-            title="Clique para abrir o Perfil do Orquestrador e Conquistas"
+            title="Perfil do Operador & Configurações"
           >
-            <div className="flex items-center gap-2.5">
-              {/* Avatar circle or photo with Level Badge */}
-              <div
-                className="relative shrink-0 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsProfileOpen(true);
-                }}
-              >
-                {profile?.avatarUrl ? (
-                  <img
-                    src={profile.avatarUrl}
-                    alt={profile?.name || 'Orquestrador'}
-                    className="w-9 h-9 rounded-full object-cover ring-1 ring-white/10 shadow-sm"
-                  />
-                ) : (
-                  <div
-                    className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatar.bgGradient} flex items-center justify-center text-base shadow-sm ring-1 ring-white/10`}
-                  >
-                    {avatar.icon}
-                  </div>
-                )}
-                <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-[#0E0F12]/80 text-indigo-400 border border-indigo-500/40 rounded-full text-[9px] font-bold tracking-tight shadow-sm">
-                  Nv. {profile?.level || 1}
-                </span>
-              </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              {/* Clean Avatar matching Profile */}
+              {profile?.avatarUrl ? (
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile?.name || 'Operador'}
+                  className="w-8 h-8 rounded-lg object-cover ring-1 ring-white/10 shrink-0"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-[#181B20] border border-white/[0.08] flex items-center justify-center shrink-0">
+                  <AvatarIcon avatarId={profile?.avatarId} className="w-4 h-4 text-[#8B93FF]" />
+                </div>
+              )}
 
-              {/* Name, Title & Streak */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
+              {/* Identity & Runtime Telemetry */}
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
                   <span className="text-xs font-semibold text-[#E7E8EA] group-hover:text-white truncate">
                     {profile?.name || 'Orquestrador'}
                   </span>
-                  <span
-                    className="text-[10px] text-amber-400 font-semibold flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md shrink-0"
-                    title="Sequência de dias ativos orquestrando"
-                  >
-                    <Flame className="w-3 h-3 text-amber-400" strokeWidth={2} />
-                    <span>{profile?.streakDays || 1}d</span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-medium bg-white/[0.06] text-[#8A8F98] border border-white/[0.08] shrink-0">
+                    {profile?.callsign || 'ARCHITECT-01'}
                   </span>
                 </div>
-                <p className="text-[11px] text-[#8A8F98] truncate leading-tight mt-0.5">
-                  {profile?.title || 'Aprendiz de Orquestrador'}
-                </p>
+                <span className="text-[11px] text-[#8A8F98] truncate mt-0.5">
+                  {profile?.title || 'Compositor de Agentes'}
+                </span>
               </div>
             </div>
 
-            {/* Linear XP Progress Bar */}
-            <div className="w-full flex flex-col gap-1">
-              <div className="w-full h-1.5 bg-[#0E0F12]/60 border border-[#23262C]/60 rounded-full overflow-hidden p-[1px]">
-                <div
-                  className="h-full bg-[#8B93FF] rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(139,147,255,0.4)]"
-                  style={{ width: `${xpPercent}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[9px] text-[#8A8F98] font-mono px-0.5">
-                <span>
-                  <strong className="text-[#8B93FF] font-semibold">{profile?.currentXp || 0}</strong> / {xpTotalRequired} XP
-                </span>
-                <span className="text-[9px] text-[#8A8F98]">{xpPercent}%</span>
-              </div>
-            </div>
+            {/* Discrete Workspace Settings Shortcut */}
+            <button
+              type="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsSettingsOpen(true);
+              }}
+              className="p-1.5 rounded-lg text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors"
+              title="Configurações do Workspace"
+            >
+              <Settings className="w-3.5 h-3.5" strokeWidth={1.5} />
+            </button>
           </div>
         </div>
 
@@ -217,7 +201,7 @@ export const Sidebar: React.FC = () => {
                       <span
                         className={`w-2 h-2 rounded-full shrink-0 transition-all ${
                           isActive
-                            ? 'bg-[#8B93FF] shadow-[0_0_8px_rgba(139,147,255,0.7)]'
+                            ? 'bg-[#8B93FF]'
                             : 'bg-[#23262C] group-hover:bg-[#8A8F98]/40'
                         }`}
                       />

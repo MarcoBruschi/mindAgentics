@@ -6,21 +6,31 @@ import {
   AVATAR_OPTIONS,
   getAvatarOption,
 } from '@/atoms/profile';
-import type { BadgeTier, UserBadge } from '@mindagentics/shared';
+import { AvatarIcon } from '@/components/profile/AvatarIcon';
+import type { UserBadge } from '@mindagentics/shared';
 import {
   X,
   Send,
   Globe,
   Network,
   Sparkles,
-  Flame,
-  Award,
   CheckCircle2,
   Lock,
   Save,
   Upload,
   Camera,
   Trash2,
+  User,
+  Check,
+  Wand2,
+  Zap,
+  Terminal,
+  Command,
+  Compass,
+  Shield,
+  Brain,
+  Cpu,
+  Activity,
 } from 'lucide-react';
 
 export const ProfileModal: React.FC = () => {
@@ -118,34 +128,20 @@ export const ProfileModal: React.FC = () => {
     setTimeout(() => setIsSaved(false), 2000);
   };
 
-  const getTierColor = (tier: BadgeTier) => {
-    switch (tier) {
-      case 'platinum':
-        return 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30';
-      case 'gold':
-        return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
-      case 'silver':
-        return 'text-slate-300 bg-slate-400/10 border-slate-400/30';
-      case 'bronze':
-      default:
-        return 'text-orange-400 bg-orange-500/10 border-orange-500/30';
-    }
-  };
-
   const getBadgeIcon = (iconName: string) => {
     switch (iconName) {
       case 'sparkles':
-        return <Sparkles className="w-4 h-4 text-amber-400" strokeWidth={1.75} />;
+        return <Sparkles className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
       case 'paperplane':
-        return <Send className="w-4 h-4 text-blue-400" strokeWidth={1.75} />;
+        return <Send className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
       case 'cpu':
-        return <Network className="w-4 h-4 text-purple-400" strokeWidth={1.75} />;
+        return <Cpu className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
       case 'globe':
-        return <Globe className="w-4 h-4 text-emerald-400" strokeWidth={1.75} />;
+        return <Globe className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
       case 'flame':
-        return <Flame className="w-4 h-4 text-rose-400" strokeWidth={1.75} />;
+        return <Activity className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
       default:
-        return <Award className="w-4 h-4 text-indigo-400" strokeWidth={1.75} />;
+        return <Activity className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
     }
   };
 
@@ -158,28 +154,28 @@ export const ProfileModal: React.FC = () => {
       style={{ WebkitAppRegion: 'no-drag' } as any}
     >
       <div
-        className="w-full max-w-[620px] max-h-[820px] h-full bg-[#14161A] border border-[#23262C] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E7E8EA]"
+        className="w-full max-w-[620px] max-h-[820px] h-full bg-[#14161A] border border-white/[0.08] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E7E8EA]"
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#23262C] bg-[#121418] shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/25 text-indigo-400">
-              <Award className="w-4 h-4" strokeWidth={1.75} />
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#121418] shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-[#8B93FF]">
+              <User className="w-4 h-4" strokeWidth={1.75} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[#E7E8EA] tracking-tight">
-                Perfil do Orquestrador
+              <h2 className="text-sm font-semibold text-white tracking-tight">
+                Identidade do Operador & Capacidades
               </h2>
-              <p className="text-[12px] text-[#8A8F98]">
-                Progresso, títulos e conquistas de gamificação
+              <p className="text-[11px] text-[#8A8F98]">
+                Configuração de perfil, callsign técnico e auditoria de marcos operacionais
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#8A8F98] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
             style={{ WebkitAppRegion: 'no-drag' } as any}
             title="Fechar (Esc)"
           >
@@ -188,105 +184,104 @@ export const ProfileModal: React.FC = () => {
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6" style={{ WebkitAppRegion: 'no-drag' } as any}>
-          {/* Section 1: Level & Title Showcase Card (with Real-time Preview) */}
-          <div className="p-5 rounded-2xl bg-[#181B20] border border-[#23262C] shadow-lg flex flex-col gap-4">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          {/* Section 1: Operator Identity & Telemetry Showcase */}
+          <div className="p-4 rounded-xl bg-[#181B20] border border-white/[0.08] flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                {/* Active Avatar or Custom Photo (Clickable to change) */}
+              <div className="flex items-center gap-3.5 min-w-0">
+                {/* Active Avatar or Custom Photo */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="relative group/avatar cursor-pointer shrink-0 rounded-2xl outline-none"
-                  title="Clique para alterar a foto ou carregar uma imagem"
+                  className="relative group/avatar cursor-pointer shrink-0 rounded-xl outline-none"
+                  title="Clique para alterar a foto do operador"
                 >
                   {avatarUrl ? (
-                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-indigo-500/40 shadow-md bg-[#0E0F12]">
+                    <div className="relative w-12 h-12 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-sm bg-[#0E0F12]">
                       <img
                         src={avatarUrl}
                         alt={name}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity rounded-2xl">
-                        <Camera className="w-5 h-5 text-white" strokeWidth={1.75} />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
+                        <Camera className="w-4 h-4 text-white" strokeWidth={1.75} />
                       </div>
                     </div>
                   ) : (
-                    <div
-                      className={`relative w-14 h-14 rounded-2xl bg-gradient-to-br ${currentAvatar.bgGradient} flex items-center justify-center text-2xl shadow-md ring-2 ring-white/10`}
-                    >
-                      {currentAvatar.icon}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity rounded-2xl">
-                        <Camera className="w-5 h-5 text-white" strokeWidth={1.75} />
+                    <div className="relative w-12 h-12 rounded-xl bg-[#121418] border border-white/[0.08] flex items-center justify-center text-sm font-mono font-bold text-white shadow-sm ring-1 ring-white/10">
+                      <AvatarIcon avatarId={selectedAvatarId} className="w-5 h-5 text-[#8B93FF]" />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
+                        <Camera className="w-4 h-4 text-white" strokeWidth={1.75} />
                       </div>
                     </div>
                   )}
                 </button>
 
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-white tracking-tight">
+                    <span className="text-base font-semibold text-white tracking-tight truncate">
                       {name.trim() || profile?.name || 'Orquestrador'}
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                    <span className="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-white/[0.06] text-[#8A8F98] border border-white/[0.08]">
                       {callsign.trim() || profile?.callsign || 'ARCHITECT-01'}
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-indigo-400 mt-0.5">
-                    {profile?.title || 'Aprendiz de Orquestrador'}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-[#8A8F98] font-mono">
+                      {profile?.title || 'Engenheiro de Orquestração'}
+                    </span>
+                    <span className="w-1 h-1 rounded-full bg-white/20" />
+                  </div>
                 </div>
               </div>
 
-              {/* Big Level Pill & Streak */}
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <div className="px-3.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-1.5 shadow-sm">
-                  <span className="text-xs uppercase tracking-wider text-[#8A8F98] font-semibold">
-                    Nível
+              {/* Technical Telemetry Badges */}
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.07] flex flex-col items-end">
+                  <span className="text-[9px] uppercase tracking-wider text-[#8A8F98] font-mono">
+                    Sequência
                   </span>
-                  <span className="text-lg font-black text-indigo-400 leading-none">
-                    {profile?.level || 1}
+                  <span className="text-xs font-mono font-semibold text-[#E7E8EA]">
+                    {profile?.streakDays || 1}d ativo
                   </span>
                 </div>
-                <div
-                  className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-lg"
-                  title="Dias consecutivos de orquestração ativa"
-                >
-                  <Flame className="w-3 h-3 text-amber-400" strokeWidth={1.75} />
-                  <span>{profile?.streakDays || 1}d Sequência</span>
+                <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.07] flex flex-col items-end">
+                  <span className="text-[9px] uppercase tracking-wider text-[#8A8F98] font-mono">
+                    Nível / Score
+                  </span>
+                  <span className="text-xs font-mono font-semibold text-[#8B93FF]">
+                    Nv. {profile?.level || 1} · {profile?.currentXp || 0} pts
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* XP Linear Progress Bar */}
-            <div className="flex flex-col gap-1.5 pt-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#8A8F98] font-medium">Progresso de Experiência</span>
-                <span className="font-mono text-[#E7E8EA]">
-                  <strong className="text-indigo-400">{profile?.currentXp || 0}</strong> /{' '}
-                  {xpTotalRequired} XP
+            {/* Linear Execution Bar */}
+            <div className="flex flex-col gap-1.5 pt-1 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between text-[11px] font-mono">
+                <span className="text-[#8A8F98]">Telemetria de Atividade</span>
+                <span className="text-[#8A8F98]">
+                  <strong className="text-white font-medium">{profile?.currentXp || 0}</strong> / {xpTotalRequired} pts
+                  <span className="text-[#8A8F98]/60 ml-1.5">({xpPercent}%)</span>
                 </span>
               </div>
-              <div className="w-full h-2.5 bg-[#0E0F12] rounded-full overflow-hidden p-0.5 border border-[#23262C]">
+              <div className="w-full h-1.5 bg-[#0E0F12] rounded-full overflow-hidden border border-white/[0.06]">
                 <div
-                  className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(99,102,241,0.4)]"
+                  className="h-full bg-[#8B93FF] rounded-full transition-all duration-300"
                   style={{ width: `${xpPercent}%` }}
                 />
               </div>
-              <span className="text-[10px] text-[#8A8F98] text-right font-mono">
-                Faltam {profile?.xpToNextLevel || 100} XP para o próximo nível
-              </span>
             </div>
           </div>
 
           {/* Section 2: Avatar & Identity Customizer */}
-          <form onSubmit={handleSave} className="p-4 rounded-xl bg-[#121418] border border-[#23262C] space-y-4">
+          <form onSubmit={handleSave} className="p-4 rounded-xl bg-[#121418] border border-white/[0.08] space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
-                  Avatar do Orquestrador
+                  Ícone de Identidade do Sistema
                 </span>
-                <span className="text-[11px] text-[#8A8F98]">
+                <span className="text-[11px] text-[#8A8F98] font-mono">
                   {avatarUrl ? 'Foto personalizada ativa' : currentAvatar.label}
                 </span>
               </div>
@@ -300,8 +295,8 @@ export const ProfileModal: React.FC = () => {
                 onChange={handlePhotoUpload}
               />
 
-              {/* Avatars & Photo Upload Grid (5 columns: prevents label truncation) */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+              {/* Avatars Grid */}
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {AVATAR_OPTIONS.map((av) => {
                   const isSel = !avatarUrl && selectedAvatarId === av.id;
                   return (
@@ -312,19 +307,17 @@ export const ProfileModal: React.FC = () => {
                         setSelectedAvatarId(av.id);
                         setAvatarUrl('');
                       }}
-                      className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                      className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all cursor-pointer ${
                         isSel
-                          ? 'bg-[#181B20] border-indigo-500 ring-2 ring-indigo-500/30 shadow-md scale-[1.02]'
-                          : 'bg-[#14161A] border-[#23262C] hover:border-[#8A8F98]/50 hover:bg-[#181B20]'
+                          ? 'bg-white/[0.08] border-white/30 text-white shadow-sm'
+                          : 'bg-[#181B20] border-white/[0.06] text-[#8A8F98] hover:border-white/[0.15] hover:text-[#E7E8EA] hover:bg-white/[0.03]'
                       }`}
                       title={av.label}
                     >
-                      <div
-                        className={`w-10 h-10 rounded-xl bg-gradient-to-br ${av.bgGradient} flex items-center justify-center text-lg shadow-sm`}
-                      >
-                        {av.icon}
+                      <div className="w-8 h-8 rounded-md bg-[#0E0F12] border border-white/[0.06] flex items-center justify-center text-[#8B93FF]">
+                        <AvatarIcon avatarId={av.id} className="w-4 h-4 text-[#8B93FF]" />
                       </div>
-                      <span className="text-[11px] text-[#8A8F98] truncate max-w-full font-medium">
+                      <span className="text-[10px] truncate max-w-full font-medium">
                         {av.label}
                       </span>
                     </button>
@@ -335,17 +328,17 @@ export const ProfileModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                  className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all cursor-pointer ${
                     avatarUrl
-                      ? 'bg-[#181B20] border-indigo-500 ring-2 ring-indigo-500/30 shadow-md scale-[1.02]'
-                      : 'bg-[#14161A] border-[#23262C] hover:border-[#8A8F98]/50 hover:bg-[#181B20]'
+                      ? 'bg-white/[0.08] border-white/30 text-white shadow-sm'
+                      : 'bg-[#181B20] border-white/[0.06] text-[#8A8F98] hover:border-white/[0.15] hover:text-[#E7E8EA] hover:bg-white/[0.03]'
                   }`}
-                  title="Carregar foto personalizada do computador"
+                  title="Carregar imagem ou logo personalizada"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-sm">
-                    <Upload className="w-4 h-4" strokeWidth={1.75} />
+                  <div className="w-8 h-8 rounded-md bg-[#0E0F12] border border-dashed border-white/[0.15] flex items-center justify-center text-[#8A8F98]">
+                    <Upload className="w-3.5 h-3.5" strokeWidth={1.75} />
                   </div>
-                  <span className="text-[11px] text-indigo-400 font-medium truncate max-w-full">
+                  <span className="text-[10px] font-medium truncate max-w-full">
                     Upload
                   </span>
                 </button>
@@ -353,18 +346,18 @@ export const ProfileModal: React.FC = () => {
 
               {/* Custom Photo Management Banner */}
               {avatarUrl && (
-                <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-xl bg-[#181B20] border border-[#23262C] text-xs">
+                <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#181B20] border border-white/[0.08] text-xs">
                   <span className="text-[#8A8F98] flex items-center gap-2">
-                    <Camera className="w-3.5 h-3.5 text-indigo-400" strokeWidth={1.75} />
-                    <span>Foto personalizada selecionada</span>
+                    <Camera className="w-3.5 h-3.5 text-[#8B93FF]" strokeWidth={1.75} />
+                    <span>Foto personalizada ativa</span>
                   </span>
                   <button
                     type="button"
                     onClick={handleClearPhoto}
-                    className="text-rose-400 hover:text-rose-300 flex items-center gap-1 text-[11px] font-medium transition-colors cursor-pointer"
+                    className="text-red-400 hover:text-red-300 flex items-center gap-1 text-[11px] font-medium transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3 h-3" strokeWidth={1.75} />
-                    <span>Remover foto</span>
+                    <span>Remover</span>
                   </button>
                 </div>
               )}
@@ -380,8 +373,8 @@ export const ProfileModal: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={32}
-                  className="w-full bg-[#181B20] border border-[#23262C] focus:border-indigo-500 rounded-xl px-3 py-1.5 text-xs text-[#E7E8EA] outline-none transition-colors"
-                  placeholder="Nome do Orquestrador"
+                  className="w-full bg-[#0E0F12] border border-white/[0.08] focus:border-[#8B93FF] rounded-lg px-3 py-1.5 text-xs text-[#E7E8EA] outline-none transition-colors"
+                  placeholder="Nome do Operador"
                 />
               </div>
 
@@ -394,7 +387,7 @@ export const ProfileModal: React.FC = () => {
                   value={callsign}
                   onChange={(e) => setCallsign(e.target.value.toUpperCase())}
                   maxLength={16}
-                  className="w-full bg-[#181B20] border border-[#23262C] focus:border-indigo-500 rounded-xl px-3 py-1.5 text-xs text-[#E7E8EA] outline-none font-mono uppercase transition-colors"
+                  className="w-full bg-[#0E0F12] border border-white/[0.08] focus:border-[#8B93FF] rounded-lg px-3 py-1.5 text-xs text-[#E7E8EA] outline-none font-mono uppercase transition-colors"
                   placeholder="CALLSIGN"
                 />
               </div>
@@ -402,29 +395,29 @@ export const ProfileModal: React.FC = () => {
 
             <div className="flex items-center justify-end gap-2 pt-1">
               {isSaved && (
-                <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium">
+                <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium font-mono">
                   <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  Alterações salvas!
+                  Alterações salvas
                 </span>
               )}
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/20"
+                className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 active:bg-white/20 text-white text-xs font-medium border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Save className="w-3.5 h-3.5" strokeWidth={1.75} />
-                <span>Salvar perfil</span>
+                <span>Salvar Perfil</span>
               </button>
             </div>
           </form>
 
-          {/* Section 3: Conquistas (Badges Showcase) */}
+          {/* Section 3: Capacidades & Marcos Operacionais */}
           <div>
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
-                Conquistas do Orquestrador
+                Capacidades & Marcos do Sistema
               </span>
-              <span className="text-xs font-mono font-medium text-indigo-400">
-                {unlockedBadges.length} / {badges.length} desbloqueadas
+              <span className="text-xs font-mono font-medium text-[#8A8F98]">
+                <strong className="text-white">{unlockedBadges.length}</strong> / {badges.length} certificadas
               </span>
             </div>
 
@@ -440,34 +433,30 @@ export const ProfileModal: React.FC = () => {
                     key={b.id}
                     className={`p-3 rounded-xl border transition-all flex flex-col gap-2 ${
                       isUnlocked
-                        ? 'bg-[#181B20]/90 border-amber-500/30 shadow-md ring-1 ring-amber-500/10'
-                        : 'bg-[#121418] border-[#23262C] opacity-75'
+                        ? 'bg-[#181B20] border-white/[0.08] shadow-sm'
+                        : 'bg-[#121418] border-white/[0.05] opacity-75'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <div
                           className={`w-7 h-7 rounded-lg flex items-center justify-center border shrink-0 ${
                             isUnlocked
-                              ? 'bg-amber-500/10 border-amber-500/30 shadow-sm'
-                              : 'bg-[#0E0F12] border-[#23262C]'
+                              ? 'bg-white/[0.05] border-white/[0.1] text-white'
+                              : 'bg-[#0E0F12] border-white/[0.06] text-zinc-500'
                           }`}
                         >
                           {isUnlocked ? (
                             getBadgeIcon(b.icon)
                           ) : (
-                            <Lock className="w-3.5 h-3.5 text-[#8A8F98]" strokeWidth={1.75} />
+                            <Lock className="w-3.5 h-3.5 text-zinc-600" strokeWidth={1.75} />
                           )}
                         </div>
                         <div>
-                          <h4 className="text-xs font-semibold text-white tracking-tight leading-snug">
+                          <h4 className="text-xs font-medium text-white tracking-tight leading-snug">
                             {b.name}
                           </h4>
-                          <span
-                            className={`text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded border inline-block mt-0.5 ${getTierColor(
-                              b.tier
-                            )}`}
-                          >
+                          <span className="text-[9px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] text-[#8A8F98] inline-block mt-0.5">
                             {b.tier}
                           </span>
                         </div>
@@ -475,9 +464,9 @@ export const ProfileModal: React.FC = () => {
 
                       {isUnlocked && (
                         <div className="text-right shrink-0">
-                          <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-amber-400" strokeWidth={1.75} />
-                            Desbloqueada
+                          <span className="text-[10px] text-emerald-400 font-mono font-medium flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                            <Check className="w-3 h-3 text-emerald-400" strokeWidth={2} />
+                            Ativo
                           </span>
                         </div>
                       )}
@@ -495,9 +484,9 @@ export const ProfileModal: React.FC = () => {
                             {prog} / {max}
                           </span>
                         </div>
-                        <div className="w-full h-1.5 bg-[#0E0F12] rounded-full overflow-hidden border border-[#23262C]">
+                        <div className="w-full h-1 bg-[#0E0F12] rounded-full overflow-hidden border border-white/[0.06]">
                           <div
-                            className="h-full bg-[#8B93FF] rounded-full"
+                            className="h-full bg-white/40 rounded-full"
                             style={{ width: `${percent}%` }}
                           />
                         </div>

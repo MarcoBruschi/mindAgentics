@@ -19,6 +19,7 @@ import {
   Layers,
   Cpu,
   Wand2,
+  Zap,
 } from 'lucide-react';
 import {
   ClaudeIcon,
@@ -481,17 +482,17 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
 
   return (
     <div
-      className={`flex flex-col w-full h-full bg-[#0d0e11] text-zinc-300 transition-all ${
+      className={`group flex flex-col w-full h-full bg-[#0d0e11] text-zinc-300 rounded-xl overflow-hidden border border-white/[0.07] shadow-xl transition-all ${
         isOrchestrator ? 'ring-1 ring-amber-500/30' : ''
       }`}
     >
-      {/* Node Header */}
+      {/* Node Header (Standard 36px / h-9 Height) */}
       <div
         onPointerDown={() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}
-        className={`node-drag-handle flex items-center justify-between px-3 py-2 border-b cursor-move transition-colors ${
+        className={`node-drag-handle h-9 px-3 border-b flex items-center justify-between cursor-move select-none transition-colors ${
           isOrchestrator
             ? 'bg-[#16181d] border-amber-500/20'
-            : 'bg-[#16181d] border-white/5'
+            : 'bg-[#14161A] border-white/[0.07]'
         }`}
       >
         <div className="flex items-center gap-2">
@@ -532,7 +533,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           )}
 
           {/* Agent Command Badge */}
-          <span className="px-1.5 py-0.5 text-[10px] font-semibold tracking-wide rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <span className="px-1.5 py-0.5 text-[10px] font-mono font-semibold tracking-wide rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
             {agentCommand ? agentCommand.split(' ')[0] : 'shell'}
           </span>
 
@@ -566,7 +567,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
               className="px-1.5 py-0.5 text-[9px] font-medium tracking-wide rounded-md bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20 flex items-center gap-1"
               title="Modo Autônomo: auto-aprova ações sem pausar para confirmações"
             >
-              <span className="opacity-75">⚡</span>
+              <Zap className="w-2.5 h-2.5 text-emerald-400 opacity-80" strokeWidth={1.75} />
               <span>Autônomo</span>
             </span>
           ) : (
@@ -582,17 +583,17 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           <div className="ml-1 flex items-center">{getStatusDot()}</div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-1">
+        {/* Action Buttons (aparecem com suavidade no hover) */}
+        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
           {/* Bell Attention Indicator */}
           <button
             onClick={toggleAttention}
-            className={`p-1 rounded transition-colors ${
+            className={`p-1 rounded-md transition-colors ${
               hasAttention
-                ? 'text-amber-400 bg-amber-500/20 animate-bounce'
-                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                ? 'text-amber-400 bg-amber-500/20'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]'
             }`}
-            title="Toggle Attention Flag"
+            title="Sinalizar Atenção"
           >
             <Bell className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
@@ -600,8 +601,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           {/* Close Button */}
           <button
             onClick={() => onDelete(node.id)}
-            className="p-1 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-            title="Close Terminal"
+            className="p-1 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+            title="Fechar Terminal"
           >
             <X className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>

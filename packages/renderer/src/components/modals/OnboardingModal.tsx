@@ -6,6 +6,7 @@ import {
   AVATAR_OPTIONS,
   getAvatarOption,
 } from '@/atoms/profile';
+import { AvatarIcon } from '@/components/profile/AvatarIcon';
 import {
   Sparkles,
   Upload,
@@ -13,6 +14,14 @@ import {
   Trash2,
   Wand2,
   ShieldCheck,
+  Zap,
+  Terminal,
+  Network,
+  Command,
+  Compass,
+  Shield,
+  Brain,
+  Cpu,
 } from 'lucide-react';
 
 export const OnboardingModal: React.FC = () => {
@@ -159,7 +168,7 @@ export const OnboardingModal: React.FC = () => {
           {/* Real-time Showcase Card */}
           <div className="p-4 rounded-xl bg-gradient-to-br from-[#181B20] to-[#121418] border border-[#23262C] flex items-center gap-4 shadow-inner">
             {avatarUrl ? (
-              <div className="relative w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-[#8B93FF]/50 shadow-md shrink-0 bg-[#0E0F12]">
+              <div className="relative w-14 h-14 rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-md shrink-0 bg-[#0E0F12]">
                 <img
                   src={avatarUrl}
                   alt={name}
@@ -168,9 +177,9 @@ export const OnboardingModal: React.FC = () => {
               </div>
             ) : (
               <div
-                className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${currentAvatar.bgGradient} flex items-center justify-center text-2xl shadow-md ring-2 ring-white/10 shrink-0`}
+                className="w-14 h-14 rounded-2xl bg-[#121418] border border-white/[0.08] flex items-center justify-center text-2xl shadow-md ring-1 ring-white/10 shrink-0"
               >
-                {currentAvatar.icon}
+                <AvatarIcon avatarId={selectedAvatarId} className="w-6 h-6 text-[#8B93FF]" />
               </div>
             )}
 
@@ -231,9 +240,9 @@ export const OnboardingModal: React.FC = () => {
                     title={av.label}
                   >
                     <div
-                      className={`w-9 h-9 rounded-xl bg-gradient-to-br ${av.bgGradient} flex items-center justify-center text-lg shadow-sm`}
+                      className="w-9 h-9 rounded-xl bg-[#0E0F12] border border-white/[0.08] flex items-center justify-center shadow-sm"
                     >
-                      {av.icon}
+                      <AvatarIcon avatarId={av.id} className="w-4 h-4 text-[#8B93FF]" />
                     </div>
                     <span className="text-[9px] text-[#8A8F98] truncate max-w-full font-medium">
                       {av.label.split(' ')[0]}
@@ -252,10 +261,10 @@ export const OnboardingModal: React.FC = () => {
                 }`}
                 title="Carregar foto do computador"
               >
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-[#8B93FF]/30 flex items-center justify-center text-[#8B93FF] shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-dashed border-white/[0.15] flex items-center justify-center text-[#8A8F98] shadow-sm">
                   <Upload className="w-4 h-4" strokeWidth={1.75} />
                 </div>
-                <span className="text-[9px] text-[#8B93FF] font-medium truncate max-w-full">
+                <span className="text-[9px] text-[#8A8F98] font-medium truncate max-w-full">
                   Foto
                 </span>
               </button>

@@ -19,51 +19,51 @@ const colorThemes: Record<
 > = {
   yellow: {
     bg: 'bg-[#14161A]',
-    border: 'border-amber-500/25 hover:border-amber-500/50 shadow-amber-500/5',
+    border: 'border-amber-500/20 hover:border-amber-500/40',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-amber-400',
-    dot: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.7)]',
+    dot: 'bg-amber-400',
   },
   blue: {
     bg: 'bg-[#14161A]',
-    border: 'border-indigo-500/25 hover:border-indigo-500/50 shadow-indigo-500/5',
+    border: 'border-indigo-500/20 hover:border-indigo-500/40',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-indigo-400',
-    dot: 'bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.7)]',
+    dot: 'bg-indigo-400',
   },
   green: {
     bg: 'bg-[#14161A]',
-    border: 'border-emerald-500/25 hover:border-emerald-500/50 shadow-emerald-500/5',
+    border: 'border-emerald-500/20 hover:border-emerald-500/40',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-emerald-400',
-    dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.7)]',
+    dot: 'bg-emerald-400',
   },
   pink: {
     bg: 'bg-[#14161A]',
-    border: 'border-pink-500/25 hover:border-pink-500/50 shadow-pink-500/5',
+    border: 'border-pink-500/20 hover:border-pink-500/40',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-pink-400',
-    dot: 'bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.7)]',
+    dot: 'bg-pink-400',
   },
   purple: {
     bg: 'bg-[#14161A]',
-    border: 'border-purple-500/25 hover:border-purple-500/50 shadow-purple-500/5',
+    border: 'border-purple-500/20 hover:border-purple-500/40',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-purple-400',
-    dot: 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.7)]',
+    dot: 'bg-purple-400',
   },
   gray: {
     bg: 'bg-[#14161A]',
-    border: 'border-[#282B34] hover:border-zinc-500/40',
+    border: 'border-white/[0.08] hover:border-white/[0.15]',
     header: 'bg-[#181B20]',
     text: 'text-[#E7E8EA]',
     badge: 'bg-zinc-400',
-    dot: 'bg-zinc-400 shadow-[0_0_6px_rgba(161,161,170,0.5)]',
+    dot: 'bg-zinc-400',
   },
 };
 
@@ -159,25 +159,25 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
 
   return (
     <div
-      className={`flex flex-col w-full h-full border ${theme.border} ${theme.bg} rounded-2xl overflow-hidden transition-all shadow-2xl`}
+      className={`group flex flex-col w-full h-full border ${theme.border} ${theme.bg} rounded-xl overflow-hidden transition-all shadow-xl`}
     >
-      {/* Header */}
+      {/* Header (Standard 36px / h-9 Height) */}
       <div
-        className="node-drag-handle h-9 px-3 bg-[#181B20] border-b border-[#23262C] flex items-center justify-between cursor-move select-none"
+        className="node-drag-handle h-9 px-3 bg-[#181B20] border-b border-white/[0.07] flex items-center justify-between cursor-move select-none"
       >
         <div className="flex items-center gap-2 overflow-hidden">
           {/* Note color dot indicator and picker */}
           <div className="relative flex items-center">
             <button
               onClick={() => setShowColorPicker(!showColorPicker)}
-              className="p-1 text-[#8A8F98] hover:text-[#E7E8EA] rounded-lg hover:bg-[#23262C] transition-colors flex items-center gap-1.5"
+              className="p-1 text-[#8A8F98] hover:text-[#E7E8EA] rounded-lg hover:bg-white/[0.06] transition-colors flex items-center gap-1.5"
               title="Cor da nota"
             >
               <span className={`w-2.5 h-2.5 rounded-full ${theme.dot}`} />
             </button>
 
             {showColorPicker && (
-              <div className="absolute left-0 top-8 flex items-center gap-1.5 p-1.5 bg-[#181B20] border border-[#23262C] rounded-xl shadow-2xl z-50">
+              <div className="absolute left-0 top-8 flex items-center gap-1.5 p-1.5 bg-[#181B20] border border-white/[0.08] rounded-xl shadow-2xl z-50">
                 {(Object.keys(colorThemes) as NoteColor[]).map((c) => (
                   <button
                     key={c}
@@ -239,12 +239,12 @@ export const StickyNoteNode: React.FC<StickyNoteNodeProps> = ({
           </button>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-1">
+        {/* Action Controls (opacity transition on group-hover) */}
+        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
           {/* Mode Switch (Edit / Preview) */}
           <button
             onClick={() => setMode(mode === 'edit' ? 'preview' : 'edit')}
-            className="w-7 h-7 flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#23262C] rounded-lg transition-colors"
+            className="w-7 h-7 flex items-center justify-center text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] rounded-lg transition-colors"
             title={mode === 'edit' ? 'Visualizar Markdown' : 'Editar Markdown'}
           >
             {mode === 'edit' ? <Eye className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}

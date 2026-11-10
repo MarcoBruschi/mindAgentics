@@ -15,7 +15,7 @@ import { TitleBar } from '@/components/window/TitleBar';
 import { isSidebarOpenAtom } from '@/atoms/ui';
 import { profileToastAtom } from '@/atoms/profile';
 import { isInputOrEditable, hasPrimaryModifier } from '@/utils/keyboard';
-import { X } from 'lucide-react';
+import { X, CheckCircle2 } from 'lucide-react';
 import {
   nodesAtom,
   cableTiesAtom,
@@ -297,26 +297,28 @@ export const App: React.FC = () => {
         <Sidebar />
       </div>
 
-      {/* Celebratory Level-Up / Badge Toast Banner */}
+      {/* Technical System Toast Notification (Sonner Style - Anti-AI-Slop) */}
       {profileToast && (
-        <div className="fixed top-16 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-[#14161A]/95 border border-[#8B93FF]/40 rounded-2xl shadow-2xl backdrop-blur-md text-[#E7E8EA] animate-in slide-in-from-top-4 duration-200">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#8B93FF] to-purple-600 flex items-center justify-center text-lg shadow-md shrink-0">
-            {profileToast.type === 'level-up' ? '👑' : '🏆'}
+        <div className="fixed top-16 right-6 z-50 flex items-center gap-3 px-3.5 py-2.5 bg-[#14161A]/95 border border-white/[0.08] rounded-xl shadow-xl backdrop-blur-md text-[#E7E8EA] animate-in slide-in-from-top-4 duration-150">
+          <div className="w-7 h-7 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={1.75} />
           </div>
-          <div className="flex flex-col min-w-0 pr-2">
-            <span className="text-xs font-bold text-white tracking-tight flex items-center gap-1.5">
-              <span>{profileToast.title}</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#8B93FF]/20 text-[#8B93FF] font-mono">
-                +XP
+          <div className="flex flex-col min-w-0 pr-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-white tracking-tight">
+                {profileToast.title}
               </span>
-            </span>
-            <span className="text-[11px] text-[#8A8F98] truncate mt-0.5">
+              <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/[0.05] border border-white/[0.08] text-[#8A8F98] font-mono">
+                system
+              </span>
+            </div>
+            <span className="text-[11px] text-[#8A8F98] font-mono truncate mt-0.5">
               {profileToast.description}
             </span>
           </div>
           <button
             onClick={() => setProfileToast(null)}
-            className="p-1 rounded-lg hover:bg-white/10 text-[#8A8F98] hover:text-white transition-colors cursor-pointer"
+            className="p-1 rounded-md text-[#8A8F98] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
             title="Fechar notificação"
           >
             <X className="w-3.5 h-3.5" strokeWidth={1.75} />

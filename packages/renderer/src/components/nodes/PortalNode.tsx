@@ -105,16 +105,16 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full h-full bg-[#121316] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-      {/* Header bar / Browser Chrome */}
-      <div className="node-drag-handle flex items-center justify-between px-3 py-2 bg-[#1b1c22] border-b border-white/5 cursor-move">
+    <div className="group flex flex-col w-full h-full bg-[#14161A] border border-white/[0.07] rounded-xl overflow-hidden shadow-xl">
+      {/* Header bar / Browser Chrome (Standard 36px / h-9 Height) */}
+      <div className="node-drag-handle h-9 px-3 bg-[#181B20] border-b border-white/[0.07] flex items-center justify-between cursor-move select-none">
         <div className="flex items-center gap-1.5 flex-1 mr-2">
           {/* Navigation Controls */}
-          <button className="p-1 text-zinc-400 hover:text-white rounded hover:bg-white/5">
-            <ArrowLeft className="w-3.5 h-3.5" />
+          <button className="p-1 text-zinc-400 hover:text-white rounded-md hover:bg-white/[0.06] transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
-          <button className="p-1 text-zinc-400 hover:text-white rounded hover:bg-white/5">
-            <ArrowRight className="w-3.5 h-3.5" />
+          <button className="p-1 text-zinc-400 hover:text-white rounded-md hover:bg-white/[0.06] transition-colors">
+            <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
           <button
             onClick={() => {
@@ -125,53 +125,53 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
                 onUpdate({ ...node, content: { ...content, url: current } });
               }, 10);
             }}
-            className="p-1 text-zinc-400 hover:text-white rounded hover:bg-white/5 mr-1"
+            className="p-1 text-zinc-400 hover:text-white rounded-md hover:bg-white/[0.06] transition-colors mr-1"
           >
-            <RotateCw className="w-3.5 h-3.5" />
+            <RotateCw className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
 
           {/* URL Address Bar */}
           <form onSubmit={handleNavigate} className="flex-1 max-w-[420px]">
-            <div className="flex items-center px-2 py-1 bg-[#121316] border border-white/10 rounded-md text-xs text-zinc-300 focus-within:border-blue-500/60">
-              <Globe className="w-3 h-3 text-zinc-500 mr-1.5 shrink-0" />
+            <div className="flex items-center px-2 py-0.5 bg-[#0E0F12] border border-white/[0.08] rounded-md text-xs text-zinc-300 focus-within:border-[#8B93FF]">
+              <Globe className="w-3 h-3 text-zinc-500 mr-1.5 shrink-0" strokeWidth={1.75} />
               <input
                 type="text"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
                 placeholder="Enter URL..."
-                className="w-full bg-transparent outline-none text-xs text-zinc-200"
+                className="w-full bg-transparent outline-none text-xs text-zinc-200 font-mono"
               />
             </div>
           </form>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-1">
+        {/* Action Controls (opacity transition on group-hover) */}
+        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
           {/* Action Ref Tag Creator */}
           <button
             onClick={() => setIsAddingTag(!isAddingTag)}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs transition-colors ${
               isAddingTag
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
-                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
             }`}
-            title="Click to pin interactive @e Action Tag"
+            title="Click to pin interactive @ref Action Tag"
           >
-            <Crosshair className="w-3.5 h-3.5" />
+            <Crosshair className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span className="text-[11px] font-mono">@ref</span>
           </button>
 
           {/* Android Simulator Toggle */}
           <button
             onClick={toggleDevice}
-            className={`p-1.5 rounded transition-colors ${
+            className={`p-1 rounded-md transition-colors ${
               isAndroid
                 ? 'text-emerald-400 bg-emerald-500/20'
-                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
             }`}
             title={isAndroid ? 'Switch to Standard Browser' : 'Switch to Android Frame (390x844)'}
           >
-            <Smartphone className="w-3.5 h-3.5" />
+            <Smartphone className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
 
           {/* External browser open */}
@@ -179,19 +179,19 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
             href={content.url}
             target="_blank"
             rel="noreferrer"
-            className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded"
+            className="p-1 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-md transition-colors"
             title="Open in default browser"
           >
-            <ExternalLink className="w-3.5 h-3.5" />
+            <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.75} />
           </a>
 
           {/* Close */}
           <button
             onClick={() => onDelete(node.id)}
-            className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded"
+            className="p-1 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
             title="Close Portal"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
         </div>
       </div>

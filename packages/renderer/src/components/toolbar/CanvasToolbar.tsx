@@ -355,10 +355,10 @@ export const CanvasToolbar: React.FC = () => {
           title="Expandir Ferramentas"
         />
 
-        {/* Barra de Ferramentas Aberta (Capsule) */}
+        {/* Barra de Ferramentas Aberta (Capsule com acabamento acetinado escuro) */}
         <div
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          className={`flex items-center gap-1 px-2 py-1.5 rounded-full bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl transition-all duration-200 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] canvas-toolbar ${
+          className={`flex items-center gap-1 px-2 py-1.5 rounded-full bg-[#121418]/90 border border-white/[0.08] backdrop-blur-md shadow-2xl transition-all duration-200 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] canvas-toolbar ${
             isExpanded
               ? 'pointer-events-auto opacity-100 translate-y-0'
               : 'pointer-events-none opacity-0 -translate-y-8'
@@ -369,8 +369,8 @@ export const CanvasToolbar: React.FC = () => {
             onClick={() => setMode('select')}
             className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors cursor-pointer ${
               mode === 'select'
-                ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
-                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
+                ? 'bg-white/10 text-white font-medium shadow-sm'
+                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06]'
             }`}
             title="Selecionar (V)"
           >
@@ -380,7 +380,7 @@ export const CanvasToolbar: React.FC = () => {
           {/* 2. Terminal / Agent */}
           <button
             onClick={() => setIsCreateAgentOpen(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors cursor-pointer"
             title="Novo Terminal / Agente"
           >
             <Terminal className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
@@ -389,7 +389,7 @@ export const CanvasToolbar: React.FC = () => {
           {/* 3. Sticky Note */}
           <button
             onClick={addStickyNote}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors cursor-pointer"
             title="Adicionar Nota Adesiva"
           >
             <StickyNote className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
@@ -400,8 +400,8 @@ export const CanvasToolbar: React.FC = () => {
             onClick={() => setMode(mode === 'connect' ? 'select' : 'connect')}
             className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors cursor-pointer ${
               mode === 'connect'
-                ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
-                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
+                ? 'bg-white/10 text-white font-medium shadow-sm'
+                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06]'
             }`}
             title="Conectar Nós (C)"
           >
@@ -411,7 +411,7 @@ export const CanvasToolbar: React.FC = () => {
           {/* 5. Fichário de Páginas (NoteStack) */}
           <button
             onClick={addNoteStack}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors cursor-pointer"
             title="Adicionar Fichário (Binder)"
           >
             <Layers className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
@@ -420,7 +420,7 @@ export const CanvasToolbar: React.FC = () => {
           {/* 6. Portal Web / Navegador */}
           <button
             onClick={addPortal}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors cursor-pointer"
             title="Adicionar Browser Portal"
           >
             <Compass className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
@@ -429,19 +429,19 @@ export const CanvasToolbar: React.FC = () => {
           {/* 7. Knowledge Graph Tool (Graphify) */}
           <button
             onClick={() => setIsCreateGraphOpen(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors cursor-pointer"
             title="Gerar Knowledge Graph (Graphify)"
           >
             <Network className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* Vertical Divider Isolating Aa and Caneta */}
-          <div className="w-[1px] h-4 bg-[#23262C] mx-0.5" />
+          <div className="w-[1px] h-4 bg-white/[0.08] mx-0.5" />
 
           {/* 8. Tool Aa: Escrever no Workspace */}
           <button
             onClick={addTextBlock}
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors cursor-pointer"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors cursor-pointer"
             title="Escrever no Workspace (Aa)"
           >
             <Type className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
@@ -452,8 +452,8 @@ export const CanvasToolbar: React.FC = () => {
             onClick={() => setMode(mode === 'draw' ? 'select' : 'draw')}
             className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors cursor-pointer ${
               mode === 'draw'
-                ? 'bg-[#8B93FF]/20 text-[#8B93FF]'
-                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20]'
+                ? 'bg-white/10 text-white font-medium shadow-sm'
+                : 'text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06]'
             }`}
             title="Pintar no Canvas (D)"
           >
@@ -461,7 +461,7 @@ export const CanvasToolbar: React.FC = () => {
           </button>
 
           {/* Collapse Trigger Button */}
-          <div className="w-[1px] h-4 bg-[#23262C] mx-0.5" />
+          <div className="w-[1px] h-4 bg-white/[0.08] mx-0.5" />
           <button
             tabIndex={isExpanded ? 0 : -1}
             role="button"
@@ -479,7 +479,7 @@ export const CanvasToolbar: React.FC = () => {
               }
             }}
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            className="w-7 h-7 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-[#181B20] focus-visible:ring-2 focus-visible:ring-[#8B93FF] focus-visible:outline-none transition-colors cursor-pointer"
+            className="w-7 h-7 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] focus-visible:ring-1 focus-visible:ring-[#8B93FF] focus-visible:outline-none transition-colors cursor-pointer"
             title="Recolher Barra de Ferramentas (Enter ou Espaço)"
           >
             <ChevronUp className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -585,7 +585,7 @@ export const CanvasToolbar: React.FC = () => {
 
       {/* Bottom-Right Corner: Unified Floating Capsule (Agent Usage + Zoom Controls) */}
       <div className="absolute bottom-6 right-6 flex items-center z-40 select-none pointer-events-none">
-        <div className="h-9 px-3 rounded-full flex items-center gap-3 bg-[#14161A]/95 border border-[#23262C] backdrop-blur-md shadow-2xl text-xs text-[#E7E8EA] pointer-events-auto">
+        <div className="h-9 px-3 rounded-full flex items-center gap-3 bg-[#121418]/90 border border-white/[0.08] backdrop-blur-md shadow-2xl text-xs text-[#E7E8EA] pointer-events-auto">
           {/* Agent Usage Indicator */}
           <button
             data-agent-limits-trigger="true"
@@ -593,20 +593,20 @@ export const CanvasToolbar: React.FC = () => {
             className="flex items-center gap-2 text-[#E7E8EA] hover:text-white transition-colors cursor-pointer outline-none"
             title="Uso e Limites dos Agentes"
           >
-            <div className="w-2 h-2 rounded-full bg-[#5FD3A0] shadow-[0_0_6px_rgba(95,211,160,0.6)] shrink-0" />
+            <div className="w-2 h-2 rounded-full bg-[#5FD3A0] shrink-0" />
             <span className="text-[11px] font-medium tracking-tight">
               {agentCount} agentes · {avgQuota}%
             </span>
           </button>
 
           {/* Thin Vertical Divider */}
-          <div className="w-[1px] h-3.5 bg-[#23262C]" />
+          <div className="w-[1px] h-3.5 bg-white/[0.08]" />
 
           {/* Zoom Controls */}
           <div className="flex items-center gap-1 text-[#8A8F98]">
             <button
               onClick={() => handleZoom(-0.1)}
-              className="w-6 h-6 flex items-center justify-center rounded-md hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
+              className="w-6 h-6 flex items-center justify-center rounded-md hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors"
               title="Zoom Out (-)"
             >
               <Minus className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -622,7 +622,7 @@ export const CanvasToolbar: React.FC = () => {
 
             <button
               onClick={() => handleZoom(0.1)}
-              className="w-6 h-6 flex items-center justify-center rounded-md hover:text-[#E7E8EA] hover:bg-[#181B20] transition-colors"
+              className="w-6 h-6 flex items-center justify-center rounded-md hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors"
               title="Zoom In (+)"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
