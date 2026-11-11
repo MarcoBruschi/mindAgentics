@@ -177,7 +177,7 @@ export class RoutineScheduler {
     // 3. Dispatch
     if (routine.isReminder) {
       this.sendToMain({
-        type: 'maestroAttention',
+        type: 'orchestratorAttention',
         payload: {
           terminalId: routine.targetTerminalId || 'global',
           title: `Routine Reminder: ${routine.name}`,

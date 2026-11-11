@@ -21,7 +21,7 @@
 
 [Visão Geral](#-visão-geral) •
 [Demonstração & Funcionalidades](#-demonstração--funcionalidades) •
-[CLI & Modo Maestro](#-cli--modo-maestro) •
+[CLI & Modo Orquestrador](#-cli--modo-orquestrador) •
 [Arquitetura do Monorepo](#-arquitetura-do-monorepo) •
 [Instalação & Execução](#-instalação--execução) •
 [Atalhos de Teclado](#-atalhos-de-teclado)
@@ -57,14 +57,14 @@ Ao contrário dos ambientes de desenvolvimento tradicionais baseados em abas iso
 ---
 
 ### 2. Criação Rápida de Agentes & Perfis Especializados
-> *Templates instantâneos prontos para os principais agentes de codificação do mercado, com customização visual, detecção de conclusão de tarefas e modo Maestro.*
+> *Templates instantâneos prontos para os principais agentes de codificação do mercado, com customização visual, detecção de conclusão de tarefas e modo Orquestrador.*
 
 <div align="center">
   <img src="docs/assets/agent-creation-modal.png" alt="Agent Creation Modal" width="60%" style="border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
 </div>
 
 - **Presets Nativos**: Inicialização com 1 clique para `Claude Code`, `Codex`, `Antigravity`, `OpenCode` e `Generic Shell`.
-- **Modo Maestro**: Promove terminais a orquestradores capazes de recrutar novos agentes, dividir tarefas complexas e reger o restante da equipe no canvas.
+- **Modo Orquestrador**: Promove terminais a orquestradores capazes de recrutar novos agentes, dividir tarefas complexas e reger o restante da equipe no canvas.
 - **Monitoramento de Atividade**: Notificações automáticas via som e sinalizador de status assim que uma rotina do agente finaliza.
 
 ---
@@ -115,7 +115,7 @@ Ao contrário dos ambientes de desenvolvimento tradicionais baseados em abas iso
 
 ---
 
-## ⚡ CLI & Modo Maestro
+## ⚡ CLI & Modo Orquestrador
 
 Todos os agentes em execução no terminal recebem variáveis de ambiente (`MINDAGENTICS_PIPE`, `MINDAGENTICS_TERMINAL_ID`, etc.) que fornecem acesso imediato à CLI do **mindAgentics** (`mindagentics`):
 

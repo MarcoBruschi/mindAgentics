@@ -15,7 +15,7 @@ export const notifyCommand: CommandHandler = async (req, state, router, schedule
   }
 
   sendToMain({
-    type: 'maestroAttention',
+    type: 'orchestratorAttention',
     payload: {
       terminalId: req.terminalId,
       message,

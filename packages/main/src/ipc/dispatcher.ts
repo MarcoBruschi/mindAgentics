@@ -369,6 +369,10 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   // Terminal PTY
   handle('mindagentics:terminal:detectAgents', () => terminalManager.detectInstalledAgents());
   handle('mindagentics:terminal:getAgentLimits', () => terminalManager.getAgentLimits());
+  handle('mindagentics:terminal:setOrchestratorMode', (_event: any, terminalId: string, orchestratorMode: boolean) => {
+    terminalManager.setOrchestratorMode ? terminalManager.setOrchestratorMode(terminalId, orchestratorMode) : terminalManager.setMaestroMode(terminalId, orchestratorMode);
+    return { ok: true };
+  });
   handle('mindagentics:terminal:setMaestroMode', (_event: any, terminalId: string, maestroMode: boolean) => {
     terminalManager.setMaestroMode(terminalId, maestroMode);
     return { ok: true };

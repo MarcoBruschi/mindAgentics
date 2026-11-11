@@ -48,8 +48,8 @@ The `mindagentics` CLI provides the following core commands:
 - `mindagentics floor land "<Branch>"` — Merge floor back into main and clean up worktree.
 - `mindagentics floor status` — Report modified files on the current floor.
 
-### 8. Maestro Mode
-When operating in Maestro Mode (`MINDAGENTICS_MAESTRO_MODE=1`):
+### 8. Orchestrator Mode (Modo Orquestrador)
+When operating in Orchestrator Mode (`MINDAGENTICS_ORCHESTRATOR_MODE=1` or `MINDAGENTICS_MAESTRO_MODE=1`):
 1. **Mandatory Delegation**: Do not execute everything alone. Decompose tasks and delegate via `mindagentics ask`.
 2. **Agent Recruitment**: Recruit specialized teammates (Frontend, Backend, QA) via `mindagentics recruit`.
 3. **Web References**: Open documentation portals via `mindagentics portal open`, connect them via `mindagentics connect`, and instruct agents to reference them.

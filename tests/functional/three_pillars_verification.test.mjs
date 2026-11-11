@@ -52,7 +52,7 @@ describe('Three Pillars Verification Suite: Gamification, Crisp Text & Icon Mode
 
     test('should have proper titles for all tiers up to Sovereign', () => {
       assert.strictEqual(getTitleForLevel(1), 'Aprendiz de Orquestrador');
-      assert.strictEqual(getTitleForLevel(5), 'Maestro Cibernético');
+      assert.strictEqual(getTitleForLevel(5), 'Orquestrador Cibernético');
       assert.strictEqual(getTitleForLevel(10), 'Soberano do Canvas');
     });
 

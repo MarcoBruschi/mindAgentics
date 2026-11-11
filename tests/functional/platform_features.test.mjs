@@ -344,7 +344,7 @@ describe('mindAgentics Comprehensive Functional & E2E Test Suite', () => {
     assert.ok(listRes.stdout.includes('Engineering Squad'), 'Band listed');
   });
 
-  test('11. Maestro Mode: Delegation (ask), PTY delivery & Turn Settlement', async () => {
+  test('11. Orchestrator Mode (Modo Orquestrador): Delegation (ask), PTY delivery & Turn Settlement', async () => {
     const askRes = await execCli([
       'ask',
       'Worker Alpha',

@@ -129,7 +129,7 @@ export interface AvatarOption {
 export const AVATAR_OPTIONS: AvatarOption[] = [
   {
     id: 'avatar-conductor',
-    label: 'Maestro Wand',
+    label: 'Orquestrador',
     icon: '🪄',
     bgGradient: 'from-indigo-600 to-purple-600',
     borderColor: 'border-indigo-400',

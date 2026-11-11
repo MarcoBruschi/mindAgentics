@@ -78,8 +78,10 @@ export async function runCliClient(argv: string[]): Promise<void> {
     args: parsed.args,
     options: {
       ...parsed.options,
+      orchestratorMode:
+        process.env.MINDAGENTICS_ORCHESTRATOR_MODE === '1' || process.env.MINDAGENTICS_MAESTRO_MODE === '1',
       maestroMode:
-        process.env.MINDAGENTICS_MAESTRO_MODE === '1',
+        process.env.MINDAGENTICS_ORCHESTRATOR_MODE === '1' || process.env.MINDAGENTICS_MAESTRO_MODE === '1',
     },
   };
 

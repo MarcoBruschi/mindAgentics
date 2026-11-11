@@ -79,7 +79,8 @@ export function normalizeWorkspace(raw: any): Workspace {
         fontSize: t.fontSize,
         isAutonomous: true,
         agentRole: t.agentType || 'Developer',
-        maestroMode: Boolean(t.maestroMode),
+        orchestratorMode: Boolean(t.orchestratorMode ?? t.maestroMode),
+        maestroMode: Boolean(t.orchestratorMode ?? t.maestroMode),
       };
     } else if (n.content?.stickyNote) {
       kind = 'note';

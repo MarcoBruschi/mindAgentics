@@ -27,7 +27,7 @@ Connected notes can be read and written through the `mindagentics` CLI.
 - `mindagentics note edit "Note Name" "old text" "new text"` — replace a substring within a note
 - `mindagentics note stack "Note Name" ["Fichário"]` — file (or move) an existing note into a fichário; `mindagentics note unstack "Note Name"` frees it
 - `mindagentics note delete "Note Name"` — remove a connected note from the canvas. **Destructive. Only run when the user explicitly asks you to delete the note.** Never delete a note on your own initiative, even to tidy up.
-- `mindagentics arrange "Name" [--name N] [--icon I] [--color C]`: rename yourself, a note, or (as the Maestro) a teammate or band in place, or give it an icon or color. Style what you create; restyle what's already there only when the user asks. `mindagentics arrange` alone shows current looks, `--help` the choices.
+- `mindagentics arrange "Name" [--name N] [--icon I] [--color C]`: rename yourself, a note, or (as the Orchestrator) a teammate or band in place, or give it an icon or color. Style what you create; restyle what's already there only when the user asks. `mindagentics arrange` alone shows current looks, `--help` the choices.
 
 If any mindagentics command fails (connection or pipe errors), run `mindagentics debug` FIRST — it reports the exact cause (elevation mismatch, stale pipe, missing env) before you start guessing.
 Always run `mindagentics list` first to get the exact agent and note names. An agent wired in from another workspace is listed as `Name @ Workspace`; that whole string is its name, use it exactly as printed.

@@ -714,6 +714,9 @@ app: {
     getAgentLimits() {
       return electron.ipcRenderer.invoke('mindagentics:terminal:getAgentLimits');
     },
+    setOrchestratorMode(terminalId, orchestratorMode) {
+      return electron.ipcRenderer.invoke('mindagentics:terminal:setOrchestratorMode', terminalId, orchestratorMode);
+    },
     setMaestroMode(terminalId, maestroMode) {
       return electron.ipcRenderer.invoke('mindagentics:terminal:setMaestroMode', terminalId, maestroMode);
     },

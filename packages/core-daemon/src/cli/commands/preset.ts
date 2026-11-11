@@ -11,8 +11,8 @@ export const presetCommand: CommandHandler = async (req, state) => {
       for (const p of state.presets.values()) {
         const accs = p.accounts && p.accounts.length > 0 ? ` (accounts: ${p.accounts.map((a: string) => `"${a}"`).join(', ')})` : '';
         const cmd = p.command ? ` [cmd: ${p.command}]` : ' [plain shell]';
-        const maestro = p.maestroMode ? ' [maestro]' : '';
-        lines.push(`  * "${p.name}" (${p.agentType})${cmd}${accs}${maestro}`);
+        const orchestrator = (p.orchestratorMode || p.maestroMode) ? ' [orquestrador]' : '';
+        lines.push(`  * "${p.name}" (${p.agentType})${cmd}${accs}${orchestrator}`);
       }
       return { output: lines.join('\n'), exitCode: 0 };
     }
@@ -40,7 +40,8 @@ export const presetCommand: CommandHandler = async (req, state) => {
         command,
         icon: 'terminal',
         isActive: true,
-        maestroMode: req.options.maestro === 'on',
+        orchestratorMode: req.options.orquestrador === 'on' || req.options.orchestrator === 'on' || req.options.maestro === 'on',
+        maestroMode: req.options.orquestrador === 'on' || req.options.orchestrator === 'on' || req.options.maestro === 'on',
         startInChatMode: req.options.chat === 'on',
         accounts: account ? [account] : ['Default'],
       };
@@ -64,7 +65,11 @@ export const presetCommand: CommandHandler = async (req, state) => {
         state.presets.set(p.name, p);
       }
       if (req.options.command !== undefined) p.command = req.options.command;
-      if (req.options.maestro !== undefined) p.maestroMode = req.options.maestro === 'on';
+      if (req.options.orquestrador !== undefined || req.options.orchestrator !== undefined || req.options.maestro !== undefined) {
+        const val = req.options.orquestrador === 'on' || req.options.orchestrator === 'on' || req.options.maestro === 'on';
+        (p as any).orchestratorMode = val;
+        p.maestroMode = val;
+      }
       if (req.options.chat !== undefined) p.startInChatMode = req.options.chat === 'on';
 
       return {

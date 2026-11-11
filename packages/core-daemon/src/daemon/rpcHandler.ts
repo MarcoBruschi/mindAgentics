@@ -152,7 +152,8 @@ export class RpcHandler {
               if (existing) {
                 existing.title = node.content.title;
                 existing.agentRole = node.content.agentRole;
-                existing.maestroMode = Boolean(node.content.maestroMode);
+                existing.orchestratorMode = Boolean(node.content.orchestratorMode ?? node.content.maestroMode);
+                existing.maestroMode = Boolean(node.content.orchestratorMode ?? node.content.maestroMode);
               } else {
                 this.state.registerTerminal({
                   id: node.content.terminalId,
@@ -162,7 +163,8 @@ export class RpcHandler {
                   presetId: node.content.presetId,
                   agentRole: node.content.agentRole,
                   account: node.content.account,
-                  maestroMode: Boolean(node.content.maestroMode),
+                  orchestratorMode: Boolean(node.content.orchestratorMode ?? node.content.maestroMode),
+                  maestroMode: Boolean(node.content.orchestratorMode ?? node.content.maestroMode),
                   status: 'idle',
                   scrollback: [],
                 });

@@ -24,6 +24,7 @@ export interface TerminalRuntime {
   presetId?: string;
   agentRole?: string;
   account?: string;
+  orchestratorMode?: boolean;
   maestroMode: boolean;
   status: 'idle' | 'working' | 'attention' | 'error';
   scrollback: string[];
@@ -240,6 +241,7 @@ export class DaemonState {
       command: 'claude',
       icon: 'seal',
       isActive: true,
+      orchestratorMode: false,
       maestroMode: false,
       startInChatMode: false,
       accounts: ['Default', 'Work'],
@@ -251,6 +253,7 @@ export class DaemonState {
       command: 'codex --no-daemon',
       icon: 'brain',
       isActive: true,
+      orchestratorMode: false,
       maestroMode: false,
       startInChatMode: false,
       accounts: ['Default'],
@@ -262,6 +265,7 @@ export class DaemonState {
       command: 'agy',
       icon: 'sparkle',
       isActive: true,
+      orchestratorMode: false,
       maestroMode: false,
       startInChatMode: false,
       accounts: ['Default'],
@@ -273,6 +277,7 @@ export class DaemonState {
       command: 'opencode',
       icon: 'rectangle.portrait',
       isActive: true,
+      orchestratorMode: false,
       maestroMode: false,
       startInChatMode: false,
       accounts: ['Default'],
@@ -284,6 +289,7 @@ export class DaemonState {
       command: '',
       icon: 'terminal',
       isActive: true,
+      orchestratorMode: false,
       maestroMode: false,
       startInChatMode: false,
       accounts: ['Default'],

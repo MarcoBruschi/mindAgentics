@@ -34,7 +34,7 @@ export const CreateAgentModal: React.FC = () => {
   const [executionTarget, setExecutionTarget] = useState('workspace_default');
   const [workingDirectory, setWorkingDirectory] = useState('');
   const [monitorActivity, setMonitorActivity] = useState(true);
-  const [isMaestro, setIsMaestro] = useState(false);
+  const [isOrchestrator, setIsOrchestrator] = useState(false);
   const [injectKnowledgeGraph, setInjectKnowledgeGraph] = useState(true);
   const [, setCableTies] = useAtom(cableTiesAtom);
 
@@ -207,7 +207,8 @@ export const CreateAgentModal: React.FC = () => {
         isLocked: false,
         command: finalCmd,
         workingDirectory: finalDir,
-        maestroMode: isMaestro,
+        orchestratorMode: isOrchestrator,
+        maestroMode: isOrchestrator,
         monitorWithOmbro: monitorActivity,
         isAutonomous,
         fontFamily,
@@ -241,7 +242,8 @@ export const CreateAgentModal: React.FC = () => {
         instructions: enrichedInstructions,
         isAutonomous,
         presetId: selectedPresetId,
-        maestroMode: isMaestro,
+        orchestratorMode: isOrchestrator,
+        maestroMode: isOrchestrator,
       }).catch(() => {});
     }
 
@@ -438,30 +440,30 @@ export const CreateAgentModal: React.FC = () => {
 
                 <div className="w-full h-[1px] bg-[#23262C]" />
 
-                {/* Switch 2: Maestro */}
+                {/* Switch 2: Orquestrador */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-[#E7E8EA]">Modo Maestro</span>
+                      <span className="text-xs font-medium text-[#E7E8EA]">Modo Orquestrador</span>
                       <Wand2 className="w-3 h-3 text-indigo-400" />
                     </div>
                     <span className="text-[11px] text-[#8A8F98] leading-tight">
-                      Promove este terminal a maestro coordenador da equipe no canvas.
+                      Promove este terminal a orquestrador coordenador da equipe no canvas.
                     </span>
                   </div>
                   <button
                     type="button"
                     role="switch"
-                    aria-checked={isMaestro}
-                    aria-label="Modo Maestro"
-                    onClick={() => setIsMaestro(!isMaestro)}
+                    aria-checked={isOrchestrator}
+                    aria-label="Modo Orquestrador"
+                    onClick={() => setIsOrchestrator(!isOrchestrator)}
                     className={`w-9 h-5 rounded-full transition-colors relative shrink-0 p-0.5 cursor-pointer ${
-                      isMaestro ? 'bg-indigo-600' : 'bg-[#23262C]'
+                      isOrchestrator ? 'bg-indigo-600' : 'bg-[#23262C]'
                     }`}
                   >
                     <div
                       className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                        isMaestro ? 'translate-x-4' : 'translate-x-0'
+                        isOrchestrator ? 'translate-x-4' : 'translate-x-0'
                       }`}
                     />
                   </button>

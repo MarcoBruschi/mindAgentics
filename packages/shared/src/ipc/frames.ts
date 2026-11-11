@@ -170,12 +170,14 @@ export interface AsksInFlightPayload {
   };
 }
 
-export interface MaestroAttentionPayload {
+export interface OrchestratorAttentionPayload {
   terminalId: string;
   title?: string;
   message: string;
   level: 'info' | 'warning' | 'error';
 }
+
+export type MaestroAttentionPayload = OrchestratorAttentionPayload;
 
 export interface ChatTurnSettledPayload {
   terminalId: string;

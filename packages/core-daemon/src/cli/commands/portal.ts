@@ -144,7 +144,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
         }
       }
 
-      // If callerNode was not found by exact terminalId, check by title or Maestro
+      // If callerNode was not found by exact terminalId, check by title or Orchestrator
       if (!callerNode && req.terminalId) {
         const callerTerm = state.terminals?.get(req.terminalId);
         if (callerTerm) {
@@ -159,7 +159,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
       }
       if (!callerNode) {
         for (const n of state.nodes.values()) {
-          if (n.kind === 'terminal' && (n.content as any)?.maestroMode) {
+          if (n.kind === 'terminal' && ((n.content as any)?.orchestratorMode || (n.content as any)?.maestroMode)) {
             callerNodeId = n.id;
             callerNode = n;
             break;

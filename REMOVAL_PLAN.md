@@ -5,7 +5,7 @@ Este plano cobre a remoção do `CLONE_SPEC.md` e de vestígios de identidade, n
 ## 1. Inventariar os vestígios
 
 - Buscar `CLONE_SPEC`, `clone spec`, `clone_spec` e referências às suas seções.
-- Buscar termos associados: `maestri`, `Maestri`, `themaestri.app`, variáveis `MAESTRI_*`, nomes de binários e caminhos legados.
+- Buscar termos associados: `orquestrador` (em substituição ao legado), variáveis legadas, nomes de binários e caminhos legados.
 - Incluir código, testes, documentação, scripts, configurações, artefatos gerados e arquivos ocultos.
 
 ## 2. Remover o documento-fonte
@@ -21,13 +21,13 @@ Este plano cobre a remoção do `CLONE_SPEC.md` e de vestígios de identidade, n
 
 ## 4. Remover identidade e nomenclatura legadas
 
-- Auditar e eliminar ocorrências de `maestri` fora dos testes de auditoria deliberadamente destinados a bloqueá-las.
+- Auditar e eliminar ocorrências de termos legados fora dos testes de auditoria deliberadamente destinados a bloqueá-las.
 - Revisar comandos, executáveis, variáveis de ambiente, caminhos de armazenamento, logs, textos de UI e mensagens de erro.
 - Confirmar que executáveis legados removidos não permanecem referenciados em `package.json`, builds ou documentação.
 
 ## 5. Ajustar a auditoria automática
 
-- Manter e fortalecer o teste que bloqueia ocorrências de `maestri`.
+- Manter e fortalecer o teste que bloqueia ocorrências legadas.
 - Adicionar proteção equivalente para `CLONE_SPEC` e suas variações.
 - Cobrir raiz do repositório, `packages/`, `scripts/`, `skills/`, `tests/` e documentação relevante.
 

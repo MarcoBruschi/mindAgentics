@@ -9,7 +9,7 @@ export const listCommand: CommandHandler = async (req, state) => {
   const lines: string[] = [];
 
   // You section
-  const callerMaestro = caller?.maestroMode ? ' [🎼 Maestro Mode Active]' : '';
+  const callerMaestro = (caller?.orchestratorMode || caller?.maestroMode) ? ' [🎼 Orchestrator Mode Active]' : '';
   lines.push('You:');
   lines.push(`  ${callerTitle}${callerMaestro} (ID: ${req.terminalId.slice(0, 8)})`);
   if (callerWs) {
@@ -42,7 +42,7 @@ export const listCommand: CommandHandler = async (req, state) => {
   for (const term of state.terminals.values()) {
     if (term.id === req.terminalId) continue;
     hasAgents = true;
-    const maestroStr = term.maestroMode ? ' [🎼 Maestro]' : '';
+    const maestroStr = (term.orchestratorMode || term.maestroMode) ? ' [🎼 Orquestrador]' : '';
     const roleStr = term.agentRole ? ` [Role: ${term.agentRole}]` : '';
     const presetStr = term.presetId ? ` (${term.presetId})` : '';
     const statusStr = ` [${term.status}]`;

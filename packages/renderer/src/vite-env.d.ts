@@ -12,8 +12,10 @@ interface MindAgenticsWindowBridge {
       rows?: number;
       title?: string;
       presetId?: string;
+      orchestratorMode?: boolean;
       maestroMode?: boolean;
     }) => Promise<{ terminalId: string; attached?: boolean }>;
+    setOrchestratorMode?: (terminalId: string, orchestratorMode: boolean) => Promise<any>;
     setMaestroMode?: (terminalId: string, maestroMode: boolean) => Promise<any>;
     write: (terminalId: string, data: string) => Promise<void>;
     deliverPrompt: (terminalId: string, text: string) => Promise<{ ok: boolean }>;

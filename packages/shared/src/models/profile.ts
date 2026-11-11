@@ -105,7 +105,7 @@ export function getTitleForLevel(level: number): string {
   if (level === 2) return 'Compositor de Agentes';
   if (level === 3) return 'Condutor de Enxame';
   if (level === 4) return 'Arquiteto de Inteligência';
-  if (level === 5) return 'Maestro Cibernético';
+  if (level === 5) return 'Orquestrador Cibernético';
   if (level === 6) return 'Mestre Orquestrador';
   if (level === 7) return 'Grande Regente Autônomo';
   if (level === 8) return 'Virtuoso Cognitivo';

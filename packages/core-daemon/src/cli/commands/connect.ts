@@ -123,8 +123,8 @@ function resolveEndpoint(nameOrId: string, state: any, callerWorkspaceId?: strin
       return { id: node.id, nodeId: node.id, name: title || node.kind, kind: node.kind };
     }
 
-    if (node.kind === 'terminal' && content.maestroMode && norm.includes('maestro')) {
-      return { id: node.id, nodeId: node.id, name: content.title || 'Maestro', kind: 'agent' };
+    if (node.kind === 'terminal' && (content.orchestratorMode || content.maestroMode) && (norm.includes('orquestrador') || norm.includes('orchestrator') || norm.includes('maestro'))) {
+      return { id: node.id, nodeId: node.id, name: content.title || 'Orquestrador', kind: 'agent' };
     }
   }
 

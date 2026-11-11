@@ -24,6 +24,7 @@ export interface TerminalSpawnOptions {
   agentRole?: string;
   instructions?: string;
   isAutonomous?: boolean;
+  orchestratorMode?: boolean;
   maestroMode?: boolean;
 }
 
@@ -41,6 +42,7 @@ export interface TerminalSession {
   title?: string;
   agentRole?: string;
   instructions?: string;
+  orchestratorMode?: boolean;
   maestroMode?: boolean;
   activeAskId?: string;
   askOutput?: string;
@@ -260,7 +262,7 @@ export class TerminalManager extends EventEmitter {
       COLORTERM: 'truecolor',
       TERM_PROGRAM: 'mindAgentics',
       PATH: `${cliDir}${path.delimiter}${process.env.PATH || ''}`,
-      ...(options.maestroMode ? { MINDAGENTICS_MAESTRO_MODE: '1' } : {}),
+      ...(options.orchestratorMode || options.maestroMode ? { MINDAGENTICS_ORCHESTRATOR_MODE: '1', MINDAGENTICS_MAESTRO_MODE: '1' } : {}),
       ...options.env
     };
 
@@ -292,7 +294,8 @@ export class TerminalManager extends EventEmitter {
         title: agentName,
         agentRole,
         instructions,
-        maestroMode: Boolean(options.maestroMode),
+        orchestratorMode: Boolean(options.orchestratorMode ?? options.maestroMode),
+        maestroMode: Boolean(options.orchestratorMode ?? options.maestroMode),
         isAlive: true
       };
 
@@ -307,8 +310,8 @@ export class TerminalManager extends EventEmitter {
       if (agentRole) {
         briefingParts.push(`Seu papel / função principal é: ${agentRole}.`);
       }
-      if (options.maestroMode) {
-        briefingParts.push(`Você é o Maestro / Orquestrador Central da equipe. Planeje, divida objetivos e delegue tarefas aos outros agentes conectados usando 'mindagentics ask'.`);
+      if (options.orchestratorMode || options.maestroMode) {
+        briefingParts.push(`Você é o Orquestrador Central da equipe. Planeje, divida objetivos e delegue tarefas aos outros agentes conectados usando 'mindagentics ask'.`);
       }
       if (instructions && instructions.trim().length > 0) {
         briefingParts.push(`Contexto e diretrizes adicionais: ${instructions.trim()}`);
@@ -485,10 +488,16 @@ export class TerminalManager extends EventEmitter {
     }
   }
 
+  public setOrchestratorMode(terminalId: string, orchestratorMode: boolean): void {
+    this.setMaestroMode(terminalId, orchestratorMode);
+  }
+
   public setMaestroMode(terminalId: string, maestroMode: boolean): void {
     const session = this.sessions.get(terminalId);
     if (session) {
+      session.orchestratorMode = maestroMode;
       session.maestroMode = maestroMode;
+      this.emit('orchestratorMode', { terminalId, orchestratorMode: maestroMode });
       this.emit('maestroMode', { terminalId, maestroMode });
     }
   }
@@ -531,7 +540,7 @@ export class TerminalManager extends EventEmitter {
         let needsUpdate = true;
         if (fs.existsSync(agentsMdPath)) {
           const existing = fs.readFileSync(agentsMdPath, 'utf8');
-          if (existing.includes('Modo Maestro') && existing.includes('mindAgentics')) {
+          if ((existing.includes('Modo Orquestrador') || existing.includes('Modo Maestro')) && existing.includes('mindAgentics')) {
             needsUpdate = false;
           }
         }
@@ -559,20 +568,20 @@ Você tem à sua disposição a CLI do mindAgentics (\`mindagentics\`, alias \`m
 - **\`mindagentics floor <action>\`**: Gerencia worktrees isoladas de trabalho (floors).
 - **\`mindagentics graphify <build|query|explain|path|open>\`**: Constrói e consulta o Knowledge Graph do projeto via AST determinístico, visualizando no Portal.
 
-## Modo Maestro (Orquestração de Agentes)
+## Modo Orquestrador (Orquestração de Agentes)
 
-Quando a variável de ambiente \`MINDAGENTICS_MAESTRO_MODE=1\` (ou \`MINDAGENTICS_MAESTRO_MODE=1\`) estiver ativa ou você for designado como Maestro da equipe:
+Quando a variável de ambiente \`MINDAGENTICS_ORCHESTRATOR_MODE=1\` (ou \`MINDAGENTICS_MAESTRO_MODE=1\`) estiver ativa ou você for designado como Orquestrador da equipe:
 Você atua como o **Orquestrador Central** do canvas mindAgentics. Ao receber uma tarefa complexa ou missão do usuário, siga obrigatoriamente as seguintes regras:
 
 ### Regra 1 (Delegação Obrigatória)
-Ao receber uma tarefa, o Maestro NÃO deve executar todo o trabalho pesado sozinho se puder delegar. O Maestro deve planejar, decompor o objetivo em subtarefas claras e delegar para outros agentes conectados usando:
+Ao receber uma tarefa, o Orquestrador NÃO deve executar todo o trabalho pesado sozinho se puder delegar. O Orquestrador deve planejar, decompor o objetivo em subtarefas claras e delegar para outros agentes conectados usando:
 \`\`\`bash
 mindagentics ask "<Nome do Agente>" "<Instrução detalhada>"
 \`\`\`
 Você pode inspecionar quem está disponível no canvas com \`mindagentics list\` (ou \`mindagentics list\`).
 
 ### Regra 2 (Criação de Agentes no Workspace)
-Caso o usuário não especifique agentes já existentes/conectados para a tarefa, ou caso a equipe precise de habilidades específicas (ex: Frontend, Backend, QA, Reviewer, Pesquisador), o Maestro deve criar agentes especializados no workspace usando:
+Caso o usuário não especifique agentes já existentes/conectados para a tarefa, ou caso a equipe precise de habilidades específicas (ex: Frontend, Backend, QA, Reviewer, Pesquisador), o Orquestrador deve criar agentes especializados no workspace usando:
 \`\`\`bash
 mindagentics recruit "<Nome do Agente>" --preset "<preset>" --role "<role>"
 \`\`\`

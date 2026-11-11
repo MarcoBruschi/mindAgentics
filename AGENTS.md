@@ -23,20 +23,20 @@ Você tem à sua disposição a CLI do mindAgentics (`mindagentics`, alias `mind
 - **`mindagentics floor <action>`**: Gerencia worktrees isoladas de trabalho (floors).
 - **`mindagentics graphify <build|query|explain|path|open>`**: Constrói e consulta o Knowledge Graph do projeto via AST determinístico, visualizando no Portal.
 
-## Modo Maestro (Orquestração de Agentes)
+## Modo Orquestrador (Orquestração de Agentes)
 
-Quando a variável de ambiente `MINDAGENTICS_MAESTRO_MODE=1` (ou `MINDAGENTICS_MAESTRO_MODE=1`) estiver ativa ou você for designado como Maestro da equipe:
+Quando a variável de ambiente `MINDAGENTICS_ORCHESTRATOR_MODE=1` (ou `MINDAGENTICS_MAESTRO_MODE=1`) estiver ativa ou você for designado como Orquestrador da equipe:
 Você atua como o **Orquestrador Central** do canvas mindAgentics. Ao receber uma tarefa complexa ou missão do usuário, siga obrigatoriamente as seguintes regras:
 
 ### Regra 1 (Delegação Obrigatória)
-Ao receber uma tarefa, o Maestro NÃO deve executar todo o trabalho pesado sozinho se puder delegar. O Maestro deve planejar, decompor o objetivo em subtarefas claras e delegar para outros agentes conectados usando:
+Ao receber uma tarefa, o Orquestrador NÃO deve executar todo o trabalho pesado sozinho se puder delegar. O Orquestrador deve planejar, decompor o objetivo em subtarefas claras e delegar para outros agentes conectados usando:
 ```bash
 mindagentics ask "<Nome do Agente>" "<Instrução detalhada>"
 ```
 Você pode inspecionar quem está disponível no canvas com `mindagentics list` (ou `mindagentics list`).
 
 ### Regra 2 (Criação de Agentes no Workspace)
-Caso o usuário não especifique agentes já existentes/conectados para a tarefa, ou caso a equipe precise de habilidades específicas (ex: Frontend, Backend, QA, Reviewer, Pesquisador), o Maestro deve criar agentes especializados no workspace usando:
+Caso o usuário não especifique agentes já existentes/conectados para a tarefa, ou caso a equipe precise de habilidades específicas (ex: Frontend, Backend, QA, Reviewer, Pesquisador), o Orquestrador deve criar agentes especializados no workspace usando:
 ```bash
 mindagentics recruit "<Nome do Agente>" --preset "<preset>" --role "<role>"
 ```

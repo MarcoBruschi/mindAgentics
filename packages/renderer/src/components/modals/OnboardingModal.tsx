@@ -301,7 +301,7 @@ export const OnboardingModal: React.FC = () => {
                 maxLength={32}
                 required
                 className="w-full bg-[#181B20] border border-[#23262C] focus:border-[#8B93FF] rounded-xl px-3 py-2 text-xs text-[#E7E8EA] outline-none transition-colors"
-                placeholder="ex.: Victor, Maestro, Alpha"
+                placeholder="ex.: Victor, Orquestrador, Alpha"
               />
             </div>
 

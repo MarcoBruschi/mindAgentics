@@ -2,7 +2,7 @@
  * mindAgentics Public Platform Interface & Agent SDK
  *
  * This package defines all public interfaces, CLI commands, spatial canvas models,
- * and Maestro orchestration protocols available to AI agents operating in mindAgentics.
+ * and Orchestrator orchestration protocols available to AI agents operating in mindAgentics.
  *
  * It contains zero internal codebase implementation and serves as the public surface
  * indexed by the deterministic Knowledge Graph (Graphify).
@@ -10,6 +10,7 @@
 
 export * from './models/agent.js';
 export * from './models/canvas.js';
+export * from './models/orchestrator.js';
 export * from './models/maestro.js';
 
 export * from './commands/ask.js';

@@ -38,9 +38,9 @@ function findRoutine(scheduler: any, nameOrId: string): Routine | undefined {
 
 export const routineCommand: CommandHandler = async (req, state, router, scheduler, sendToMain) => {
   const caller = state.terminals.get(req.terminalId);
-  if (caller && !caller.maestroMode) {
-    // Check if maestro mode required
-    // Spec says: "These commands require Maestro Mode on your terminal."
+  if (caller && !caller.orchestratorMode && !caller.maestroMode) {
+    // Check if orchestrator mode required
+    // Spec says: "These commands require Orchestrator Mode on your terminal."
   }
 
   const [subaction, ...restArgs] = req.args;

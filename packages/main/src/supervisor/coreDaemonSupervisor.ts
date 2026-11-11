@@ -184,7 +184,9 @@ export class CoreDaemonSupervisor extends EventEmitter {
       case 'asksInFlight':
         this.emit('asksInFlight', frame.payload);
         break;
+      case 'orchestratorAttention':
       case 'maestroAttention':
+        this.emit('orchestratorAttention', frame.payload);
         this.emit('maestroAttention', frame.payload);
         break;
       case 'attentionCleared':
