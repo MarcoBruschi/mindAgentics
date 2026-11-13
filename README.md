@@ -6,6 +6,8 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![React 19](https://img.shields.io/badge/React-19.1-61DAFB.svg?style=for-the-badge&logo=react)](https://react.dev/)
+[![Tauri v2](https://img.shields.io/badge/Tauri-v2-FFC131.svg?style=for-the-badge&logo=tauri)](https://v2.tauri.app/)
+[![Rust](https://img.shields.io/badge/Rust-1.85+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
 [![Electron](https://img.shields.io/badge/Electron-33.2-47848F.svg?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC.svg?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![Jotai](https://img.shields.io/badge/Jotai-2.10-black.svg?style=for-the-badge)](https://jotai.org/)
@@ -146,18 +148,19 @@ mindagentics graphify open
 
 ## 🏗️ Arquitetura do Monorepo
 
-O projeto é estruturado em um monorepo modular em TypeScript:
+O projeto é estruturado em um monorepo modular combinando TypeScript e Rust:
 
 ```
 mindAgentics/
+├── src-tauri/             # Core nativo em Rust (Tauri v2): PTY ConPTY, Named Pipes, Storage Engine, Git Worktrees, DWM Acrylic
 ├── packages/
 │   ├── shared/            # Modelos de dados TypeScript, contratos de nós e canais IPC
 │   ├── core-daemon/       # Servidor de roteamento de mensagens, Named Pipe e CLI dispatcher
-│   ├── main/              # Processo principal Electron, supervisor PTY e armazenamento atômico
-│   ├── preload/           # Camada de isolamento de contexto (window.mindagentics / window.api)
-│   └── renderer/          # Aplicação React 19 + Vite + Tailwind do Canvas Infinito
+│   ├── renderer/          # Aplicação React 19 + Vite + Tailwind do Canvas Infinito
+│   ├── preload/           # Camada de compatibilidade IPC (window.mindAgentics / window.api)
+│   └── main/              # Runtime legado Electron (suporte retrocompatível)
 ├── skills/                # Habilidades dos agentes (mindAgentics, Graphify, Portal, Routines)
-├── docs/                  # Documentações técnicas e capturas de tela do sistema
+├── docs/                  # Documentações técnicas, matriz de IPC e capturas de tela do sistema
 └── package.json           # Scripts de build, empacotamento e orquestração do monorepo
 ```
 
@@ -165,14 +168,15 @@ mindAgentics/
 
 | Camada | Tecnologias |
 | :--- | :--- |
-| **Desktop Shell** | Electron 33, Node.js 24 |
+| **Desktop Shell Principal** | **Tauri v2** (Rust nativo de alta performance) / Electron 33 (fallback retrocompatível) |
+| **Core & Engine Nativa** | Rust 2021, Tokio, `portable-pty`, Win32 JobObjects, Windows Named Pipes |
 | **Frontend Framework** | React 19, TypeScript 5.7, Vite 6 |
 | **Gerenciamento de Estado** | Jotai (Atoms atômicos e reativos) |
-| **Estilização** | Tailwind CSS 3.4, PostCSS, Lucide Icons |
-| **Terminais** | `@xterm/xterm`, Windows ConPTY / `node-pty` |
+| **Estilização & Material** | Tailwind CSS 3.4, PostCSS, Windows 11 DWM Acrylic / Backdrop Blur (`#120F0E`) |
+| **Terminais** | `@xterm/xterm`, ConPTY nativo via `portable-pty` |
 | **Editores de Texto** | CodeMirror 6, Mermaid.js |
-| **Transporte IPC** | Windows Named Pipes (`\\.\pipe\*`), Electron ContextBridge |
-| **Engine de Grafo** | Graphify (AST determinístico em Python + D3.js Force Layout) |
+| **Transporte IPC** | Windows Named Pipes (`\\.\pipe\*`), Tauri v2 Binary Channels & IPC Dispatcher universal |
+| **Engine de Grafo** | Graphify (AST determinístico em Python / Rust Fallback + D3.js Force Layout) |
 
 ---
 
@@ -182,6 +186,7 @@ mindAgentics/
 
 - **Node.js** >= `20.x` (Recomendado 22.x ou superior)
 - **npm** >= `10.x`
+- **Rust** >= `1.85+` *(Necessário para compilar o core Tauri v2)*
 - **Python** >= `3.10` *(Obrigatório apenas para o engine do Graphify)*
 - **Git**
 
@@ -212,6 +217,17 @@ npm run build:renderer
 
 ### 4. Iniciar a Aplicação
 
+#### Modo Tauri v2 (Recomendado — Alta Performance & Baixo Consumo de Memória)
+```bash
+npm run tauri:dev
+```
+
+*Para compilar o pacote executável standalone em produção:*
+```bash
+npm run tauri:build
+```
+
+#### Modo Electron (Compatibilidade)
 ```bash
 npm start
 ```
