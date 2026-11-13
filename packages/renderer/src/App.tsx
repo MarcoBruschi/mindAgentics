@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAtom } from 'jotai';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { InfiniteCanvas } from '@/components/canvas/InfiniteCanvas';
@@ -38,17 +38,6 @@ export const App: React.FC = () => {
   const [, setNodes] = useAtom(nodesAtom);
   const [, setCableTies] = useAtom(cableTiesAtom);
   const [profileToast, setProfileToast] = useAtom(profileToastAtom);
-  const [isMaximized, setIsMaximized] = useState(false);
-
-  useEffect(() => {
-    const controls = window.api?.windowControls || (window as any).mindAgentics?.windowControls;
-    controls?.state?.().then((res: any) =>
-      setIsMaximized(Boolean(res?.isMaximized || res?.isFullScreen))
-    ).catch(() => {});
-    return controls?.onChanged?.((p: any) =>
-      setIsMaximized(Boolean(p?.isMaximized || p?.isFullScreen))
-    );
-  }, []);
 
   // Auto-dismiss celebratory level-up/badge toast after 5s
   useEffect(() => {
@@ -292,22 +281,18 @@ export const App: React.FC = () => {
   }, [undo, redo, setIsSidebarOpen]);
 
   return (
-    <div
-      className={`app-shell w-screen h-screen overflow-hidden bg-[#0a0c10] text-zinc-100 select-none font-sans relative ${
-        isMaximized ? 'p-1.5' : ''
-      }`}
-    >
-      <div className="w-full h-full relative overflow-hidden rounded-2xl border border-white/[0.08] shadow-2xl bg-[#0E0F12]">
+    <div className="app-shell w-screen h-screen overflow-hidden bg-transparent text-zinc-100 select-none font-sans relative">
+      <div className="w-full h-full flex flex-col relative overflow-hidden bg-transparent">
         <TitleBar />
-        <div className="w-full h-full flex overflow-hidden relative">
-          {/* Full Canvas Viewport (runs behind the sidebar with translucent canvas backing) */}
-          <main className="absolute inset-0 w-full h-full flex flex-col bg-[#0E0F12]">
+        <div className="w-full flex-1 flex overflow-hidden relative">
+          {/* Sidebar Transparente: Canal alfa direto para a janela do Electron */}
+          <Sidebar />
+
+          {/* Canvas Sólido: Fica ESTRITAMENTE ao lado da barra lateral, NUNCA atrás dela */}
+          <main className="flex-1 h-full flex flex-col bg-[#0E0F12] relative overflow-hidden">
             <InfiniteCanvas />
             <CanvasToolbar />
           </main>
-
-          {/* Frosted Translucent Sidebar (Sobreposta ao Canvas) */}
-          <Sidebar />
         </div>
       </div>
 

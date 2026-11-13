@@ -27,10 +27,10 @@ export interface AgentUsageItem {
   name: string;
   subtitle: string;
   colorHex: string;
-  primaryFraction: number; // 0.0 to 1.0
-  secondaryFraction?: number | null; // 0.0 to 1.0
-  percent: number;
-  secondaryPercent?: number;
+  primaryFraction: number | null; // 0.0 to 1.0 or null
+  secondaryFraction?: number | null; // 0.0 to 1.0 or null
+  percent: number | null;
+  secondaryPercent?: number | null;
   label: string;
   secondaryLabel?: string;
   resetText: string;
@@ -135,16 +135,16 @@ export const AgentLimitsModal: React.FC = () => {
       const items: AgentUsageItem[] = [];
 
       for (const rep of installedOnly) {
-        const primaryFraction = rep.primaryUsedFraction ?? (rep.quotaPercent != null ? rep.quotaPercent / 100 : 0.15);
-        const secondaryFraction = rep.secondaryUsedFraction;
-        const percent = rep.quotaPercent ?? Math.round(primaryFraction * 100);
-        const secondaryPercent = rep.secondaryPercent ?? (secondaryFraction != null ? Math.round(secondaryFraction * 100) : 0);
+        const primaryFraction = rep.primaryUsedFraction ?? (rep.quotaPercent != null ? rep.quotaPercent / 100 : null);
+        const secondaryFraction = rep.secondaryUsedFraction ?? (rep.secondaryPercent != null ? rep.secondaryPercent / 100 : null);
+        const percent = rep.quotaPercent ?? (primaryFraction != null ? Math.round(primaryFraction * 100) : null);
+        const secondaryPercent = rep.secondaryPercent ?? (secondaryFraction != null ? Math.round(secondaryFraction * 100) : null);
 
         if (rep.id === 'codex') {
           items.push({
             id: 'codex',
-            name: rep.name || 'OpenAI Codex',
-            subtitle: `${rep.planOrTier || 'ChatGPT Plus'} · ${rep.activeModel || 'gpt-6.1-sol'}`,
+            name: 'Codex',
+            subtitle: '',
             colorHex: '#8B93FF',
             primaryFraction,
             secondaryFraction,
@@ -163,8 +163,8 @@ export const AgentLimitsModal: React.FC = () => {
         } else if (rep.id === 'antigravity') {
           items.push({
             id: 'antigravity',
-            name: rep.name || 'Antigravity CLI',
-            subtitle: `${rep.activeModel || 'Gemini 3.8 Flash'} · ${rep.planOrTier || 'Google AI'}`,
+            name: 'Antigravity',
+            subtitle: '',
             colorHex: '#8B93FF',
             primaryFraction,
             secondaryFraction,
@@ -183,8 +183,8 @@ export const AgentLimitsModal: React.FC = () => {
         } else if (rep.id === 'claude') {
           items.push({
             id: 'claude',
-            name: rep.name || 'Claude Code',
-            subtitle: `${rep.activeModel || 'Claude 3.7 Sonnet'} · ${rep.planOrTier || 'Anthropic'}`,
+            name: 'Claude Code',
+            subtitle: '',
             colorHex: '#8B93FF',
             primaryFraction,
             secondaryFraction,
@@ -203,8 +203,8 @@ export const AgentLimitsModal: React.FC = () => {
         } else if (rep.id === 'opencode') {
           items.push({
             id: 'opencode',
-            name: rep.name || 'OpenCode CLI',
-            subtitle: `${rep.activeModel || 'Multi-Provider'} · ${rep.planOrTier || 'Developer'}`,
+            name: 'OpenCode',
+            subtitle: '',
             colorHex: '#8B93FF',
             primaryFraction,
             secondaryFraction,
@@ -224,8 +224,8 @@ export const AgentLimitsModal: React.FC = () => {
           if (!items.some((i) => i.id === 'github-copilot')) {
             items.push({
               id: 'github-copilot',
-              name: rep.name || 'GitHub Copilot',
-              subtitle: `${rep.planOrTier || 'Copilot Pro'} · Completions`,
+              name: 'GitHub Copilot',
+              subtitle: '',
               colorHex: '#8B93FF',
               primaryFraction,
               secondaryFraction,
@@ -245,13 +245,15 @@ export const AgentLimitsModal: React.FC = () => {
         } else if (rep.id === 'ollama') {
           items.push({
             id: 'ollama',
-            name: rep.name || 'Ollama',
-            subtitle: `${rep.activeModel || 'Modelos Locais'} · 100% Offline`,
+            name: 'Ollama',
+            subtitle: '',
             colorHex: '#8B93FF',
-            primaryFraction: 0,
-            percent: 0,
+            primaryFraction: null,
+            percent: null,
+            secondaryFraction: null,
+            secondaryPercent: null,
             label: 'Capacidade Local',
-            resetText: 'Ilimitado',
+            resetText: '',
             command: 'ollama',
             path: rep.path,
             installed: true,
@@ -302,7 +304,7 @@ export const AgentLimitsModal: React.FC = () => {
   return (
     <div
       ref={popoverRef}
-      className="fixed bottom-16 right-6 z-50 w-[380px] max-h-[700px] flex flex-col bg-[#14161A] border border-[#23262C] rounded-2xl shadow-2xl p-4 text-[#E7E8EA] select-none backdrop-blur-md animate-in fade-in duration-150"
+      className="fixed bottom-16 right-3 sm:right-6 z-50 w-[380px] max-w-[calc(100vw-1.5rem)] max-h-[700px] flex flex-col bg-[#14161A] border border-[#23262C] rounded-2xl shadow-2xl p-4 text-[#E7E8EA] select-none backdrop-blur-md animate-in fade-in duration-150"
     >
       {viewMode === 'usage' ? (
         <>
@@ -352,62 +354,73 @@ export const AgentLimitsModal: React.FC = () => {
               </div>
             ) : (
               visibleAgents.map((agent) => {
+                const hasLimits = agent.percent != null || agent.secondaryPercent != null;
                 return (
                   <div
                     key={agent.id}
                     className="p-3.5 bg-[#181B20] border border-[#23262C] rounded-xl space-y-3 transition-colors"
                   >
-                    {/* Top row: Name & Subtitle on left, 22px Percentage on right */}
-                    <div className="flex items-start justify-between gap-2">
+                    {/* Top row: Name on left, 22px Percentage on right if limits exist */}
+                    <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <span className="font-semibold text-xs text-[#E7E8EA] truncate block">
                           {agent.name}
                         </span>
-                        <span className="text-[11px] text-[#8A8F98] truncate block mt-0.5">
-                          {agent.subtitle}
-                        </span>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <span className="text-[22px] font-bold text-[#E7E8EA] tracking-tight leading-none block">
-                          {agent.percent}%
-                        </span>
-                      </div>
+                      {hasLimits && agent.percent != null && (
+                        <div className="shrink-0 text-right">
+                          <span className="text-[22px] font-bold text-[#E7E8EA] tracking-tight leading-none block">
+                            {`${agent.percent}%`}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Linear Progress Bars (4px high) */}
-                    <div className="space-y-2 pt-1 border-t border-[#23262C]/60">
-                      {/* Bar 1: Primary Usage */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px] text-[#8A8F98]">
-                          <span>{agent.label}</span>
-                          <span className="text-[10px] font-mono">{agent.resetText}</span>
-                        </div>
-                        <div className="w-full h-1 bg-[#14161A] rounded-full overflow-hidden border border-[#23262C]">
-                          <div
-                            className="h-full rounded-full transition-all duration-500 bg-[#8B93FF]"
-                            style={{
-                              width: `${Math.max(2, Math.min(100, agent.percent))}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
+                    {/* Linear Progress Bars (4px high) - only render if agent has limits */}
+                    {hasLimits && (
+                      <div className="space-y-2 pt-1 border-t border-[#23262C]/60">
+                        {/* Bar 1: Primary Usage */}
+                        {agent.percent != null && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-[11px] text-[#8A8F98]">
+                              <span>{agent.label}</span>
+                              <span className="text-[10px] font-mono">
+                                {`${agent.percent}%`}
+                                {agent.resetText ? ` · ${agent.resetText}` : ''}
+                              </span>
+                            </div>
+                            <div className="w-full h-1 bg-[#14161A] rounded-full overflow-hidden border border-[#23262C]">
+                              <div
+                                className="h-full rounded-full transition-all duration-500 bg-[#8B93FF]"
+                                style={{
+                                  width: `${Math.max(2, Math.min(100, agent.percent))}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
 
-                      {/* Bar 2: Secondary / Weekly Quota (Empty 0%) */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px] text-[#8A8F98]">
-                          <span>{agent.secondaryLabel || 'Cota Semanal'}</span>
-                          <span className="text-[10px] font-mono">0%</span>
-                        </div>
-                        <div className="w-full h-1 bg-[#14161A] rounded-full overflow-hidden border border-[#23262C]">
-                          <div
-                            className="h-full rounded-full bg-[#8B93FF]/30 transition-all duration-500"
-                            style={{
-                              width: '0%',
-                            }}
-                          />
-                        </div>
+                        {/* Bar 2: Secondary / Weekly Quota (escondida quando null) */}
+                        {agent.secondaryPercent != null && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-[11px] text-[#8A8F98]">
+                              <span>{agent.secondaryLabel || 'Cota Semanal'}</span>
+                              <span className="text-[10px] font-mono">
+                                {agent.secondaryPercent}%{agent.secondaryResetText ? ` · ${agent.secondaryResetText}` : ''}
+                              </span>
+                            </div>
+                            <div className="w-full h-1 bg-[#14161A] rounded-full overflow-hidden border border-[#23262C]">
+                              <div
+                                className="h-full rounded-full bg-[#8B93FF] transition-all duration-500"
+                                style={{
+                                  width: `${Math.max(0, Math.min(100, agent.secondaryPercent))}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })

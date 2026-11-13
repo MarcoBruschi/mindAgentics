@@ -48,6 +48,16 @@ export interface BrowserPortal {
 }
 
 /**
+ * File or folder reference node (kind: 'fileRef'). Only path and type are shared with agents.
+ */
+export interface FileRef {
+  id: string;
+  path: string;
+  isDirectory: boolean;
+  label: string;
+}
+
+/**
  * Complete listing of entities present on the current canvas workspace.
  */
 export interface CanvasListing {
@@ -72,5 +82,6 @@ export interface CanvasListing {
     name: string;
     url: string;
   }>;
+  refs?: FileRef[];
   cables: CableTie[];
 }

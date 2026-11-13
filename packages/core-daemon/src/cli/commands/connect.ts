@@ -1,8 +1,10 @@
 import type { CommandHandler } from '../../daemon/pipeServer.js';
+import { notifyRefsChanged, toAgentRef } from '../../daemon/refs.js';
 
 interface ResolvedEndpoint {
   id: string;
   nodeId?: string;
+  terminalId?: string;
   name: string;
   kind: string;
 }
@@ -23,6 +25,7 @@ function resolveEndpoint(nameOrId: string, state: any, callerWorkspaceId?: strin
     return {
       id: matchedNodeId || callerTerminalId,
       nodeId: matchedNodeId,
+      terminalId: callerTerminalId,
       name: term?.title || 'Me',
       kind: 'agent',
     };
@@ -41,6 +44,7 @@ function resolveEndpoint(nameOrId: string, state: any, callerWorkspaceId?: strin
     return {
       id: matchedNodeId || term.id,
       nodeId: matchedNodeId,
+      terminalId: term.id,
       name: term.title,
       kind: 'agent',
     };
@@ -50,7 +54,7 @@ function resolveEndpoint(nameOrId: string, state: any, callerWorkspaceId?: strin
   // Pass 3a: Exact matches across nodes
   for (const [nodeId, node] of state.nodes.entries()) {
     if (nodeId.toLowerCase() === norm || node.id.toLowerCase() === norm) {
-      const title = (node.content as any)?.title || (node.content as any)?.fileName || (node.content as any)?.url || node.kind;
+      const title = (node.content as any)?.title || (node.content as any)?.label || (node.content as any)?.fileName || (node.content as any)?.url || node.kind;
       return { id: node.id, nodeId: node.id, name: title, kind: node.kind };
     }
 
@@ -101,6 +105,17 @@ function resolveEndpoint(nameOrId: string, state: any, callerWorkspaceId?: strin
       }
     }
 
+    // File / folder references (fileRef)
+    if (node.kind === 'fileRef') {
+      const rLabel = String(content.label || '').toLowerCase();
+      const rPath = String(content.path || '').toLowerCase().replace(/\\/g, '/');
+      const rBase = rPath.split('/').filter(Boolean).pop() || '';
+      const nNorm = norm.replace(/\\/g, '/');
+      if (rLabel === norm || rPath === nNorm || rBase === norm) {
+        return { id: node.id, nodeId: node.id, name: content.label || content.path || 'Ref', kind: 'fileRef' };
+      }
+    }
+
     // Files
     if (node.kind === 'file') {
       const fName = (content.fileName || '').toLowerCase();
@@ -116,7 +131,7 @@ function resolveEndpoint(nameOrId: string, state: any, callerWorkspaceId?: strin
     const content = (node.content as any);
     if (!content) continue;
 
-    const title = content.title || content.fileName || content.url || '';
+    const title = content.title || content.label || content.fileName || content.url || '';
     const titleLower = String(title).toLowerCase();
 
     if (titleLower && (titleLower.includes(norm) || norm.includes(titleLower))) {
@@ -130,6 +145,24 @@ function resolveEndpoint(nameOrId: string, state: any, callerWorkspaceId?: strin
 
   // Fallback to the raw string
   return { id: nameOrId, name: nameOrId, kind: 'unknown' };
+}
+
+/**
+ * fileRef <-> agent wiring: refresh the agent's AGENTS.md block and, on connect,
+ * inject a single `[ref] pasta|arquivo: <path>` line (never the file content).
+ */
+function notifyRefLink(
+  state: any,
+  a: ResolvedEndpoint,
+  b: ResolvedEndpoint,
+  sendToMain: (frame: any) => void,
+  connecting: boolean,
+) {
+  const agent = a.kind === 'agent' ? a : b.kind === 'agent' ? b : undefined;
+  const refEp = a.kind === 'fileRef' ? a : b.kind === 'fileRef' ? b : undefined;
+  if (!agent?.terminalId || !refEp) return;
+  const ref = toAgentRef(state.nodes.get(refEp.nodeId || refEp.id));
+  notifyRefsChanged(state, agent.terminalId, sendToMain, connecting && ref ? ref : undefined);
 }
 
 export const connectCommand: CommandHandler = async (req, state, router, scheduler, sendToMain) => {
@@ -177,6 +210,7 @@ export const connectCommand: CommandHandler = async (req, state, router, schedul
     });
 
     const changed = state.connections.length < prevLen;
+    notifyRefLink(state, fromEp, toEp, sendToMain, false);
     return {
       output: changed
         ? `Disconnected "${fromEp.name}" (${fromEp.kind}) </-> "${toEp.name}" (${toEp.kind}).`
@@ -189,7 +223,8 @@ export const connectCommand: CommandHandler = async (req, state, router, schedul
   // Connect logic
   const label =
     (req.options.label as string) ||
-    ((fromEp.kind === 'agent' && toEp.kind === 'portal') || (fromEp.kind === 'portal' && toEp.kind === 'agent')
+    ((fromEp.kind === 'agent' && (toEp.kind === 'portal' || toEp.kind === 'fileRef')) ||
+    (toEp.kind === 'agent' && (fromEp.kind === 'portal' || fromEp.kind === 'fileRef'))
       ? 'Reference'
       : 'Cable Tie');
 
@@ -206,6 +241,10 @@ export const connectCommand: CommandHandler = async (req, state, router, schedul
       toId: toTargetId,
       label,
     });
+  }
+
+  if (!alreadyExists) {
+    notifyRefLink(state, fromEp, toEp, sendToMain, true);
   }
 
   const tieId = `tie-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;

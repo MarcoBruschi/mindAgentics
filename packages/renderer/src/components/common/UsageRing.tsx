@@ -1,8 +1,8 @@
 import React from 'react';
 
 export interface UsageRingProps {
-  primaryFraction: number; // 0.0 to 1.0 (Outer ring, short-term)
-  secondaryFraction?: number | null; // 0.0 to 1.0 (Inner ring, long-term)
+  primaryFraction: number | null; // 0.0 to 1.0 (Outer ring, short-term) or null
+  secondaryFraction?: number | null; // 0.0 to 1.0 (Inner ring, long-term) or null
   colorHex: string; // Base color (e.g. '#10B981', '#3B82F6', '#A855F7')
   size?: number; // Total diameter in px (default: 28)
   strokeWidth?: number; // Stroke thickness in px (default: 2.5)
@@ -25,9 +25,10 @@ export const UsageRing: React.FC<UsageRingProps> = ({
   const gap = strokeWidth + 1.2;
 
   // Outer ring
+  const hasPrimary = primaryFraction !== undefined && primaryFraction !== null;
   const outerR = Math.max(1, center - strokeWidth / 2 - 1);
   const outerCircumference = 2 * Math.PI * outerR;
-  const clampedPrimary = Math.max(0, Math.min(1, primaryFraction));
+  const clampedPrimary = hasPrimary ? Math.max(0, Math.min(1, primaryFraction)) : 0;
   const outerOffset = outerCircumference * (1 - clampedPrimary);
 
   // Inner ring

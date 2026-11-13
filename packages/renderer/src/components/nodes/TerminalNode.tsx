@@ -5,6 +5,7 @@ import { CanvasAddon } from '@xterm/addon-canvas';
 import { WebglAddon } from '@xterm/addon-webgl';
 import {
   TerminalNode as TerminalNodeType,
+  sanitizeForPtyLine,
 } from '@mindagentics/shared';
 import {
   Sparkles,
@@ -15,12 +16,15 @@ import {
   X,
   Link as LinkIcon,
   FileText,
+  Folder,
   Globe,
   Layers,
   Cpu,
   Wand2,
   Zap,
+  Settings2,
 } from 'lucide-react';
+import { EditTerminalModal } from '../modals/EditTerminalModal';
 import {
   ClaudeIcon,
   CodexIcon,
@@ -31,6 +35,7 @@ import {
 import { useAtom, useAtomValue } from 'jotai';
 import { agentPresetsAtom } from '@/atoms/presets';
 import { cableTiesAtom, nodesAtom, activeWorkspaceAtom } from '@/atoms/workspace';
+import { canvasOffsetAtom } from '@/atoms/canvas';
 
 interface TerminalNodeProps {
   node: TerminalNodeType;
@@ -53,9 +58,21 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   const [cableTies] = useAtom(cableTiesAtom);
   const [allNodes] = useAtom(nodesAtom);
   const [activeWorkspace] = useAtom(activeWorkspaceAtom);
+  const { zoom } = useAtomValue(canvasOffsetAtom);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState(node.content.title);
+  const [isMemoryMenuOpen, setIsMemoryMenuOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isMemoryMenuOpen) return;
+    const handleClickOutside = () => setIsMemoryMenuOpen(false);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [isMemoryMenuOpen]);
 
   // Match preset or use content directly
   const preset =
@@ -234,6 +251,15 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     }
 
     try {
+      const core = (term as any)._core;
+      if (core?._coreBrowserService) {
+        Object.defineProperty(core._coreBrowserService, 'dpr', {
+          get: () => (window.devicePixelRatio || 1) * Math.max(1, zoomRef.current),
+          configurable: true,
+        });
+      }
+      core?._renderService?._renderer?.value?._observerDisposable?.dispose?.();
+      core?._renderService?.handleDevicePixelRatioChange?.();
       fitAddon.fit();
     } catch {}
 
@@ -397,6 +423,35 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     };
   }, [node.content.terminalId, agentCommand]);
 
+  // Synchronize XTerm canvas pixel density when canvas zoom changes for crisp vector-sharp typography
+  useEffect(() => {
+    const term = xtermInstance.current as any;
+    const fitAddon = fitAddonRef.current;
+    if (!term || !term._core) return;
+
+    const effectiveZoom = zoom > 0 ? zoom : 1;
+    const scaledDpr = (window.devicePixelRatio || 1) * effectiveZoom;
+    const core = term._core;
+    const browserService = core._coreBrowserService;
+    const renderService = core._renderService;
+
+    if (browserService) {
+      Object.defineProperty(browserService, 'dpr', {
+        get: () => (window.devicePixelRatio || 1) * (zoomRef.current > 0 ? zoomRef.current : 1),
+        configurable: true,
+      });
+      browserService._onDprChange?.fire?.(scaledDpr);
+    }
+
+    try {
+      renderService?._renderer?.value?._observerDisposable?.dispose?.();
+      term.clearTextureAtlas?.();
+      renderService?.handleDevicePixelRatioChange?.();
+      renderService?.handleResize?.(term.cols, term.rows);
+      fitAddon?.fit();
+    } catch {}
+  }, [zoom]);
+
   const toggleAttention = () => {
     onUpdate({
       ...nodeRef.current,
@@ -443,6 +498,10 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     } else if (targetNode.kind === 'terminal') {
       const termTitle = targetNode.content?.title || 'Peer Agent';
       refCommand = `mindagentics ask "${termTitle}" "Hello from ${agentName}"`;
+    } else if (targetNode.kind === 'fileRef') {
+      const p = targetNode.content?.path || '';
+      const isDir = Boolean(targetNode.content?.isDirectory);
+      refCommand = `[ref] ${isDir ? 'pasta' : 'arquivo'}: ${p}`;
     }
 
     const termWrite = window.mindAgentics?.terminal?.write || (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.write;
@@ -450,6 +509,31 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       termWrite(node.content.terminalId, refCommand + '\r');
     } else if (refCommand) {
       term.write(refCommand + '\r\n');
+    }
+  };
+
+  const handleMemoryAction = (action: 'summary' | 'clear' | 'resume') => {
+    const termWrite =
+      window.mindAgentics?.terminal?.write ||
+      (window.mindAgentics?.terminal || window.api?.terminal?.terminal)?.write;
+    const term = xtermInstance.current;
+
+    let cmd = '';
+    if (action === 'summary') {
+      cmd = 'mindagentics recall ""';
+    } else if (action === 'clear') {
+      const isWin = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('windows');
+      cmd = isWin
+        ? 'if (Test-Path .mindagentics/memory) { Remove-Item -Recurse -Force .mindagentics/memory }; Write-Host "[mindAgentics] Memória limpa."'
+        : 'rm -rf .mindagentics/memory && echo "[mindAgentics] Memória limpa."';
+    } else if (action === 'resume') {
+      cmd = 'mindagentics recall "último estado" --limit 5';
+    }
+
+    if (cmd && termWrite) {
+      termWrite(node.content.terminalId, cmd + '\r');
+    } else if (cmd && term) {
+      term.write(cmd + '\r\n');
     }
   };
 
@@ -482,27 +566,37 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
 
   return (
     <div
-      className={`group flex flex-col w-full h-full bg-[#0d0e11] text-zinc-300 rounded-xl overflow-hidden border border-white/[0.07] shadow-xl transition-all ${
-        isOrchestrator ? 'ring-1 ring-amber-500/30' : ''
+      className={`group flex flex-col w-full h-full bg-[#0d0e11] text-zinc-300 rounded-xl overflow-hidden border transition-all ${
+        isOrchestrator
+          ? 'border-amber-500/35 ring-1 ring-amber-500/25 shadow-[0_4px_24px_rgba(245,158,11,0.08)]'
+          : 'border-white/[0.08] shadow-xl'
       }`}
     >
-      {/* Node Header (Standard 36px / h-9 Height) */}
+      {/* Node Header (Standard h-10 px-3 Height) */}
       <div
         onPointerDown={() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}
-        className={`node-drag-handle h-9 px-3 border-b flex items-center justify-between cursor-move select-none transition-colors ${
+        className={`node-drag-handle h-10 px-3 border-b flex items-center justify-between cursor-move select-none transition-colors ${
           isOrchestrator
-            ? 'bg-[#16181d] border-amber-500/20'
-            : 'bg-[#14161A] border-white/[0.07]'
+            ? 'bg-[#181614] border-amber-500/25'
+            : 'bg-[#14161A] border-white/[0.08]'
         }`}
       >
-        <div className="flex items-center gap-2">
-          {getAgentIcon(agentName)}
+        {/* Left Side: Status Dot, Agent Brand Icon, Title, Command Badge, Orchestrator Pill */}
+        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+          {/* Status Dot */}
+          <div className="flex items-center shrink-0">{getStatusDot()}</div>
 
+          {/* Agent Brand Icon */}
+          <div className="shrink-0 flex items-center">{getAgentIcon(agentName)}</div>
+
+          {/* Editable Title */}
           {isEditingTitle ? (
             <input
               type="text"
               value={title}
               autoFocus
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={() => {
                 setIsEditingTitle(false);
@@ -519,89 +613,136 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
                     content: { ...nodeRef.current.content, title },
                   });
                 }
+                if (e.key === 'Escape') {
+                  setTitle(node.content.title);
+                  setIsEditingTitle(false);
+                }
               }}
-              className="bg-black/60 text-zinc-100 text-xs px-1.5 py-0.5 rounded outline-none border border-blue-500/50"
+              className="bg-black/60 text-zinc-100 text-xs px-1.5 py-0.5 rounded outline-none border border-blue-500/50 max-w-[140px]"
             />
           ) : (
             <span
-              onDoubleClick={() => setIsEditingTitle(true)}
-              className="text-xs font-medium text-zinc-200 hover:text-white cursor-text truncate max-w-[160px]"
-              title="Double click to rename"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setIsEditingTitle(true);
+              }}
+              className="text-xs font-semibold text-zinc-200 hover:text-white cursor-text truncate max-w-[150px]"
+              title={`Duplo clique para renomear: ${title}`}
             >
               {title}
             </span>
           )}
 
-          {/* Agent Command Badge */}
-          <span className="px-1.5 py-0.5 text-[10px] font-mono font-semibold tracking-wide rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          {/* Discreet Command / Agent Badge */}
+          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium tracking-wide rounded bg-white/[0.05] text-[#8A8F98] border border-white/[0.06] shrink-0">
             {agentCommand ? agentCommand.split(' ')[0] : 'shell'}
           </span>
 
-          {/* Orchestrator Toggle Badge (Discreto e Simples) */}
+          {/* Orchestrator Compact Pill (when active) */}
+          {isOrchestrator && (
+            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 shrink-0">
+              <Wand2 className="w-2.5 h-2.5 text-amber-400" />
+              <span>Orquestrador</span>
+            </span>
+          )}
+        </div>
+
+        {/* Right Side: Clean Grouped Actions: Edit, Memory, Orchestrator Toggle, Close */}
+        <div className="relative flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity shrink-0">
+          {/* Edit Terminal Button */}
           <button
-            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsEditModalOpen(true);
+            }}
+            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] rounded-md transition-colors cursor-pointer"
+            title="Editar Terminal (Trocar Agente, Papel e Modos)"
+          >
+            <Settings2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+          </button>
+
+          {/* Memory Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMemoryMenuOpen((prev) => !prev);
+            }}
+            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+              isMemoryMenuOpen
+                ? 'text-purple-400 bg-purple-500/20'
+                : 'text-zinc-400 hover:text-purple-300 hover:bg-white/[0.08]'
+            }`}
+            title="Memória do Agente (Ver resumo, Retomar ou Limpar)"
+          >
+            <Brain className="w-3.5 h-3.5" strokeWidth={1.75} />
+          </button>
+
+          {/* Memory Popover Dropdown */}
+          {isMemoryMenuOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-14 top-full mt-1.5 w-44 py-1 rounded-lg bg-[#14161A] border border-white/[0.1] shadow-2xl z-50 text-xs"
+            >
+              <div className="px-2.5 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider border-b border-white/[0.06]">
+                Memória do Agente
+              </div>
+              <button
+                onClick={() => {
+                  setIsMemoryMenuOpen(false);
+                  handleMemoryAction('summary');
+                }}
+                className="w-full text-left px-2.5 py-1.5 flex items-center gap-2 text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-colors"
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-400" />
+                <span>Ver resumo</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsMemoryMenuOpen(false);
+                  handleMemoryAction('resume');
+                }}
+                className="w-full text-left px-2.5 py-1.5 flex items-center gap-2 text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Retomar</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsMemoryMenuOpen(false);
+                  handleMemoryAction('clear');
+                }}
+                className="w-full text-left px-2.5 py-1.5 flex items-center gap-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-rose-400" />
+                <span>Limpar memória</span>
+              </button>
+            </div>
+          )}
+
+          {/* Orchestrator Toggle Button */}
+          <button
             onClick={toggleOrchestrator}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
               isOrchestrator
-                ? 'bg-amber-500/10 text-amber-300 border border-amber-500/25 hover:bg-amber-500/15'
-                : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.07] border border-white/[0.06]'
+                ? 'text-amber-400 bg-amber-500/20 hover:bg-amber-500/30'
+                : 'text-zinc-400 hover:text-amber-300 hover:bg-white/[0.08]'
             }`}
             title={
               isOrchestrator
-                ? 'Modo Orquestrador Ativo: Este agente é o Orquestrador da Equipe. Clique para desativar.'
-                : 'Ativar Modo Orquestrador: Promove este agente a Orquestrador da Equipe.'
+                ? 'Modo Orquestrador Ativo (clique para alternar)'
+                : 'Alternar Modo Orquestrador'
             }
           >
-            <Wand2 className="w-3 h-3 text-amber-400/90" strokeWidth={1.75} />
-            <span>Orquestrador</span>
-            <span
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                isOrchestrator ? 'bg-amber-400/90' : 'bg-zinc-600'
-              }`}
-            />
-          </button>
-
-          {/* Mode Badge (Autonomous vs Normal - Discreto e Simples) */}
-          {node.content.isAutonomous ? (
-            <span
-              className="px-1.5 py-0.5 text-[9px] font-medium tracking-wide rounded-md bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20 flex items-center gap-1"
-              title="Modo Autônomo: auto-aprova ações sem pausar para confirmações"
-            >
-              <Zap className="w-2.5 h-2.5 text-emerald-400 opacity-80" strokeWidth={1.75} />
-              <span>Autônomo</span>
-            </span>
-          ) : (
-            <span
-              className="px-1.5 py-0.5 text-[9px] font-medium tracking-wide rounded-md bg-white/[0.04] text-zinc-400 border border-white/[0.06]"
-              title="Modo Normal: solicita confirmação de ações"
-            >
-              Normal
-            </span>
-          )}
-
-          {/* Status Indicator */}
-          <div className="ml-1 flex items-center">{getStatusDot()}</div>
-        </div>
-
-        {/* Action Buttons (aparecem com suavidade no hover) */}
-        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-          {/* Bell Attention Indicator */}
-          <button
-            onClick={toggleAttention}
-            className={`p-1 rounded-md transition-colors ${
-              hasAttention
-                ? 'text-amber-400 bg-amber-500/20'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]'
-            }`}
-            title="Sinalizar Atenção"
-          >
-            <Bell className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <Wand2 className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
 
           {/* Close Button */}
           <button
-            onClick={() => onDelete(node.id)}
-            className="p-1 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(node.id);
+            }}
+            className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors cursor-pointer"
             title="Fechar Terminal"
           >
             <X className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -624,6 +765,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
                 ? lNode.content?.url || 'Portal'
                 : lNode.kind === 'noteStack'
                 ? lNode.content?.title || 'Binder'
+                : lNode.kind === 'fileRef'
+                ? lNode.content?.label || lNode.content?.path || 'Ref'
                 : lNode.content?.title || 'Agent';
 
             return (
@@ -637,6 +780,13 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
                 {lNode.kind === 'portal' && <Globe className="w-2.5 h-2.5 text-emerald-400" strokeWidth={1.75} />}
                 {lNode.kind === 'noteStack' && <Layers className="w-2.5 h-2.5 text-purple-400" strokeWidth={1.75} />}
                 {lNode.kind === 'terminal' && <Sparkles className="w-2.5 h-2.5 text-blue-400" strokeWidth={1.75} />}
+                {lNode.kind === 'fileRef' && (
+                  lNode.content?.isDirectory ? (
+                    <Folder className="w-2.5 h-2.5 text-emerald-400" strokeWidth={1.75} />
+                  ) : (
+                    <FileText className="w-2.5 h-2.5 text-emerald-400" strokeWidth={1.75} />
+                  )
+                )}
                 <span className="truncate">{lTitle}</span>
               </button>
             );
@@ -662,6 +812,14 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       >
         <div ref={terminalRef} className="w-full h-full select-text" />
       </div>
+
+      {/* Edit Terminal Modal / Popover */}
+      <EditTerminalModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        node={node}
+        onUpdate={onUpdate}
+      />
     </div>
   );
 };

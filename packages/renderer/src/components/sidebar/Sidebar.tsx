@@ -85,11 +85,11 @@ export const Sidebar: React.FC = () => {
           : 'w-[248px] opacity-100 pointer-events-auto'
       }`}
       style={{
-        backgroundColor: 'rgba(10, 12, 16, 0.22)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        backgroundColor: 'var(--sidebar-bg, #121418)',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
         transform: 'translateZ(0)',
-        willChange: 'backdrop-filter, transform',
+        willChange: 'transform',
         WebkitAppRegion: 'no-drag',
       } as any}
     >

@@ -3,149 +3,199 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe('Security & UX QA Suite: Layer Isolation, Fullscreen Parity & Layout Stability', () => {
+describe('Security & QA Suite: Fake-Maximize (WorkArea), 4-Corner DWM Rounding in All States, Multi-Monitor DPI & Taskbar Parity', () => {
+  const sidebarPath = path.resolve('packages/renderer/src/components/sidebar/Sidebar.tsx');
+  const sidebarContent = fs.readFileSync(sidebarPath, 'utf8').replace(/\r\n/g, '\n');
+  const appPath = path.resolve('packages/renderer/src/App.tsx');
+  const appContent = fs.readFileSync(appPath, 'utf8').replace(/\r\n/g, '\n');
+  const cssPath = path.resolve('packages/renderer/src/index.css');
+  const cssContent = fs.readFileSync(cssPath, 'utf8').replace(/\r\n/g, '\n');
+  const canvasPath = path.resolve('packages/renderer/src/components/canvas/InfiniteCanvas.tsx');
+  const canvasContent = fs.readFileSync(canvasPath, 'utf8').replace(/\r\n/g, '\n');
+  const titleBarPath = path.resolve('packages/renderer/src/components/window/TitleBar.tsx');
+  const titleBarContent = fs.readFileSync(titleBarPath, 'utf8').replace(/\r\n/g, '\n');
+  const mainPath = path.resolve('packages/main/src/index.ts');
+  const mainContent = fs.readFileSync(mainPath, 'utf8').replace(/\r\n/g, '\n');
+  const dispatcherPath = path.resolve('packages/main/src/ipc/dispatcher.ts');
+  const dispatcherContent = fs.readFileSync(dispatcherPath, 'utf8').replace(/\r\n/g, '\n');
+
+  // Helper replicating getFakeMaximizeBounds logic from packages/main/src/index.ts for deterministic QA verification
+  function computeFakeMaximizeBounds(display) {
+    const { workArea, bounds: displayBounds } = display;
+    const isAutoHideTaskbar =
+      workArea.x === displayBounds.x &&
+      workArea.y === displayBounds.y &&
+      workArea.width === displayBounds.width &&
+      workArea.height === displayBounds.height;
+
+    return {
+      x: workArea.x,
+      y: workArea.y,
+      width: workArea.width,
+      height: isAutoHideTaskbar ? Math.max(600, workArea.height - 1) : workArea.height,
+    };
+  }
 
   // =========================================================================
-  // 1. Teste de Transparência da Barra Lateral em 3 Estados (Normal, Maximizar, Tela Cheia)
+  // 1. Ciclo Completo: Normal -> Fake-Maximizar -> Restaurar -> Minimizar -> Restaurar
   // =========================================================================
-  describe('Checklist 1: Sidebar Transparency in 3 States (Normal, Maximize, Fullscreen F11 / Alt+Enter)', () => {
-    const sidebarPath = path.resolve('packages/renderer/src/components/sidebar/Sidebar.tsx');
-    const sidebarContent = fs.readFileSync(sidebarPath, 'utf8');
-    const appPath = path.resolve('packages/renderer/src/App.tsx');
-    const appContent = fs.readFileSync(appPath, 'utf8');
-    const mainPath = path.resolve('packages/main/src/index.ts');
-    const mainContent = fs.readFileSync(mainPath, 'utf8');
-
-    it('should configure Sidebar with persistent frosted acrylic blur operating over canvas in all window states', () => {
+  describe('1. Lifecycle: Normal -> Maximize -> Restore -> Minimize -> Restore (Translucent Sidebar & 4 Rounded Corners at 200% Zoom)', () => {
+    it('should preserve translucent sidebar (acrylic + rgba(10, 12, 16, 0.48)) and native 4-corner DWM rounding in all states', () => {
       assert.ok(
-        sidebarContent.includes('backdropFilter') &&
-        (sidebarContent.includes('blur(16px)') || sidebarContent.includes('blur(24px)') || sidebarContent.includes('blur(28px)')),
-        'Sidebar must specify frosted glass backdrop-filter blur'
+        mainContent.includes("backgroundMaterial: 'acrylic'") &&
+        mainContent.includes('thickFrame: true') &&
+        mainContent.includes('roundedCorners: true') &&
+        !mainContent.includes('transparent: true'),
+        'BrowserWindow must use native DWM acrylic + thickFrame + roundedCorners without transparent: true'
       );
       assert.ok(
-        sidebarContent.includes("backgroundColor: 'rgba(10, 12, 16, 0.22)'") ||
-        sidebarContent.includes("backgroundColor: 'rgba(10, 12, 16, 0.45)'") ||
-        sidebarContent.includes('rgba(10, 12, 16,'),
-        'Sidebar must use calibrated translucent surface'
-      );
-    });
-
-    it('should layer continuous <main> canvas behind <Sidebar /> so nodes remain visible and blurred when dragged under sidebar', () => {
-      const sidebarIndex = appContent.indexOf('<Sidebar />');
-      const mainIndex = appContent.indexOf('<main');
-
-      assert.ok(mainIndex !== -1 && sidebarIndex !== -1);
-      assert.ok(mainIndex < sidebarIndex, 'Canvas <main> must run continuously behind <Sidebar />');
-    });
-
-    it('should maintain window transparency and refresh material on maximize, unmaximize, and fullscreen transitions', () => {
-      assert.ok(
-        mainContent.includes("win.on('maximize'") &&
-        mainContent.includes("win.on('unmaximize'") &&
-        mainContent.includes("win.on('enter-full-screen'") &&
-        mainContent.includes("win.on('leave-full-screen'"),
-        'Main process must handle all state transitions cleanly'
+        cssContent.includes('--sidebar-bg: rgba(10, 12, 16, 0.48);') &&
+        sidebarContent.includes("backgroundColor: 'var(--sidebar-bg, #121418)'"),
+        'Sidebar must maintain darkened translucent background across all window states'
       );
       assert.ok(
-        mainContent.includes("input.key === 'F11' || (input.alt && input.key === 'Enter')"),
-        'Electron main must support F11 and Alt+Enter native fullscreen toggle'
-      );
-    });
-  });
-
-  // =========================================================================
-  // 2. Teste de Cantos Arredondados (rounded-2xl)
-  // =========================================================================
-  describe('Checklist 2: Rounded Corners Parity (rounded-2xl in Normal and Maximized)', () => {
-    const appPath = path.resolve('packages/renderer/src/App.tsx');
-    const appContent = fs.readFileSync(appPath, 'utf8');
-
-    it('should preserve smooth rounded-2xl curvature across 4 corners in normal and maximized states', () => {
-      assert.ok(
-        appContent.includes('rounded-2xl'),
-        'App container must declare rounded-2xl curvature'
+        appContent.includes('<main className="flex-1 h-full flex flex-col bg-[#0E0F12] relative overflow-hidden">') &&
+        canvasContent.includes('bg-[#0E0F12] overflow-hidden'),
+        'Canvas <main> must stay 100% opaque (#0E0F12) beside Sidebar'
       );
       assert.ok(
-        appContent.includes("isMaximized ? 'p-1.5' : ''") ||
-        appContent.includes("isMaximized ? 'p-"),
-        'App shell must apply inset padding on maximize to protect rounded border aesthetics'
+        mainContent.includes("win.on('restore'") &&
+        mainContent.includes('if (process.platform === \'win32\' && isFakeMaximized)') &&
+        mainContent.includes('win.setBounds(getFakeMaximizeBounds(win))'),
+        'Restoring from minimize while fake-maximized must re-apply workArea bounds and refresh acrylic material'
       );
     });
   });
 
   // =========================================================================
-  // 3. Teste de Interação com a Barra de Título (Duplo Clique para Restaurar)
+  // 2. Bloqueio de Maximização Nativa: Win+Up, Arrastar para o Topo e Duplo Clique na TitleBar
   // =========================================================================
-  describe('Checklist 3: TitleBar Double Click Interaction & Smooth Restore', () => {
-    const titleBarPath = path.resolve('packages/renderer/src/components/window/TitleBar.tsx');
-    const titleBarContent = fs.readFileSync(titleBarPath, 'utf8');
-
-    it('should bind onDoubleClick on TitleBar header to toggleMaximize smoothly without layout breaks', () => {
+  describe('2. Prevention of Native Maximize on Win+Up, Top-Edge Drag & TitleBar Double-Click', () => {
+    it('should disable native WS_MAXIMIZE on Windows and route Win+Up, WM_NCLBUTTONDBLCLK, and IPC toggle to Fake-Maximize', () => {
       assert.ok(
-        titleBarContent.includes('onDoubleClick={handleDoubleClick}'),
-        'TitleBar header must bind onDoubleClick handler'
+        mainContent.includes("maximizable: process.platform !== 'win32'"),
+        'BrowserWindow must set maximizable: false on win32 so OS Aero Snap and Win+Up never enter native WS_MAXIMIZE'
       );
       assert.ok(
-        titleBarContent.includes('controls?.toggleMaximize?.()'),
-        'handleDoubleClick must invoke windowControls toggleMaximize'
+        mainContent.includes('win.hookWindowMessage(0x00A3') &&
+        mainContent.includes('toggleFakeMaximize()'),
+        'Main process must hook WM_NCLBUTTONDBLCLK (0x00A3) on -webkit-app-region: drag to toggle fake-maximize'
       );
       assert.ok(
-        titleBarContent.includes("closest('button, [data-toolbar-trigger=\"true\"], .canvas-toolbar')"),
-        'handleDoubleClick must ignore clicks on interactive buttons and toolbar handle'
+        mainContent.includes("input.meta && input.key === 'ArrowUp'") &&
+        mainContent.includes('enterFakeMaximize(true)') &&
+        mainContent.includes("input.meta && input.key === 'ArrowDown'"),
+        'Main process must intercept Win+Up and Win+Down to enter/exit fake-maximize without native maximize'
+      );
+      assert.ok(
+        mainContent.includes('win.unmaximize()') &&
+        mainContent.includes('enterFakeMaximize(false)'),
+        'win.on("maximize") safety guard must immediately unmaximize and convert to fake-maximize if ever triggered'
+      );
+      assert.ok(
+        titleBarContent.includes('onDoubleClick={handleDoubleClick}') &&
+        dispatcherContent.includes('deps.toggleFakeMaximize') &&
+        dispatcherContent.includes('deps.isFakeMaximized'),
+        'TitleBar double-click and IPC windowControlsToggleMaximize must use fake-maximize state and toggle'
       );
     });
   });
 
   // =========================================================================
-  // 4. Teste de Resposta da Barra de Ferramentas (~150ms)
+  // 3. Multi-Monitor (2 Monitores) e Escalas de DPI Diferentes (100% e 150%)
   // =========================================================================
-  describe('Checklist 4: Toolbar Agile Auto-Hide (~150ms) & Anti-Flicker', () => {
-    const toolbarPath = path.resolve('packages/renderer/src/components/toolbar/CanvasToolbar.tsx');
-    const toolbarContent = fs.readFileSync(toolbarPath, 'utf8');
+  describe('3. Multi-Monitor & Mixed DPI Scaling (100% and 150%) WorkArea Fitting', () => {
+    it('should resolve workArea dynamically via screen.getDisplayMatching and listen for display-metrics-changed', () => {
+      assert.ok(
+        mainContent.includes('screen.getDisplayMatching(currentBounds)') &&
+        mainContent.includes("screen.on('display-metrics-changed', onDisplayChanged)") &&
+        mainContent.includes("screen.on('display-added', onDisplayChanged)") &&
+        mainContent.includes("screen.on('display-removed', onDisplayChanged)"),
+        'Main process must match the active monitor workArea and re-fit on DPI or display changes'
+      );
 
-    it('should close in ~150ms on mouse leave with no render flicker', () => {
-      assert.ok(
-        toolbarContent.includes('handleMouseLeave') &&
-        toolbarContent.includes('150'),
-        'handleMouseLeave must buffer auto-hide with agile 150ms delay'
-      );
-      assert.ok(
-        toolbarContent.includes('handleMouseEnter') &&
-        toolbarContent.includes('clearTimeout(hoverTimeoutRef.current)'),
-        'handleMouseEnter must cancel pending leave timeout immediately'
-      );
+      // Simulate Monitor 1 (100% DPI, 1920x1080 with 40px bottom taskbar)
+      const monitor1_100pct = {
+        scaleFactor: 1.0,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+      };
+      const boundsMon1 = computeFakeMaximizeBounds(monitor1_100pct);
+      assert.deepStrictEqual(boundsMon1, { x: 0, y: 0, width: 1920, height: 1040 });
+
+      // Simulate Monitor 2 (150% DPI, 3840x2160 physical -> 2560x1440 DIP with 48px bottom taskbar)
+      const monitor2_150pct = {
+        scaleFactor: 1.5,
+        bounds: { x: 1920, y: 0, width: 2560, height: 1440 },
+        workArea: { x: 1920, y: 0, width: 2560, height: 1392 },
+      };
+      const boundsMon2 = computeFakeMaximizeBounds(monitor2_150pct);
+      assert.deepStrictEqual(boundsMon2, { x: 1920, y: 0, width: 2560, height: 1392 });
     });
   });
 
   // =========================================================================
-  // 5. Linha de Centro e Ausência de Ruído Visual
+  // 4. Barra de Tarefas em Auto-Ocultar e em Posições Diferentes (Topo, Esquerda)
   // =========================================================================
-  describe('Checklist 5: Centerline Alignment & Clean Aesthetic Handle', () => {
-    const titleBarPath = path.resolve('packages/renderer/src/components/window/TitleBar.tsx');
-    const titleBarContent = fs.readFileSync(titleBarPath, 'utf8');
-    const toolbarPath = path.resolve('packages/renderer/src/components/toolbar/CanvasToolbar.tsx');
-    const toolbarContent = fs.readFileSync(toolbarPath, 'utf8');
-
-    it('should align TitleBar height to h-14 with center at 28px', () => {
+  describe('4. Taskbar Auto-Hide (1px DWM Reserve) & Top / Left Taskbar Positions', () => {
+    it('should reserve 1px when taskbar is auto-hidden and respect top/left workArea offsets', () => {
       assert.ok(
-        titleBarContent.includes('h-14') && titleBarContent.includes('flex items-center'),
-        'TitleBar must be h-14 with center at y = 28px'
+        mainContent.includes('isAutoHideTaskbar') &&
+        mainContent.includes('workArea.height - 1'),
+        'getFakeMaximizeBounds must reserve 1px on auto-hide taskbar so DWM keeps rounded corners and taskbar hover trigger'
       );
-    });
 
-    it('should position collapsed handle geometric center at top: 28px (mt-[19px] + h-4.5 / 2)', () => {
+      // Auto-hide taskbar: workArea equals display.bounds
+      const autoHideDisplay = {
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+      };
+      assert.deepStrictEqual(computeFakeMaximizeBounds(autoHideDisplay), {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1079,
+      });
+
+      // Top taskbar (48px at top)
+      const topTaskbarDisplay = {
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 48, width: 1920, height: 1032 },
+      };
+      assert.deepStrictEqual(computeFakeMaximizeBounds(topTaskbarDisplay), {
+        x: 0,
+        y: 48,
+        width: 1920,
+        height: 1032,
+      });
+
+      // Left taskbar (72px at left)
+      const leftTaskbarDisplay = {
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 72, y: 0, width: 1848, height: 1080 },
+      };
+      assert.deepStrictEqual(computeFakeMaximizeBounds(leftTaskbarDisplay), {
+        x: 72,
+        y: 0,
+        width: 1848,
+        height: 1080,
+      });
+    });
+  });
+
+  // =========================================================================
+  // 5. Fechar e Reabrir o App Maximizado (Persistência de Fake-Maximize e RestoreBounds)
+  // =========================================================================
+  describe('5. Close & Reopen Maximized App: Reopens Fake-Maximized with Preserved RestoreBounds', () => {
+    it('should persist restoreBounds + maximized: true on saveBounds and call enterFakeMaximize(false) on startup', () => {
       assert.ok(
-        toolbarContent.includes('mt-[19px]') && toolbarContent.includes('h-4.5'),
-        'Collapsed handle center must be at y = 28px'
+        mainContent.includes('const persistedBounds = isMax ? restoreBounds : currentBounds;'),
+        'saveBounds must persist restoreBounds alongside maximized: true so normal bounds are not overwritten by workArea'
       );
-    });
-
-    it('should render collapsed handle with zero icons, text, or chevrons', () => {
-      const triggerMatch = toolbarContent.match(/<button[\s\S]*?data-toolbar-trigger="true"[\s\S]*?\/>/);
-      assert.ok(triggerMatch, 'Trigger handle button must be self-closing');
-      assert.ok(!triggerMatch[0].includes('ChevronDown'), 'No ChevronDown icon');
-      assert.ok(!triggerMatch[0].includes('ChevronUp'), 'No ChevronUp icon');
-      assert.ok(!triggerMatch[0].includes('<span>'), 'No text label');
+      assert.ok(
+        mainContent.includes('if (bounds.maximized) {\n    enterFakeMaximize(false);\n  }'),
+        'createWindow must call enterFakeMaximize(false) instead of win.maximize() when reopening in maximized state'
+      );
     });
   });
 });

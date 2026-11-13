@@ -4,7 +4,8 @@ import path from 'path';
 import os from 'os';
 import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
-import { IPC_CHANNELS as C } from '@mindagentics/shared';
+import { IPC_CHANNELS as C, assertPayloadWithinLimit } from '@mindagentics/shared';
+import { assertSafePathString, checkPathString, isInside } from '../security/pathSafety.js';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -21,6 +22,8 @@ export interface DispatcherDeps {
   terminalManager: TerminalManager;
   gitService: GitWorktreeService;
   graphifyService?: GraphifyService;
+  toggleFakeMaximize?: () => void;
+  isFakeMaximized?: () => boolean;
 }
 
 export function registerIpcDispatcher(deps: DispatcherDeps): void {
@@ -31,6 +34,8 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   const handle = (channel: string, handler: (...args: any[]) => any) => {
     ipcMain.handle(channel, async (_event, ...args) => {
       try {
+        // S6: reject oversized renderer payloads before any handler sees them
+        assertPayloadWithinLimit(channel, args);
         return await handler(...args);
       } catch (err: any) {
         console.error(`[IPC Error: ${channel}]`, err);
@@ -42,6 +47,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   const on = (channel: string, listener: (...args: any[]) => void) => {
     ipcMain.on(channel, (_event, ...args) => {
       try {
+        assertPayloadWithinLimit(channel, args);
         listener(...args);
       } catch (err) {
         console.error(`[IPC On Error: ${channel}]`, err);
@@ -72,7 +78,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
       locale: app.getLocale(),
       isPackaged: app.isPackaged,
       windowMaterial,
-      windowSeeThrough: false,
+      windowSeeThrough: Boolean(windowMaterial),
       buildSha: 'clean-room-0.26.0'
     };
   });
@@ -106,23 +112,77 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     return res.filePaths[0];
   });
 
+  handle(C.appPickReference, async (options?: {
+    target?: 'file' | 'folder' | 'all';
+    title?: string;
+    path?: string;
+    workspaceId?: string;
+  }) => {
+    let rawPath: string | null = null;
+    if (typeof options?.path === 'string' && options.path.trim().length > 0) {
+      rawPath = options.path;
+    } else {
+      const win = getWin();
+      const target = options?.target || 'all';
+      let properties: ('openFile' | 'openDirectory' | 'createDirectory')[] = ['openFile', 'openDirectory'];
+      if (target === 'file') {
+        properties = ['openFile'];
+      } else if (target === 'folder') {
+        properties = ['openDirectory', 'createDirectory'];
+      } else if (process.platform !== 'darwin') {
+        const msgOpts: Electron.MessageBoxOptions = {
+          type: 'question',
+          buttons: ['Arquivo', 'Pasta', 'Cancelar'],
+          defaultId: 0,
+          cancelId: 2,
+          title: 'Adicionar Referência',
+          message: 'O que você deseja referenciar no canvas?',
+          detail: 'Escolha se deseja selecionar um arquivo ou uma pasta.',
+        };
+        const choice = win
+          ? await dialog.showMessageBox(win, msgOpts)
+          : await dialog.showMessageBox(msgOpts);
+        if (choice.response === 2) return null;
+        properties = choice.response === 0 ? ['openFile'] : ['openDirectory', 'createDirectory'];
+      }
+      const res = await dialog.showOpenDialog(win || undefined, {
+        title: options?.title || 'Selecionar Arquivo ou Pasta',
+        properties
+      });
+      if (res.canceled || res.filePaths.length === 0) return null;
+      rawPath = res.filePaths[0];
+    }
+
+    const selected = assertSafePathString(rawPath);
+    let isDirectory = false;
+    try {
+      isDirectory = fs.statSync(selected).isDirectory();
+    } catch (err: any) {
+      throw new Error(`Failed to access selected path: ${err.message}`);
+    }
+    const label = path.basename(selected) || selected;
+    return { path: selected, isDirectory, label };
+  });
+
   handle(C.appLocalDirectorySuggestions, async (partialPath: string, limit = 10) => {
     try {
-      const dir = partialPath && fs.existsSync(partialPath) ? partialPath : os.homedir();
+      const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
+      const dir = typeof partialPath === 'string' && checkPathString(partialPath).ok && fs.existsSync(partialPath) ? path.resolve(partialPath) : os.homedir();
       const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-      return entries.filter(e => e.isDirectory()).slice(0, limit).map(e => path.join(dir, e.name));
+      return entries.filter(e => e.isDirectory()).slice(0, safeLimit).map(e => path.join(dir, e.name));
     } catch {
       return [];
     }
   });
 
   handle(C.appDirectoryState, async (_wsId: string, _env: any, dirPath: string) => {
-    const exists = fs.existsSync(dirPath);
-    return { exists, isDirectory: exists ? fs.statSync(dirPath).isDirectory() : false };
+    const safeDir = assertSafePathString(dirPath);
+    const exists = fs.existsSync(safeDir);
+    return { exists, isDirectory: exists ? fs.statSync(safeDir).isDirectory() : false };
   });
 
   handle(C.appCreateDirectory, async (_wsId: string, _env: any, dirPath: string) => {
-    await fs.promises.mkdir(dirPath, { recursive: true });
+    await fs.promises.mkdir(assertSafePathString(dirPath), { recursive: true });
     return { ok: true };
   });
 
@@ -147,15 +207,36 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     if (!ws || !ws.workingDirectory) return { ok: false };
     const ideCmd = ideId === 'cursor' ? 'cursor' : ideId === 'windsurf' ? 'windsurf' : 'code';
     try {
-      await execFileAsync(ideCmd, [ws.workingDirectory]);
+      await execFileAsync(ideCmd, [path.resolve(assertSafePathString(ws.workingDirectory))]); // absolute => cannot be parsed as an option
     } catch (err) {
       console.error(`[appOpenInIde] Failed to open ${ideCmd}:`, err);
     }
     return { ok: true };
   });
 
-  handle(C.appOpenExternal, (url: string) => shell.openExternal(url));
-  handle(C.appOpenPath, (p: string) => shell.openPath(p));
+  // S6: only plain web/mail links may be opened externally (blocks file:, javascript:, ms-*:, custom protocol handlers)
+  handle(C.appOpenExternal, (url: string) => {
+    if (typeof url !== 'string' || url.length > 4096) throw new Error('Invalid URL');
+    const parsed = new URL(url);
+    if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) throw new Error('Blocked URL scheme: ' + parsed.protocol);
+    return shell.openExternal(parsed.toString());
+  });
+  // S6: renderer may only open paths inside a known workspace or the app data dir, and never launch executables
+  handle(C.appOpenPath, async (p: string) => {
+    const safe = path.resolve(assertSafePathString(p));
+    let real: string;
+    try { real = fs.realpathSync.native(safe); } catch { throw new Error('Path does not exist'); }
+    const roots: string[] = [dataService.getDataDir()];
+    for (const ws of await dataService.listWorkspaces()) {
+      if (ws && typeof ws.workingDirectory === 'string' && ws.workingDirectory) roots.push(ws.workingDirectory);
+    }
+    const allowed = roots.some((r) => { try { return isInside(fs.realpathSync.native(r), real); } catch { return false; } });
+    if (!allowed) throw new Error('Path is outside of the allowed workspace directories');
+    if (!fs.statSync(real).isDirectory() && /\.(exe|bat|cmd|com|ps1|psm1|msi|msc|lnk|scr|vbs|vbe|wsf|js|jse|jar|reg|hta|cpl|dll|sh|command|app|desktop)$/i.test(real)) {
+      throw new Error('Refusing to launch executable/script files');
+    }
+    return shell.openPath(real);
+  });
   handle(C.appShowEmojiPanel, () => app.showEmojiPanel());
   on(C.appRendererBooted, () => console.log('[Renderer] Booted'));
   on(C.appRendererFault, (fault) => console.error('[Renderer Fault]', fault));
@@ -166,7 +247,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
     const win = getWin();
     if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
       win.webContents.send(C.windowControlsOnChanged, {
-        isMaximized: win.isMaximized(),
+        isMaximized: deps.isFakeMaximized ? deps.isFakeMaximized() : win.isMaximized(),
         isFullScreen: win.isFullScreen(),
         isMinimized: win.isMinimized()
       });
@@ -176,7 +257,7 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   handle(C.windowControlsState, () => {
     const win = getWin();
     return {
-      isMaximized: win ? win.isMaximized() : false,
+      isMaximized: deps.isFakeMaximized ? deps.isFakeMaximized() : (win ? win.isMaximized() : false),
       isFullScreen: win ? win.isFullScreen() : false,
       isMinimized: win ? win.isMinimized() : false
     };
@@ -191,12 +272,22 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   });
 
   handle(C.windowControlsToggleMaximize, () => {
-    const win = getWin();
-    if (win) {
-      if (win.isMaximized()) win.unmaximize();
-      else win.maximize();
-      sendWindowControlsChanged();
+    if (deps.toggleFakeMaximize) {
+      deps.toggleFakeMaximize();
+    } else {
+      const win = getWin();
+      if (win) {
+        try {
+          win.setBackgroundColor('#00000000');
+        } catch {}
+        if (win.isMaximized()) win.unmaximize();
+        else win.maximize();
+        try {
+          win.setBackgroundColor('#00000000');
+        } catch {}
+      }
     }
+    sendWindowControlsChanged();
   });
 
   handle(C.windowControlsClose, () => {
@@ -560,6 +651,9 @@ export function registerIpcDispatcher(deps: DispatcherDeps): void {
   handle(C.terminalRestart, async (terminalId: string) => {
     await terminalManager.restart(terminalId);
     return { ok: true };
+  });
+  handle(C.terminalReconfigure, async (arg1: any, arg2?: any) => {
+    return terminalManager.reconfigure(arg1, arg2);
   });
   handle(C.terminalGetScrollback, (terminalId: string) => terminalManager.getScrollback(terminalId));
   handle(C.terminalMarkSeen, (terminalId: string) => {

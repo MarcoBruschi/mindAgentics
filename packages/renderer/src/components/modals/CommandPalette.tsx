@@ -43,6 +43,7 @@ import {
   AlignRight,
   AlignJustify,
   Layers,
+  FolderOpen,
   Sparkles,
   UnfoldHorizontal,
   FolderMinus,
@@ -386,34 +387,47 @@ export const CommandPalette: React.FC = () => {
         },
       },
       {
-        id: 'add-fichario',
-        title: 'Novo Fichário (Binder / Note Stack)',
-        category: 'Canvas Nodes (@note)',
-        icon: <BookOpen className="w-4 h-4 text-purple-400" />,
-        perform: () => {
-          const nextPos = framePlacedNextTo(nodes, null, {
-            x: (-offset.x + 320) / offset.zoom,
-            y: (-offset.y + 200) / offset.zoom,
-          });
-          setNodes((prev) => [
-            ...prev,
-            {
-              id: `node-stack-${Date.now()}`,
-              kind: 'noteStack',
-              x: nextPos.x,
-              y: nextPos.y,
-              width: DEFAULT_NODE_DIMENSIONS.noteStack.width,
-              height: DEFAULT_NODE_DIMENSIONS.noteStack.height,
-              zIndex: 30,
-              content: {
-                stackId: `stack-${Date.now()}`,
-                title: 'Fichário',
-                noteIds: ['p1'],
-                activePageIndex: 0,
-                pages: [{ id: 'p1', title: 'Doc 1', body: '## Documento 1', color: 'blue' }],
-              },
-            },
-          ]);
+        id: 'add-file-ref',
+        title: 'Adicionar Referência (Pasta ou Arquivo)',
+        category: 'Canvas Nodes (@ref)',
+        icon: <FolderOpen className="w-4 h-4 text-emerald-400" />,
+        perform: async () => {
+          const api = (window as any).api || (window as any).mindAgentics;
+          const pickFn = api?.app?.pickReference || api?.app?.pickDirectory;
+          if (!pickFn) return;
+          try {
+            const res = await pickFn();
+            if (!res) return;
+            const pickedPath = typeof res === 'string' ? res : res.path;
+            const isDir = typeof res === 'object' && 'isDirectory' in res ? res.isDirectory : true;
+            if (!pickedPath) return;
+            const normalized = pickedPath.replace(/\\/g, '/');
+            const parts = normalized.split('/').filter(Boolean);
+            const label = parts[parts.length - 1] || pickedPath;
+            const nextPos = framePlacedNextTo(nodes, null, {
+              x: (-offset.x + 320) / offset.zoom,
+              y: (-offset.y + 200) / offset.zoom,
+            });
+            setNodes((prev) => [
+              ...prev,
+              {
+                id: `node-ref-${Date.now()}`,
+                kind: 'fileRef',
+                x: nextPos.x,
+                y: nextPos.y,
+                width: DEFAULT_NODE_DIMENSIONS.fileRef.width,
+                height: DEFAULT_NODE_DIMENSIONS.fileRef.height,
+                zIndex: 30,
+                content: {
+                  path: pickedPath,
+                  isDirectory: isDir,
+                  label,
+                },
+              } as any,
+            ]);
+          } catch (err) {
+            console.error('Failed to pick reference:', err);
+          }
         },
       },
       {

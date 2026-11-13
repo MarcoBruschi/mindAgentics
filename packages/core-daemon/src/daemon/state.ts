@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { sanitizeMemoryText } from '@mindagentics/shared';
 /**
  * Core Daemon In-Memory State & Coordination Store
  */
@@ -157,9 +158,14 @@ export class DaemonState {
     try {
       const dir = path.dirname(this.memoryFilePath);
       if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
       }
-      fs.appendFileSync(this.memoryFilePath, JSON.stringify(entry) + '\n', 'utf8');
+      const safeEntry = {
+        terminalId: entry.terminalId,
+        text: sanitizeMemoryText(entry.text),
+        timestamp: entry.timestamp,
+      };
+      fs.appendFileSync(this.memoryFilePath, JSON.stringify(safeEntry) + '\n', { encoding: 'utf8', mode: 0o600 });
     } catch (err) {
       console.warn('[DaemonState] Failed to append memory entry:', err);
     }

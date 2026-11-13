@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session } from 'electron';
+import { app, BrowserWindow, session, screen } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -12,6 +12,8 @@ import { GraphifyService } from './graphify/graphifyService.js';
 import { registerIpcDispatcher } from './ipc/dispatcher.js';
 
 let mainWindow: BrowserWindow | null = null;
+let activeToggleFakeMaximize: (() => void) | undefined;
+let activeIsFakeMaximized: (() => boolean) | undefined;
 const dataService = new DataService();
 const supervisor = new CoreDaemonSupervisor();
 const terminalManager = new TerminalManager(supervisor, dataService);
@@ -64,6 +66,7 @@ async function createWindow(): Promise<BrowserWindow> {
 
   const preloadPath = resolvePreloadPath();
   const material = getWindowMaterial();
+  const windowBg = material ? '#00000000' : '#0f1012';
 
   const win = new BrowserWindow({
     title: 'mindAgentics',
@@ -76,13 +79,15 @@ async function createWindow(): Promise<BrowserWindow> {
     resizable: true,
     movable: true,
     minimizable: true,
-    maximizable: true,
-    titleBarStyle: 'hidden',
-    autoHideMenuBar: true,
-    trafficLightPosition: { x: 14, y: 14 },
-    backgroundColor: material ? '#00000000' : '#0f1012',
+    maximizable: process.platform !== 'win32',
+    backgroundColor: windowBg,
     ...(material === 'acrylic' ? { backgroundMaterial: 'acrylic' } : {}),
     ...(material === 'vibrancy' ? { vibrancy: 'sidebar' } : {}),
+    titleBarStyle: 'hidden',
+    thickFrame: true,
+    roundedCorners: true,
+    autoHideMenuBar: true,
+    trafficLightPosition: { x: 14, y: 14 },
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -106,9 +111,9 @@ async function createWindow(): Promise<BrowserWindow> {
   const refreshMaterial = (isMaximizedState?: boolean) => {
     if (win.isDestroyed() || win.isMinimized()) return;
 
-    // Force transparent background before reapplying material to avoid losing alpha channel
+    // Preserve alpha channel when material is active, or solid dark fallback on Windows 10
     try {
-      win.setBackgroundColor('#00000000');
+      win.setBackgroundColor(windowBg);
     } catch {}
 
     if (material && process.platform === 'win32') {
@@ -120,7 +125,7 @@ async function createWindow(): Promise<BrowserWindow> {
       const apply = () => {
         if (!win.isDestroyed() && !win.isMinimized()) {
           try {
-            win.setBackgroundColor('#00000000');
+            win.setBackgroundColor(windowBg);
             if ((win as any).setBackgroundMaterial) {
               try {
                 (win as any).setBackgroundMaterial(targetMaterial);
@@ -150,29 +155,67 @@ async function createWindow(): Promise<BrowserWindow> {
     }
   };
 
+  let isFakeMaximized = false;
+  let isApplyingFakeMaximizeBounds = false;
+  const shouldFakeMaximize = Boolean(bounds.isFakeMaximized || bounds.maximized);
+  let restoreBounds = {
+    x: typeof bounds.restoreBounds?.x === 'number' ? bounds.restoreBounds.x : (typeof bounds.x === 'number' ? bounds.x : 100),
+    y: typeof bounds.restoreBounds?.y === 'number' ? bounds.restoreBounds.y : (typeof bounds.y === 'number' ? bounds.y : 100),
+    width: bounds.restoreBounds?.width || bounds.width || 1280,
+    height: bounds.restoreBounds?.height || bounds.height || 800
+  };
+
+  const getFakeMaximizeBounds = (targetWin: BrowserWindow) => {
+    const currentBounds = targetWin.getBounds();
+    const display = screen.getDisplayMatching(currentBounds);
+    const { workArea, bounds: displayBounds } = display;
+    // When taskbar is set to auto-hide, workArea equals displayBounds.
+    // Reserve 1px so Windows DWM never treats the window as exclusive fullscreen,
+    // preserving all 4 DWM rounded corners, acrylic translucency, and taskbar hover trigger.
+    const isAutoHideTaskbar =
+      workArea.x === displayBounds.x &&
+      workArea.y === displayBounds.y &&
+      workArea.width === displayBounds.width &&
+      workArea.height === displayBounds.height;
+
+    return {
+      x: workArea.x,
+      y: workArea.y,
+      width: workArea.width,
+      height: isAutoHideTaskbar ? Math.max(600, workArea.height - 1) : workArea.height
+    };
+  };
+
+  const isWindowMaximized = () => {
+    if (win.isDestroyed()) return false;
+    return isFakeMaximized;
+  };
+
   const sendWindowControlsChanged = () => {
     if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
       win.webContents.send(C.windowControlsOnChanged, {
-        isMaximized: win.isMaximized(),
+        isMaximized: isFakeMaximized,
         isFullScreen: win.isFullScreen(),
         isMinimized: win.isMinimized()
       });
     }
   };
 
-  if (bounds.maximized) {
-    win.maximize();
-    win.setBackgroundColor('#00000000');
-    refreshMaterial(true);
-    sendWindowControlsChanged();
-  }
-
   let boundsSaveTimer: NodeJS.Timeout | null = null;
   const saveBounds = () => {
     if (!win.isDestroyed()) {
-      const isMax = win.isMaximized();
+      const isMax = isFakeMaximized;
       const isFull = win.isFullScreen();
       const currentBounds = win.getBounds();
+      if (!isMax && !isFull && !win.isMinimized() && !isApplyingFakeMaximizeBounds) {
+        restoreBounds = {
+          x: currentBounds.x,
+          y: currentBounds.y,
+          width: currentBounds.width,
+          height: currentBounds.height
+        };
+      }
+      const persistedBounds = isMax ? restoreBounds : currentBounds;
 
       sendWindowControlsChanged();
 
@@ -182,12 +225,19 @@ async function createWindow(): Promise<BrowserWindow> {
       boundsSaveTimer = setTimeout(() => {
         dataService.saveAppState({
           windowBounds: {
-            x: currentBounds.x,
-            y: currentBounds.y,
-            width: currentBounds.width,
-            height: currentBounds.height,
+            x: persistedBounds.x,
+            y: persistedBounds.y,
+            width: persistedBounds.width,
+            height: persistedBounds.height,
             maximized: isMax,
-            fullScreen: isFull
+            fullScreen: isFull,
+            isFakeMaximized: isMax,
+            restoreBounds: {
+              x: restoreBounds.x,
+              y: restoreBounds.y,
+              width: restoreBounds.width,
+              height: restoreBounds.height
+            }
           }
         }).catch((err) => {
           console.warn('[saveAppState] Debounced save failed:', err);
@@ -196,69 +246,235 @@ async function createWindow(): Promise<BrowserWindow> {
     }
   };
 
-  win.on('resize', () => {
-    saveBounds();
-    refreshMaterial();
-  });
-  win.on('move', saveBounds);
-  win.on('maximize', () => {
+  const enterFakeMaximize = (captureRestore = true) => {
+    if (win.isDestroyed()) return;
+    if (captureRestore && !isFakeMaximized && !win.isMinimized()) {
+      const b = win.getBounds();
+      restoreBounds = { x: b.x, y: b.y, width: b.width, height: b.height };
+    }
+    const targetBounds = getFakeMaximizeBounds(win);
+    isFakeMaximized = true;
+    isApplyingFakeMaximizeBounds = true;
+    try {
+      win.setBounds(targetBounds);
+    } finally {
+      setTimeout(() => {
+        isApplyingFakeMaximizeBounds = false;
+      }, 100);
+    }
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
+    refreshMaterial(true);
     sendWindowControlsChanged();
     saveBounds();
-    win.setBackgroundColor('#00000000');
-    refreshMaterial(true);
+  };
+
+  const exitFakeMaximize = () => {
+    if (win.isDestroyed()) return;
+    isFakeMaximized = false;
+    isApplyingFakeMaximizeBounds = true;
+    try {
+      win.setBounds(restoreBounds);
+    } finally {
+      setTimeout(() => {
+        isApplyingFakeMaximizeBounds = false;
+      }, 100);
+    }
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
+    refreshMaterial(false);
+    sendWindowControlsChanged();
+    saveBounds();
+  };
+
+  const toggleFakeMaximize = () => {
+    if (isFakeMaximized) {
+      exitFakeMaximize();
+    } else {
+      enterFakeMaximize(true);
+    }
+  };
+
+  (win as any).__isFakeMaximized = isWindowMaximized;
+  (win as any).__toggleFakeMaximize = toggleFakeMaximize;
+  (win as any).__enterFakeMaximize = enterFakeMaximize;
+  (win as any).__exitFakeMaximize = exitFakeMaximize;
+  activeToggleFakeMaximize = toggleFakeMaximize;
+  activeIsFakeMaximized = () => isFakeMaximized;
+
+  if (process.platform === 'win32' && typeof win.hookWindowMessage === 'function') {
+    // WM_NCLBUTTONDBLCLK (0x00A3): double-clicking on -webkit-app-region: drag titlebar
+    win.hookWindowMessage(0x00A3, () => {
+      setTimeout(() => {
+        if (!win.isDestroyed()) toggleFakeMaximize();
+      }, 0);
+    });
+  }
+
+  const onDisplayChanged = () => {
+    if (!win.isDestroyed() && isFakeMaximized && !win.isMinimized()) {
+      const currentBounds = win.getBounds();
+      const display = screen.getDisplayMatching(currentBounds);
+      isApplyingFakeMaximizeBounds = true;
+      try {
+        win.setBounds(getFakeMaximizeBounds(win));
+      } finally {
+        setTimeout(() => {
+          isApplyingFakeMaximizeBounds = false;
+        }, 100);
+      }
+      try {
+        win.setBackgroundColor('#00000000');
+      } catch {}
+      refreshMaterial(true);
+      sendWindowControlsChanged();
+      saveBounds();
+    }
+  };
+  screen.on('display-metrics-changed', onDisplayChanged);
+  screen.on('display-added', onDisplayChanged);
+  screen.on('display-removed', onDisplayChanged);
+
+  if (bounds.maximized) {
+    enterFakeMaximize(false);
+  }
+
+  win.on('resize', () => {
+    if (isFakeMaximized && !isApplyingFakeMaximizeBounds && !win.isMinimized()) {
+      const cur = win.getBounds();
+      const target = getFakeMaximizeBounds(win);
+      if (Math.abs(cur.width - target.width) > 4 || Math.abs(cur.height - target.height) > 4) {
+        isFakeMaximized = false;
+        restoreBounds = { x: cur.x, y: cur.y, width: cur.width, height: cur.height };
+        sendWindowControlsChanged();
+      }
+    }
+    saveBounds();
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
+    refreshMaterial(isFakeMaximized);
   });
+
+  win.on('move', () => {
+    if (isFakeMaximized && !isApplyingFakeMaximizeBounds && !win.isMinimized()) {
+      const cur = win.getBounds();
+      const target = getFakeMaximizeBounds(win);
+      if (Math.abs(cur.x - target.x) > 4 || Math.abs(cur.y - target.y) > 4) {
+        isFakeMaximized = false;
+        restoreBounds = { x: cur.x, y: cur.y, width: cur.width, height: cur.height };
+        sendWindowControlsChanged();
+      }
+    }
+    saveBounds();
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
+    refreshMaterial(isFakeMaximized);
+  });
+
+  win.on('maximize', () => {
+    try {
+      win.unmaximize();
+    } catch {}
+    enterFakeMaximize(false);
+  });
+
   win.on('unmaximize', () => {
     sendWindowControlsChanged();
     saveBounds();
-    win.setBackgroundColor('#00000000');
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
     refreshMaterial(false);
   });
+
   win.on('minimize', () => {
     sendWindowControlsChanged();
     saveBounds();
     clearRefreshTimers();
   });
+
   win.on('restore', () => {
+    if (process.platform === 'win32' && isFakeMaximized) {
+      isApplyingFakeMaximizeBounds = true;
+      try {
+        win.setBounds(getFakeMaximizeBounds(win));
+      } finally {
+        setTimeout(() => {
+          isApplyingFakeMaximizeBounds = false;
+        }, 100);
+      }
+    }
     sendWindowControlsChanged();
     saveBounds();
-    win.setBackgroundColor('#00000000');
-    refreshMaterial();
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
+    refreshMaterial(isFakeMaximized);
   });
+
   win.on('show', () => {
     sendWindowControlsChanged();
     saveBounds();
-    win.setBackgroundColor('#00000000');
-    refreshMaterial();
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
+    refreshMaterial(isFakeMaximized);
   });
+
   win.on('enter-full-screen', () => {
     sendWindowControlsChanged();
     saveBounds();
-    win.setBackgroundColor('#00000000');
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
     refreshMaterial();
   });
+
   win.on('leave-full-screen', () => {
     sendWindowControlsChanged();
     saveBounds();
-    win.setBackgroundColor('#00000000');
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
     refreshMaterial();
   });
 
   win.once('ready-to-show', () => {
-    win.setBackgroundColor('#00000000');
-    refreshMaterial();
+    if (shouldFakeMaximize) {
+      enterFakeMaximize(false);
+    }
+    try {
+      win.setBackgroundColor('#00000000');
+    } catch {}
+    refreshMaterial(isFakeMaximized);
   });
 
   win.on('closed', () => {
+    screen.removeListener('display-metrics-changed', onDisplayChanged);
+    screen.removeListener('display-added', onDisplayChanged);
+    screen.removeListener('display-removed', onDisplayChanged);
+    activeToggleFakeMaximize = undefined;
+    activeIsFakeMaximized = undefined;
     mainWindow = null;
   });
 
-  // Support F11 and Alt+Enter for native Fullscreen toggle
+  // Support F11 / Alt+Enter for native Fullscreen toggle, and Win+Up / Win+Down for Fake-Maximize
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown') {
       if (input.key === 'F11' || (input.alt && input.key === 'Enter')) {
         event.preventDefault();
         win.setFullScreen(!win.isFullScreen());
         sendWindowControlsChanged();
+      } else if (process.platform === 'win32' && input.meta && input.key === 'ArrowUp') {
+        event.preventDefault();
+        enterFakeMaximize(true);
+      } else if (process.platform === 'win32' && input.meta && input.key === 'ArrowDown' && isFakeMaximized) {
+        event.preventDefault();
+        exitFakeMaximize();
       }
     }
   });
@@ -267,8 +483,8 @@ async function createWindow(): Promise<BrowserWindow> {
   win.webContents.on('did-finish-load', () => {
     win.webContents.setZoomLevel(0);
     win.webContents.setVisualZoomLevelLimits(1, 1);
-    win.setBackgroundColor('#00000000');
-    refreshMaterial();
+    win.setBackgroundColor(windowBg);
+    refreshMaterial(isFakeMaximized);
   });
 
   win.webContents.on('zoom-changed', (event) => {
@@ -356,7 +572,9 @@ if (app && typeof app.whenReady === 'function') {
       supervisor,
       terminalManager,
       gitService,
-      graphifyService
+      graphifyService,
+      toggleFakeMaximize: () => activeToggleFakeMaximize?.(),
+      isFakeMaximized: () => Boolean(activeIsFakeMaximized?.())
     });
 
     app.on('activate', async () => {

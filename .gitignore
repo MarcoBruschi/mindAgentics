@@ -28,6 +28,8 @@ graphify-out/
 .graphify/
 *.graph.json
 .mindagentics_graph.json
+.mindagentics/
+.mindagentics/memory/
 
 # Environment Variables & Secrets
 .env

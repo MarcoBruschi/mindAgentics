@@ -7,7 +7,7 @@
 :root {
   color-scheme: dark;
   --bg-primary: #0E0F12;
-  --sidebar-bg: rgba(18, 20, 24, 0.65);
+  --sidebar-bg: #121418;
   --sidebar-fg: #E7E8EA;
   --sidebar-hover: #181B20;
   --sidebar-active: #181B20;
@@ -15,7 +15,7 @@
 
   /* Impeccable Precision Surfaces Scale */
   --surface-base: #0E0F12;
-  --surface-1: rgba(18, 20, 24, 0.65);
+  --surface-1: #121418;
   --surface-2: #14161A;
   --surface-3: #1A1D23;
   --surface-primary: #14161A;
@@ -51,26 +51,30 @@ html.window-translucent .app-shell {
 }
 
 html.window-translucent {
-  --sidebar-bg: rgba(10, 12, 16, 0.22);
+  --sidebar-bg: rgba(10, 12, 16, 0.48);
 }
 
 @media (prefers-color-scheme: dark) {
   html.window-translucent:not([data-theme="light"]) {
-    --sidebar-bg: rgba(10, 12, 16, 0.22);
+    --sidebar-bg: rgba(10, 12, 16, 0.48);
   }
 }
 
 html.window-translucent[data-theme="dark"],
 html.window-translucent.dark,
 html.dark {
-  --sidebar-bg: rgba(10, 12, 16, 0.22);
+  --sidebar-bg: rgba(10, 12, 16, 0.48);
 }
 
-/* Ensure sidebar preserves translucency continuously across maximization */
+/* Sidebar: fallback sólido legível (#121418) quando sem material translúcido; acrílico escuro translúcido quando window-translucent */
 aside {
-  background-color: rgba(10, 12, 16, 0.22) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
+  background-color: var(--sidebar-bg, #121418) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.window-translucent aside {
+  background-color: rgba(10, 12, 16, 0.48) !important;
 }
 
 body {
@@ -80,7 +84,15 @@ body {
   user-select: none;
   overflow: hidden;
   color: #E7E8EA;
-  background-color: #0E0F12;
+  background-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Crisp XTerm Canvas Rendering */
+.xterm-screen canvas {
+  image-rendering: crisp-edges;
 }
 
 /* Custom scrollbars */

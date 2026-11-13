@@ -19,6 +19,7 @@ export * from './commands/list.js';
 export * from './commands/say.js';
 export * from './commands/portal.js';
 export * from './commands/connect.js';
+export * from './commands/ref.js';
 export * from './commands/note.js';
 export * from './commands/graphify.js';
 export * from './commands/floor.js';

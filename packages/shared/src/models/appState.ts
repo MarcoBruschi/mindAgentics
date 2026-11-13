@@ -10,6 +10,8 @@ export interface WindowBounds {
   height: number;
   maximized: boolean;
   fullScreen: boolean;
+  isFakeMaximized?: boolean;
+  restoreBounds?: { x: number; y: number; width: number; height: number };
 }
 
 export interface AppStatePayload {

@@ -67,6 +67,7 @@ export const DEFAULT_NODE_DIMENSIONS = {
   terminal: { width: 800, height: 500 },
   portal: { width: 800, height: 600 },
   noteStack: { width: 380, height: 340 },
+  fileRef: { width: 140, height: 128 },
 };
 
 /**

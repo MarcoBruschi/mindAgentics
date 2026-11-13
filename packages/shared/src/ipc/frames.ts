@@ -179,11 +179,15 @@ export interface OrchestratorAttentionPayload {
 
 export type MaestroAttentionPayload = OrchestratorAttentionPayload;
 
+export const MAX_TERMINAL_OUTPUT_LINES = 150;
+
 export interface ChatTurnSettledPayload {
   terminalId: string;
   askId?: string;
   output: string;
   exitCode?: number;
+  truncated?: boolean;
+  fullOutputLogPath?: string;
 }
 
 export interface TerminalMemoryRecord {
@@ -199,6 +203,8 @@ export interface CliRequestEnvelope {
   terminalId: string;
   workspaceId?: string;
   floorId?: string;
+  cwd?: string;
+  stdin?: string;
   command: string;
   args: string[];
   options: Record<string, any>;

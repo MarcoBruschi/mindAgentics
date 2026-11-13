@@ -20,6 +20,7 @@ import { connectCommand } from './connect.js';
 import { bandCommand } from './band.js';
 import { arrangeCommand } from './arrange.js';
 import { graphifyCommand } from './graphify.js';
+import { refCommand } from './ref.js';
 
 export function registerAllCommands(pipeServer: NamedPipeServer) {
   pipeServer.registerHandler('list', listCommand);
@@ -43,4 +44,5 @@ export function registerAllCommands(pipeServer: NamedPipeServer) {
   pipeServer.registerHandler('band', bandCommand);
   pipeServer.registerHandler('arrange', arrangeCommand);
   pipeServer.registerHandler('graphify', graphifyCommand);
+  pipeServer.registerHandler('ref', refCommand);
 }

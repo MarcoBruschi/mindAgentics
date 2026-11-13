@@ -13,6 +13,7 @@ export type NodeKind =
   | 'drawing'
   | 'cableTie'
   | 'file'
+  | 'fileRef'
   | 'textBlock';
 
 export interface NodeBounds {
@@ -216,6 +217,21 @@ export interface FileNode extends BaseNode {
   content: FileContent;
 }
 
+/**
+ * Reference to a file or folder on disk. Connecting it to an agent injects only
+ * its path and type (never its content).
+ */
+export interface FileRefContent {
+  path: string;
+  isDirectory: boolean;
+  label: string;
+}
+
+export interface FileRefNode extends BaseNode {
+  kind: 'fileRef';
+  content: FileRefContent;
+}
+
 export interface TextBlockContent {
   text: string;
   fontSize?: number;
@@ -239,4 +255,5 @@ export type CanvasNode =
   | GroupNode
   | DrawingNode
   | FileNode
+  | FileRefNode
   | TextBlockNode;

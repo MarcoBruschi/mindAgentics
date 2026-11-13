@@ -7,7 +7,29 @@ import * as nodePty from 'node-pty';
 import { CoreDaemonSupervisor } from '../supervisor/coreDaemonSupervisor.js';
 import type { DataService } from '../storage/dataService.js';
 import type { TerminalStatus } from '@mindagentics/shared';
-import { probeAntigravity, probeCodex, probeOpenCode, formatResetCountdown, type AgentUsageReport } from './agentProbes.js';
+import {
+  MAX_TERMINAL_OUTPUT_LINES,
+  sanitizeLabel,
+  sanitizeMarkdownInline,
+  sanitizeMarkdownBlock,
+  sanitizeForPtyLine,
+  quotePowerShell,
+  quotePosix,
+  redactSecrets,
+  hasControlChars,
+} from '@mindagentics/shared';
+import { probeAntigravity, probeCodex, probeOpenCode, probeClaude, probeCopilot, formatResetCountdown, buildUsageWindows, type AgentUsageReport } from './agentProbes.js';
+import { MemoryService, memorySummaryRelPath } from '../memory/memoryService.js';
+
+export interface AgentRefInfo {
+  path: string;
+  isDirectory: boolean;
+  label?: string;
+}
+
+/** Hard budget for the initial prompt injected on spawn (~chars/4 tokens). */
+const MAX_BRIEFING_TOKENS = 580;
+const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
 
 export interface TerminalSpawnOptions {
   id?: string;
@@ -40,10 +62,14 @@ export interface TerminalSession {
   cols: number;
   rows: number;
   title?: string;
+  presetId?: string;
+  command?: string;
+  isAutonomous?: boolean;
   agentRole?: string;
   instructions?: string;
   orchestratorMode?: boolean;
   maestroMode?: boolean;
+  refs?: AgentRefInfo[];
   activeAskId?: string;
   askOutput?: string;
   askTimer?: NodeJS.Timeout;
@@ -55,12 +81,21 @@ export class TerminalManager extends EventEmitter {
   private supervisor: CoreDaemonSupervisor;
   private dataService?: DataService;
   private maxScrollbackLines = 10000;
+  private maxCommandOutputLines = MAX_TERMINAL_OUTPUT_LINES || 150;
   private saveDebounceTimers = new Map<string, NodeJS.Timeout>();
+  private memory = new MemoryService();
 
   constructor(supervisor: CoreDaemonSupervisor, dataService?: DataService) {
     super();
     this.supervisor = supervisor;
     this.dataService = dataService;
+
+    // fileRef connected / disconnected: keep the agent's AGENTS.md block in sync
+    this.supervisor.on('agentRefsChanged', (payload: { terminalId: string; refs: AgentRefInfo[] }) => {
+      if (payload && payload.terminalId) {
+        this.updateAgentRefs(payload.terminalId, Array.isArray(payload.refs) ? payload.refs : []);
+      }
+    });
 
     // Connect supervisor's ptyWrite and deliverPrompt events
     this.supervisor.on('ptyWrite', (payload: { terminalId: string; data: string }) => {
@@ -128,7 +163,7 @@ export class TerminalManager extends EventEmitter {
     const dir = this.getStorageDir();
     try {
       if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
       }
     } catch (err) {
       console.warn('[TerminalManager] Failed to create storage dir:', err);
@@ -139,6 +174,63 @@ export class TerminalManager extends EventEmitter {
   private getLogFilePath(terminalId: string): string {
     const safeId = terminalId.replace(/[^a-zA-Z0-9_-]/g, '_');
     return path.join(this.ensureStorageDir(), `${safeId}.log`);
+  }
+
+  private lastTempLogPrune = 0;
+
+  /** S3 retention: pty overflow logs in the OS temp dir are deleted after 7 days (checked at most hourly). */
+  private pruneOldTempLogs(dir: string): void {
+    const now = Date.now();
+    if (now - this.lastTempLogPrune < 3_600_000) return;
+    this.lastTempLogPrune = now;
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        if (!/^pty-.*\.log$/.test(f)) continue;
+        const full = path.join(dir, f);
+        if (now - fs.statSync(full).mtimeMs > 7 * 86_400_000) fs.rmSync(full, { force: true });
+      }
+    } catch { /* best effort */ }
+  }
+
+  public truncateOutputIfNeeded(
+    terminalId: string,
+    output: string,
+    maxLines = this.maxCommandOutputLines
+  ): { text: string; truncated: boolean; logFilePath?: string } {
+    if (!output) {
+      return { text: output, truncated: false };
+    }
+    const lines = output.split(/\r?\n/);
+    if (lines.length <= maxLines) {
+      return { text: output, truncated: false };
+    }
+
+    const safeId = terminalId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const tmpDir = path.join(os.tmpdir(), 'mindagentics-logs');
+    const logFilePath = path.join(tmpDir, `pty-${safeId}-${Date.now()}.log`);
+
+    try {
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true, mode: 0o700 });
+      }
+      this.pruneOldTempLogs(tmpDir);
+      fs.writeFileSync(logFilePath, redactSecrets(output), { encoding: 'utf8', mode: 0o600 });
+    } catch (err) {
+      console.warn(`[TerminalManager] Failed to write truncated PTY output log for ${terminalId}:`, err);
+    }
+
+    const headCount = Math.floor(maxLines / 2);
+    const tailCount = maxLines - headCount;
+    const omittedCount = lines.length - maxLines;
+    const headLines = lines.slice(0, headCount);
+    const tailLines = lines.slice(-tailCount);
+    const notice = `... [${omittedCount} linhas truncadas (total: ${lines.length} > ${maxLines} linhas). Log completo salvo em: ${logFilePath}] ...`;
+
+    return {
+      text: [...headLines, notice, ...tailLines].join('\n'),
+      truncated: true,
+      logFilePath,
+    };
   }
 
   private readPersistedScrollback(terminalId: string): string {
@@ -172,7 +264,8 @@ export class TerminalManager extends EventEmitter {
         session.scrollback = [content];
       }
 
-      await fs.promises.writeFile(filePath, content, 'utf8');
+      // S3: never persist secrets; redact on the joined buffer so tokens split across pty chunks are still caught
+      await fs.promises.writeFile(filePath, redactSecrets(content), { encoding: 'utf8', mode: 0o600 });
     } catch (err) {
       console.warn(`[TerminalManager] Failed to persist scrollback for ${terminalId}:`, err);
     }
@@ -214,9 +307,10 @@ export class TerminalManager extends EventEmitter {
     const cols = options.cols || 120;
     const rows = options.rows || 32;
     const cwd = options.cwd && fs.existsSync(options.cwd) ? options.cwd : os.homedir();
-    const agentName = options.title || 'Agent';
-    const agentRole = options.agentRole || '';
-    const instructions = options.instructions || '';
+    // S2: agent metadata is untrusted (may come from CLI `recruit`, presets, folder names) -> sanitize once, at the boundary
+    const agentName = sanitizeLabel(options.title || 'Agent', 80) || 'Agent';
+    const agentRole = sanitizeLabel(options.agentRole || '', 200);
+    const instructions = sanitizeMarkdownBlock(options.instructions || '', 4000);
     const isAutonomous = options.isAutonomous ?? true;
 
     // 1. Check if session already exists and is alive (e.g. switching workspaces and returning)
@@ -268,7 +362,14 @@ export class TerminalManager extends EventEmitter {
 
     const shellArgs = isWin ? ['-NoLogo', '-NoExit'] : ['-l'];
 
-    this.ensureMindAgenticsSkills(cwd, { title: agentName, agentRole, instructions, terminalId });
+    const refs = await this.loadConnectedRefs(workspaceId, terminalId);
+    if (this.memory.hasMemory(cwd, agentName) && !this.memory.hasSummary(cwd, agentName)) {
+      try { this.memory.generateSummary(cwd, agentName); } catch {}
+    }
+    const resuming = this.memory.hasMemory(cwd, agentName);
+    const memoryLine = this.memory.hasSummary(cwd, agentName) ? `Memória: leia ${memorySummaryRelPath(agentName)}` : '';
+
+    this.ensureMindAgenticsSkills(cwd, { title: agentName, agentRole, instructions, terminalId, refs, memoryLine });
 
     try {
       const pty = nodePty.spawn(shell, shellArgs, {
@@ -292,37 +393,63 @@ export class TerminalManager extends EventEmitter {
         cols,
         rows,
         title: agentName,
+        presetId: options.presetId,
+        command: options.command,
+        isAutonomous,
         agentRole,
         instructions,
         orchestratorMode: Boolean(options.orchestratorMode ?? options.maestroMode),
         maestroMode: Boolean(options.orchestratorMode ?? options.maestroMode),
+        refs,
         isAlive: true
       };
 
       this.sessions.set(terminalId, session);
+      this.memory.start(terminalId, agentName, cwd);
 
-      // Build identity briefing so the agent immediately absorbs its name, role, and context
-      let identityBriefing = '';
+      // Command Fast-Path executive briefing (100% static prefix first for Prompt Caching stability, zero timestamps/GUIDs)
+      const cheatsheetHeader = [
+        '[mindAgentics Cheatsheet - Prefixo Estático Imutável]',
+        'DIRETRIZ ZERO-READ: NUNCA execute read_file/cat em AGENTS.md, CLAUDE.md ou SKILL.md.',
+        'DIRETRIZ DE TRANSCRIÇÃO (FIDELIDADE 100%): Ao criar ou atualizar notas adesivas (mindagentics note write/create), você deve transcrever o conteúdo na íntegra (100% verbatim). É expressamente proibido resumir, omitir detalhes técnicos, sintetizar tópicos ou parafrasear, a menos que o usuário utilize explicitamente palavras como "resuma" ou "faça um resumo". Para textos longos, grave em arquivo temporário e use: mindagentics note write "<Nome>" --file <caminho>.',
+        '1. Ver equipe:        mindagentics list',
+        '2. Delegar tarefa:    mindagentics ask "<Nome>" "<Instrução>"',
+        '3. Criar/Ler nota:    mindagentics note create|write|read "<Nome>" [--file <caminho>]',
+        '4. Consultar código:  mindagentics graphify query "<termo>"',
+        '5. Abrir referência:  mindagentics portal open "<url>" --name "<Título>"',
+        '6. Referência de arquivo/pasta: mindagentics ref add|list|remove <caminho> (só caminho, nunca conteúdo)',
+        '7. Lembrar contexto:  mindagentics recall "<termo>"'
+      ].join('\n');
+
       const briefingParts: string[] = [];
       if (agentName && agentName !== 'Terminal' && agentName !== 'Antigravity' && agentName !== 'Codex' && agentName !== 'Claude Code') {
-        briefingParts.push(`Seu nome de agente é "${agentName}".`);
+        briefingParts.push(`Agente: "${agentName}"`);
       }
       if (agentRole) {
-        briefingParts.push(`Seu papel / função principal é: ${agentRole}.`);
+        briefingParts.push(`Papel: ${agentRole}`);
       }
       if (options.orchestratorMode || options.maestroMode) {
-        briefingParts.push(`Você é o Orquestrador Central da equipe. Planeje, divida objetivos e delegue tarefas aos outros agentes conectados usando 'mindagentics ask'.`);
+        briefingParts.push('Modo: Orquestrador Central');
       }
       if (instructions && instructions.trim().length > 0) {
-        briefingParts.push(`Contexto e diretrizes adicionais: ${instructions.trim()}`);
+        briefingParts.push(`Diretrizes: ${instructions.trim()}`);
       }
-      if (briefingParts.length > 0) {
-        briefingParts.push('Assuma esta identidade no canvas mindAgentics e confirme seu papel.');
-        identityBriefing = briefingParts.join(' ');
-      }
+      const refLines = refs.slice(0, 5).map((r) => this.formatRefLine(r));
+      const extraLines = [...refLines, ...(memoryLine ? [memoryLine] : [])];
+      const identityBriefing = this.buildBriefing(cheatsheetHeader, briefingParts, refLines, memoryLine, extraLines.length > 0);
 
       if (options.command && options.command.trim().length > 0) {
         let cmdToRun = options.command.trim();
+
+        // Resume the previous conversation when the agent already has memory here:
+        // `claude --continue` / `codex resume --last`, only if the CLI has sessions on disk.
+        if (resuming) {
+          if (/^claude\b/.test(cmdToRun) && !/(^|\s)(--continue|-c|--resume|-r)(\s|$)/.test(cmdToRun) && this.claudeHasSession(cwd)) {
+            cmdToRun = cmdToRun.replace(/^claude\b/, 'claude --continue');
+          } else if (/^codex\b/.test(cmdToRun) && !/^codex\s+(resume|exec|login|logout|mcp|app-server)\b/.test(cmdToRun) && this.codexHasSession()) {
+            cmdToRun = cmdToRun.replace(/^codex\b/, 'codex resume --last');
+          }
+        }
 
         // Enforce autonomous mode flags to avoid manual authorization prompts
         if (isAutonomous) {
@@ -342,7 +469,8 @@ export class TerminalManager extends EventEmitter {
 
         // Inject initial identity briefing into CLI argument if defined
         if (identityBriefing) {
-          const sanitizedPrompt = identityBriefing.replace(/"/g, "'").replace(/[\r\n]+/g, ' ').trim();
+          // S2: one line, no control/ESC chars, and no characters that expand inside "..." in PowerShell/cmd/sh ($, `, %, \)
+          const sanitizedPrompt = sanitizeForPtyLine(identityBriefing).replace(/"/g, "'").replace(/[`$%\\]/g, '').trim();
           if (cmdToRun.startsWith('agy') && !cmdToRun.includes('-i ') && !cmdToRun.includes('--prompt-interactive')) {
             cmdToRun += ` -i "${sanitizedPrompt}"`;
           } else if (cmdToRun.startsWith('codex') && !cmdToRun.includes('"')) {
@@ -363,18 +491,30 @@ export class TerminalManager extends EventEmitter {
         // Plain shell: output visual identity banner
         setTimeout(() => {
           try {
-            pty.write(`Write-Host "[mindAgentics] Agente: ${agentName} | Papel: ${agentRole || 'Developer'}" -ForegroundColor Cyan\r\n`);
+            const bannerText = `[mindAgentics] Agente: ${agentName} | Papel: ${agentRole || 'Developer'}`;
+            const shellName = path.basename(shell).toLowerCase();
+            if (/^(powershell|pwsh)(\.exe)?$/.test(shellName)) {
+              pty.write(`Write-Host ${quotePowerShell(bannerText)} -ForegroundColor Cyan\r\n`);
+            } else if (/^cmd(\.exe)?$/.test(shellName)) {
+              pty.write(`echo ${bannerText.replace(/[%^&|<>"!()]/g, '_')}\r\n`);
+            } else {
+              pty.write(`printf '%s\\n' ${quotePosix(bannerText)}\r\n`);
+            }
           } catch {}
         }, 350);
       }
 
       pty.onData((data: string) => {
-        session.scrollback.push(data);
+        this.memory.onOutput(terminalId, data);
+        const chunkCheck = this.truncateOutputIfNeeded(terminalId, data, this.maxCommandOutputLines);
+        const bufferedData = chunkCheck.truncated ? chunkCheck.text + '\r\n' : data;
+
+        session.scrollback.push(bufferedData);
         if (session.scrollback.length > this.maxScrollbackLines) {
           session.scrollback.splice(0, session.scrollback.length - this.maxScrollbackLines);
         }
         this.scheduleSaveScrollback(terminalId);
-        this.emit('data', { terminalId, data });
+        this.emit('data', { terminalId, data: bufferedData });
 
         // If an ask from another agent is waiting for this terminal's response:
         if (session.activeAskId) {
@@ -395,15 +535,17 @@ export class TerminalManager extends EventEmitter {
               session.status = 'idle';
               this.emit('status', { terminalId, status: 'idle' });
 
-              // Strip ANSI control escapes to return a clean string
-              const clean = rawOut.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '').trim();
-              this.supervisor.chatTurnSettled(terminalId, clean, askIdToSettle);
+              // Strip ANSI control escapes and apply smart 150-line truncation with temp log redirection
+              const clean = redactSecrets(rawOut.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '').trim());
+              const truncatedResult = this.truncateOutputIfNeeded(terminalId, clean, this.maxCommandOutputLines);
+              this.supervisor.chatTurnSettled(terminalId, truncatedResult.text, askIdToSettle);
             }
           }, settleDelay);
         }
       });
 
       pty.onExit(({ exitCode }) => {
+        this.memory.end(terminalId, true);
         session.isAlive = false;
         session.status = exitCode === 0 ? 'idle' : 'error';
         this.flushScrollback(terminalId);
@@ -423,6 +565,7 @@ export class TerminalManager extends EventEmitter {
   public write(terminalId: string, data: string): void {
     const session = this.sessions.get(terminalId);
     if (session && session.pty) {
+      this.memory.onInput(terminalId, data);
       session.pty.write(data);
       session.status = 'working';
       this.emit('status', { terminalId, status: 'working' });
@@ -434,9 +577,11 @@ export class TerminalManager extends EventEmitter {
     if (!session) return { ok: false };
 
     // Format typing delivery: ensure Enter (\r) is sent so the command executes immediately
-    const cleanPrompt = prompt.replace(/[\r\n]+$/, '');
+    // S2: prompts relayed from other agents/CLI are untrusted: no ESC/control chars, no embedded newlines (would submit extra lines)
+    const cleanPrompt = sanitizeForPtyLine(typeof prompt === 'string' ? prompt : '');
     const textToDeliver = `${cleanPrompt}\r`;
 
+    this.memory.onInput(terminalId, textToDeliver);
     session.activeAskId = askId;
     session.askOutput = '';
 
@@ -468,6 +613,7 @@ export class TerminalManager extends EventEmitter {
   }
 
   public kill(terminalId: string): void {
+    this.memory.end(terminalId, true);
     const session = this.sessions.get(terminalId);
     if (session) {
       session.isAlive = false;
@@ -502,7 +648,7 @@ export class TerminalManager extends EventEmitter {
     }
   }
 
-  private ensureMindAgenticsSkills(targetDir?: string, agentInfo?: { title?: string; agentRole?: string; instructions?: string; terminalId?: string }): void {
+  private ensureMindAgenticsSkills(targetDir?: string, agentInfo?: { title?: string; agentRole?: string; instructions?: string; terminalId?: string; refs?: AgentRefInfo[]; memoryLine?: string }): void {
     try {
       const skillsSource = path.join(os.homedir(), '.gemini', 'config', 'skills');
       if (!fs.existsSync(skillsSource)) return;
@@ -535,66 +681,139 @@ export class TerminalManager extends EventEmitter {
       }
 
       // 2. Ensure AGENTS.md in the workspace so all models have context
+      // IMPORTANT FOR PROMPT CACHING (Claude / Gemini):
+      // The first >1,024 tokens of AGENTS.md MUST be 100% static and immutable (no timestamps, hours, or random GUIDs).
+      // Any dynamic agent context is placed exclusively at the very end (tail) of the file without random terminal IDs.
       if (targetDir && fs.existsSync(targetDir)) {
         const agentsMdPath = path.join(targetDir, 'AGENTS.md');
         let needsUpdate = true;
         if (fs.existsSync(agentsMdPath)) {
           const existing = fs.readFileSync(agentsMdPath, 'utf8');
-          if ((existing.includes('Modo Orquestrador') || existing.includes('Modo Maestro')) && existing.includes('mindAgentics')) {
+          if (
+            (existing.includes('Modo Orquestrador') || existing.includes('Modo Maestro')) &&
+            existing.includes('DIRETRIZ DE TRANSCRIÇÃO (FIDELIDADE 100%)') &&
+            existing.includes('mindagentics ref') &&
+            !existing.slice(0, 4500).includes('(ID: term-')
+          ) {
             needsUpdate = false;
           }
         }
-        if (needsUpdate || (agentInfo && (agentInfo.title || agentInfo.agentRole || agentInfo.instructions))) {
-          const agentBlock = agentInfo && (agentInfo.title || agentInfo.agentRole || agentInfo.instructions)
-            ? `\n\n## Agente Configurado Neste Terminal (ID: ${agentInfo.terminalId || 'atual'})\n- **Nome:** ${agentInfo.title || 'Agente'}\n- **Papel / Função:** ${agentInfo.agentRole || 'Developer'}\n${agentInfo.instructions ? `- **Contexto e Instruções:**\n${agentInfo.instructions}\n` : ''}`
+        if (needsUpdate || (agentInfo && (agentInfo.title || agentInfo.agentRole || agentInfo.instructions || (agentInfo.refs && agentInfo.refs.length > 0) || agentInfo.memoryLine))) {
+          const refLines = agentInfo?.refs && agentInfo.refs.length > 0
+            ? `\n- **Referências Conectadas:**\n${agentInfo.refs.map(r => `  - [${r.isDirectory ? 'pasta' : 'arquivo'}] \`${r.path}\`${r.label ? ` (${r.label})` : ''}`).join('\n')}`
             : '';
-          const content = `# mindAgentics Canvas - Instruções para Agentes de IA${agentBlock}
+          const memoryBlock = agentInfo?.memoryLine
+            ? `\n- **Memória de Retomada:**\n  - ${agentInfo.memoryLine}`
+            : '';
+          const agentBlock = agentInfo && (agentInfo.title || agentInfo.agentRole || agentInfo.instructions || refLines || memoryBlock)
+            ? `\n\n---\n\n## Agente Configurado Neste Terminal\n- **Nome:** ${sanitizeMarkdownInline(agentInfo.title || 'Agente', 80)}\n- **Papel / Função:** ${sanitizeMarkdownInline(agentInfo.agentRole || 'Developer', 200)}\n${agentInfo.instructions ? `- **Contexto e Instruções:**\n${sanitizeMarkdownBlock(agentInfo.instructions, 4000)}\n` : ''}${refLines}${memoryBlock}`
+            : '';
+          const content = `# mindAgentics Canvas - Instruções para Agentes de IA
 
 > [!IMPORTANT]
 > **DIRETRIZ ZERO-READ (NÃO RE-LEIA ESTE MANUAL):**
 > Você já possui todas as instruções do mindAgentics e o Knowledge Graph do projeto pré-carregados no seu contexto nativo.
-> NUNCA execute ferramentas de leitura (\`read_file\`, \`cat\`, etc.) para ler \`AGENTS.md\`, \`CLAUDE.md\` ou \`SKILL.md\` do disco. Inicie diretamente a ação necessária ou responda ao colega de equipe.
+> NUNCA execute ferramentas de leitura (\`read_file\`, \`cat\`, \`Get-Content\`, etc.) para ler \`AGENTS.md\`, \`CLAUDE.md\` ou \`SKILL.md\` do disco. Inicie diretamente a ação necessária ou responda ao colega de equipe.
 
-Você está operando como um agente no canvas interativo **mindAgentics**.
-Você tem à sua disposição a CLI do mindAgentics (\`mindagentics\`, alias \`mindagentics\`) e todas as skills integradas:
+> [!IMPORTANT]
+> **DIRETRIZ DE TRANSCRIÇÃO (FIDELIDADE 100%):**
+> Ao criar ou atualizar notas adesivas (mindagentics note write/create), você deve transcrever o conteúdo na íntegra (100% verbatim). É expressamente proibido resumir, omitir detalhes técnicos, sintetizar tópicos ou parafrasear, a menos que o usuário utilize explicitamente palavras como "resuma" ou "faça um resumo".
 
-- **\`mindagentics list\`**: Lista os agentes conectados, notas adesivas e portais no canvas.
-- **\`mindagentics ask "<Nome do Agente>" "<Mensagem>"\`**: Envia mensagens e delega tarefas para outros agentes presentes no canvas.
-- **\`mindagentics recruit "<Nome>" --preset "<preset>" --role "<role>"\`**: Recruta e cria novos agentes especializados no workspace.
-- **\`mindagentics portal open "<url>" --name "<Título>"\`**: Abre portais web para navegação e referências no canvas.
-- **\`mindagentics portal navigate "<url>"\`**: Controla portais web para navegar e interagir com páginas.
-- **\`mindagentics connect "<De>" "<Para>"\`**: Conecta nós, agentes e referências no canvas.
-- **\`mindagentics note create --title "<Título>" --body "<Conteúdo>"\`**: Cria ou edita notas adesivas no canvas.
-- **\`mindagentics floor <action>\`**: Gerencia worktrees isoladas de trabalho (floors).
-- **\`mindagentics graphify <build|query|explain|path|open>\`**: Constrói e consulta o Knowledge Graph do projeto via AST determinístico, visualizando no Portal.
+> [!NOTE]
+> **ARQUITETURA DE IMUTABILIDADE E PROMPT CACHING (ESTABILIDADE DE CACHE):**
+> Este cabeçalho e bloco estático inicial (> 1.024 tokens) são estritamente imutáveis e livres de timestamps, horários variáveis ou GUIDs aleatórios para garantir 100% de eficiência no Prompt Caching automático (Claude Prompt Caching / Gemini Context Caching). Toda parametrização específica da sessão ou do agente reside exclusivamente ao final deste documento.
 
-## Modo Orquestrador (Orquestração de Agentes)
+---
 
-Quando a variável de ambiente \`MINDAGENTICS_ORCHESTRATOR_MODE=1\` (ou \`MINDAGENTICS_MAESTRO_MODE=1\`) estiver ativa ou você for designado como Orquestrador da equipe:
+## 1. Visão Geral e Operação no Canvas Interativo mindAgentics
+
+Você está operando como um agente autônomo e colaborativo dentro do canvas espacial interativo **mindAgentics**.
+O ambiente conecta múltiplos terminais de agentes de IA, blocos de notas adesivas (Sticky Notes), referências de arquivos e pastas (FileRefs), portais web interativos e grafos de conhecimento determinísticos (Knowledge Graph / Graphify) em uma superfície unificada de engenharia de software.
+
+Você tem à sua disposição a CLI oficial do mindAgentics (\`mindagentics\`) pré-configurada no \`PATH\` do seu terminal e todas as capacidades de comunicação inter-agentes via Named Pipes / IPC de baixa latência:
+
+- **\`mindagentics list\`**: Lista todos os agentes conectados, seus papéis, status de execução, notas adesivas, referências e portais web ativos no canvas atual.
+- **\`mindagentics ask "<Nome do Agente>" "<Mensagem>"\`**: Envia mensagens síncronas ou assíncronas e delega subtarefas diretamente para outros agentes presentes no canvas, recebendo a resposta consolidada.
+- **\`mindagentics recruit "<Nome>" --preset "<preset>" --role "<role>"\`**: Recruta, instancia e conecta automaticamente novos agentes especializados no workspace atual.
+- **\`mindagentics note <create|write|read|edit|delete|list>\`**: Gerencia notas adesivas no canvas com suporte completo a Markdown e ingestão direta via arquivo (\`--file\`) ou \`stdin\`.
+- **\`mindagentics ref <add|list|remove>\`**: Cria e gerencia referências de arquivos e pastas no canvas (apenas caminho e tipo são compartilhados com o agente, nunca o conteúdo).
+- **\`mindagentics recall "<termo>"\`**: Busca trechos relevantes na memória semântica e histórico local de turnos do agente.
+- **\`mindagentics portal open "<url>" --name "<Título>"\`**: Abre portais web no canvas para navegação, visualização de aplicações locais, documentação técnica e referências visuais.
+- **\`mindagentics portal navigate "<url>"\`**: Controla portais web existentes para navegar e inspecionar páginas e estados de interface.
+- **\`mindagentics connect "<De>" "<Para>"\`**: Conecta visualmente e semanticamente nós, agentes, notas e referências no canvas através de cabos (Cable Ties).
+- **\`mindagentics floor <action>\`**: Gerencia worktrees isoladas de trabalho (floors) para execuções paralelas sem conflito de árvores Git.
+- **\`mindagentics graphify <build|query|explain|path|open>\`**: Constrói e consulta o Knowledge Graph do projeto via análise sintática abstrata (AST determinístico), permitindo navegação arquitetural precisa com baixo consumo de tokens.
+
+---
+
+## 2. Pipeline de Notas Adesivas e Protocolo de Fidelidade Total (Zero-Truncation)
+
+O subsistema de notas (\`mindagentics note\`) opera como memória compartilhada persistente e artefato visual direto para o usuário e para os demais agentes do esquadrão.
+
+### 2.1 Regras Mandatórias de Transcrição Verbatim
+1. **Proibição Absoluta de Resumo Não Solicitado:** Sempre que uma tarefa envolver gravar relatórios, especificações, planos arquiteturais, checklists, logs de auditoria ou código em uma nota adesiva (\`mindagentics note create\` ou \`mindagentics note write\`), o conteúdo deve ser gravado **100% verbatim (na íntegra)**.
+2. **Preservação Integral de Formatação Markdown:** Tabelas, blocos de código cercados (\`\`\`), listas aninhadas, cabeçalhos, alertas e metadados técnicos devem ser preservados caractere por caractere, sem elipses (\`...\`), sem supressão de seções e sem comentários do tipo *"restante omitido por brevidade"*.
+3. **Uso Obrigatório de \`--file\` para Textos Extensos:** Para evitar limites de linha de comando do shell (PowerShell / Bash) ou problemas de escape de aspas e quebras de linha ao gravar documentos médios ou longos (dezenas ou centenas de linhas):
+   - Escreva primeiro o conteúdo completo em um arquivo temporário UTF-8 no disco.
+   - Em seguida, execute o comando de ingestão direta via arquivo:
+     \`\`\`bash
+     mindagentics note create "Título da Nota" --file "./caminho/do/arquivo.md"
+     # ou para atualizar uma nota existente:
+     mindagentics note write "Título da Nota" --file "./caminho/do/arquivo.md"
+     \`\`\`
+4. **Verificação de Integridade:** Após operações críticas de escrita em notas extensas, você pode validar a integridade do conteúdo armazenado com \`mindagentics note read "Título da Nota"\`, que retorna todas as linhas numeradas sem truncamento no armazenamento do canvas.
+
+### 2.2 Referência Completa de Subcomandos de Notas e Referências
+- **Criar Nota Avulsa:**
+  \`\`\`bash
+  mindagentics note create "Especificação Técnica" --file "./spec.md" --color yellow
+  \`\`\`
+- **Sobrescrever / Atualizar Nota com Fidelidade Total:**
+  \`\`\`bash
+  mindagentics note write "Especificação Técnica" --file "./spec-atualizada.md"
+  \`\`\`
+- **Ler Conteúdo Completo ou Intervalo de Linhas:**
+  \`\`\`bash
+  mindagentics note read "Especificação Técnica"
+  mindagentics note read "Especificação Técnica" 1 500
+  \`\`\`
+- **Criar Referência de Arquivo ou Pasta (apenas caminho e tipo):**
+  \`\`\`bash
+  mindagentics ref add "./src" --label "Código Fonte"
+  mindagentics ref add "./docs/spec.md" --to "Backend Dev"
+  mindagentics ref list
+  \`\`\`
+
+---
+
+## 3. Modo Orquestrador (Orquestração Central de Esquadrão de Agentes)
+
+Quando a variável de ambiente \`MINDAGENTICS_ORCHESTRATOR_MODE=1\` (ou \`MINDAGENTICS_MAESTRO_MODE=1\`) estiver ativa ou você for designado como Orquestrador ou Tech Lead da equipe:
 Você atua como o **Orquestrador Central** do canvas mindAgentics. Ao receber uma tarefa complexa ou missão do usuário, siga obrigatoriamente as seguintes regras:
 
-### Regra 1 (Delegação Obrigatória)
-Ao receber uma tarefa, o Orquestrador NÃO deve executar todo o trabalho pesado sozinho se puder delegar. O Orquestrador deve planejar, decompor o objetivo em subtarefas claras e delegar para outros agentes conectados usando:
+### Regra 1 (Delegação Obrigatória e Coordenação)
+Ao receber uma tarefa multidisciplinar, o Orquestrador NÃO deve executar todo o trabalho pesado sozinho se puder delegar. O Orquestrador deve planejar a arquitetura, decompor o objetivo em subtarefas claras com critérios de aceite objetivos e delegar para outros agentes conectados usando:
 \`\`\`bash
-mindagentics ask "<Nome do Agente>" "<Instrução detalhada>"
+mindagentics ask "<Nome do Agente>" "<Instrução detalhada e critérios de validação>"
 \`\`\`
-Você pode inspecionar quem está disponível no canvas com \`mindagentics list\` (ou \`mindagentics list\`).
+Você pode inspecionar quem está disponível no canvas a qualquer momento com \`mindagentics list\`.
 
-### Regra 2 (Criação de Agentes no Workspace)
-Caso o usuário não especifique agentes já existentes/conectados para a tarefa, ou caso a equipe precise de habilidades específicas (ex: Frontend, Backend, QA, Reviewer, Pesquisador), o Orquestrador deve criar agentes especializados no workspace usando:
+### Regra 2 (Recrutamento e Criação de Agentes Especializados no Workspace)
+Caso o usuário não especifique agentes já existentes/conectados para a tarefa, ou caso a equipe precise de habilidades específicas (ex: Frontend, Backend, Segurança, QA, Reviewer, Pesquisador), o Orquestrador deve recrutar agentes especializados no workspace usando:
 \`\`\`bash
 mindagentics recruit "<Nome do Agente>" --preset "<preset>" --role "<role>"
 \`\`\`
 - Presets disponíveis: \`"Claude Code"\`, \`"Codex"\`, \`"Antigravity"\`, \`"OpenCode"\`, \`"Shell"\`.
-- Exemplo:
+- Exemplo prático:
   \`\`\`bash
-  mindagentics recruit "Frontend Dev" --preset "Antigravity" --role "Especialista em React e UI"
-  mindagentics recruit "Backend Dev" --preset "Codex" --role "Especialista em APIs e Banco de Dados"
+  mindagentics recruit "Frontend Dev" --preset "Antigravity" --role "Especialista em React, TypeScript e UI"
+  mindagentics recruit "Backend Dev" --preset "Codex" --role "Especialista em IPC, Daemon e Persistência"
+  mindagentics recruit "Security QA" --preset "Claude Code" --role "Engenharia de Prompts, Cache Stability e Testes"
   \`\`\`
 Após recrutar, delegue as subtarefas aos novos agentes via \`mindagentics ask\`.
 
-### Regra 3 (Portais Web e Referências)
-Se uma tarefa exigir analisar uma referência na web (documentação técnica, biblioteca, URL, design, site de referência, benchmark):
+### Regra 3 (Portais Web, Knowledge Graph e Referências Visuais)
+Se uma tarefa exigir analisar uma referência na web (documentação técnica, biblioteca, URL, design system, site de referência, benchmark):
 1. **Abrir o portal web no canvas com a referência**:
    \`\`\`bash
    mindagentics portal open "<URL>" --name "<Título da Referência>"
@@ -608,7 +827,15 @@ Se uma tarefa exigir analisar uma referência na web (documentação técnica, b
    mindagentics ask "<Nome do Agente>" "Analise a referência web linkada e execute [tarefa]..."
    \`\`\`
 
-Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando a CLI do mindAgentics (\`mindagentics\` ou \`mindagentics\`).
+---
+
+## 4. Isolamento de Contexto, Economia de Tokens e Segurança Operacional
+
+1. **Economia de Contexto via Graphify:** Antes de realizar buscas exaustivas em dezenas de arquivos do repositório, utilize \`mindagentics graphify query "<termo>" --budget 1500\` ou \`mindagentics graphify explain "<Símbolo>"\` para localizar rapidamente os módulos exatos.
+2. **Isolamento de Execução:** Respeite o escopo do seu papel (\`agentRole\`) atribuído no terminal. Ao modificar arquivos compartilhados em equipe, verifique o estado do repositório (\`git status\`) para preservar alterações legítimas realizadas paralelamente por outros agentes do esquadrão.
+3. **Comunicação Concisa no Terminal e Completa nas Notas:** Mantenha as respostas de chat inter-agentes diretas e acionáveis, mas garanta **100% de fidelidade verbatim** ao persistir documentos, especificações e relatórios em notas adesivas (\`mindagentics note\`).
+
+Trabalhe de forma colaborativa, determinística e segura com os outros agentes conectados no canvas usando a CLI do mindAgentics (\`mindagentics\`).${agentBlock}
 `;
           fs.writeFileSync(agentsMdPath, content, 'utf8');
         }
@@ -635,10 +862,155 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
   public async restart(terminalId: string): Promise<void> {
     const session = this.sessions.get(terminalId);
     if (session) {
-      const { cwd, workspaceId, cols, rows } = session;
+      const { cwd, workspaceId, cols, rows, title, agentRole, instructions, orchestratorMode, maestroMode } = session;
       this.kill(terminalId);
-      await this.spawn({ id: terminalId, cwd, workspaceId, cols, rows });
+      await this.spawn({
+        id: terminalId,
+        cwd,
+        workspaceId,
+        cols,
+        rows,
+        title,
+        agentRole,
+        instructions,
+        orchestratorMode,
+        maestroMode,
+      });
     }
+  }
+
+  public async reconfigure(
+    arg1: string | {
+      terminalId: string;
+      title?: string;
+      agentRole?: string;
+      instructions?: string;
+      orchestratorMode?: boolean;
+      maestroMode?: boolean;
+      command?: string;
+      presetId?: string;
+      isAutonomous?: boolean;
+      restart?: boolean;
+    },
+    arg2?: {
+      title?: string;
+      agentRole?: string;
+      instructions?: string;
+      orchestratorMode?: boolean;
+      maestroMode?: boolean;
+      command?: string;
+      presetId?: string;
+      isAutonomous?: boolean;
+      restart?: boolean;
+    }
+  ): Promise<{ ok: boolean }> {
+    const terminalId = typeof arg1 === 'string' ? arg1 : arg1?.terminalId;
+    const config = typeof arg1 === 'string' ? (arg2 || {}) : (arg1 || {});
+
+    const session = this.sessions.get(terminalId);
+    if (!session) {
+      return { ok: false };
+    }
+
+    // S2: Validar e sanitizar comandos/presets e metadados contra injeção
+    if (config.command !== undefined) {
+      if (typeof config.command !== 'string' || hasControlChars(config.command)) {
+        throw new Error('Comando inválido no terminal:reconfigure');
+      }
+    }
+
+    if (config.presetId !== undefined) {
+      if (typeof config.presetId !== 'string' || hasControlChars(config.presetId) || !/^[A-Za-z0-9_-]{1,64}$/.test(config.presetId)) {
+        throw new Error('Preset inválido no terminal:reconfigure');
+      }
+    }
+
+    const commandChanged = config.command !== undefined && config.command !== session.command;
+    const presetChanged = config.presetId !== undefined && config.presetId !== session.presetId;
+    const needsRestart = Boolean(config.restart || commandChanged || presetChanged);
+
+    if (config.title !== undefined) {
+      session.title = sanitizeMarkdownInline(config.title, 80) || 'Agent';
+    }
+    if (config.agentRole !== undefined) {
+      session.agentRole = sanitizeMarkdownInline(config.agentRole, 200);
+    }
+    if (config.instructions !== undefined) {
+      session.instructions = sanitizeMarkdownBlock(config.instructions, 4000);
+    }
+    if (config.orchestratorMode !== undefined || config.maestroMode !== undefined) {
+      const isOrch = Boolean(config.orchestratorMode ?? config.maestroMode);
+      session.orchestratorMode = isOrch;
+      session.maestroMode = isOrch;
+    }
+    if (config.isAutonomous !== undefined) {
+      session.isAutonomous = config.isAutonomous;
+    }
+    if (config.command !== undefined) {
+      session.command = config.command;
+    }
+    if (config.presetId !== undefined) {
+      session.presetId = config.presetId;
+    }
+
+    // Atualizar AGENTS.md garantindo sanitização de markdown
+    this.ensureMindAgenticsSkills(session.cwd, {
+      title: session.title,
+      agentRole: session.agentRole,
+      instructions: session.instructions,
+      terminalId,
+      refs: session.refs,
+      memoryLine: (session.title && this.memory.hasSummary(session.cwd, session.title)) ? `Memória: leia ${memorySummaryRelPath(session.title)}` : ''
+    });
+
+    if (needsRestart) {
+      const { cwd, workspaceId, cols, rows, title, agentRole, instructions, orchestratorMode, maestroMode, isAutonomous, command, presetId } = session;
+      this.kill(terminalId);
+      await this.spawn({
+        id: terminalId,
+        cwd,
+        workspaceId,
+        cols,
+        rows,
+        title,
+        agentRole,
+        instructions,
+        orchestratorMode,
+        maestroMode,
+        isAutonomous,
+        command,
+        presetId,
+      });
+    } else {
+      try {
+        if (this.supervisor?.daemonReady) {
+          this.supervisor.syncCanvas({
+            nodes: [{
+              id: terminalId,
+              kind: 'terminal',
+              content: {
+                terminalId,
+                title: session.title,
+                agentRole: session.agentRole,
+                orchestratorMode: session.orchestratorMode,
+                maestroMode: session.maestroMode,
+                presetId: session.presetId,
+              }
+            }]
+          });
+        }
+      } catch {}
+    }
+
+    this.emit('reconfigured', {
+      terminalId,
+      title: session.title,
+      agentRole: session.agentRole,
+      instructions: session.instructions,
+      orchestratorMode: session.orchestratorMode,
+    });
+
+    return { ok: true };
   }
 
   public getScrollback(terminalId: string): string {
@@ -667,12 +1039,12 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
   public detectInstalledAgents(): Array<{ id: string; name: string; command: string; icon: string; installed: boolean; path?: string }> {
     const isWin = process.platform === 'win32';
     const candidates = [
-      { id: 'antigravity', name: 'Antigravity CLI (agy)', command: 'agy', icon: 'sparkle' },
-      { id: 'codex', name: 'OpenAI Codex (codex)', command: 'codex --no-daemon', icon: 'brain' },
-      { id: 'opencode', name: 'OpenCode CLI (opencode)', command: 'opencode', icon: 'rectangle.portrait' },
-      { id: 'claude', name: 'Claude Code (claude)', command: 'claude', icon: 'seal' },
-      { id: 'github-copilot', name: 'GitHub Copilot (copilot / gh)', command: 'copilot', icon: 'terminal' },
-      { id: 'ollama', name: 'Ollama (ollama)', command: 'ollama run llama3', icon: 'cpu' },
+      { id: 'antigravity', name: 'Antigravity', command: 'agy', icon: 'sparkle' },
+      { id: 'codex', name: 'Codex', command: 'codex --no-daemon', icon: 'brain' },
+      { id: 'opencode', name: 'OpenCode', command: 'opencode', icon: 'rectangle.portrait' },
+      { id: 'claude', name: 'Claude Code', command: 'claude', icon: 'seal' },
+      { id: 'github-copilot', name: 'GitHub Copilot', command: 'copilot', icon: 'terminal' },
+      { id: 'ollama', name: 'Ollama', command: 'ollama run llama3', icon: 'cpu' },
       { id: 'powershell', name: 'PowerShell', command: '', icon: 'terminal' },
       { id: 'cmd', name: 'Command Prompt', command: '', icon: 'terminal' },
       { id: 'bash', name: 'Bash Shell', command: '', icon: 'terminal' },
@@ -746,14 +1118,14 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           liveProbe = await probeAntigravity(agent.path || 'agy');
         } catch {}
 
-        const primaryUsedFraction = liveProbe?.primaryUsedFraction ?? 0.07;
-        const secondaryUsedFraction = liveProbe?.secondaryUsedFraction ?? 0.63;
-        const quotaPercent = Math.round(primaryUsedFraction * 100);
-        const secondaryPercent = Math.round(secondaryUsedFraction * 100);
+        const primaryUsedFraction = liveProbe?.primaryUsedFraction ?? null;
+        const secondaryUsedFraction = liveProbe?.secondaryUsedFraction ?? null;
+        const quotaPercent = liveProbe?.quotaPercent ?? (primaryUsedFraction != null ? Math.round(primaryUsedFraction * 100) : null);
+        const secondaryPercent = liveProbe?.secondaryPercent ?? (secondaryUsedFraction != null ? Math.round(secondaryUsedFraction * 100) : null);
 
         reports.push({
           id: agent.id,
-          name: 'Antigravity CLI (agy)',
+          name: 'Antigravity',
           command: agent.command,
           icon: 'sparkle',
           installed: true,
@@ -767,32 +1139,17 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           secondaryUsedFraction,
           primaryLabel: 'Sessão (5h)',
           secondaryLabel: 'Semanal (7d)',
-          primaryResetText: liveProbe?.primaryResetText || 'Janela contínua (5h)',
-          secondaryResetText: liveProbe?.secondaryResetText || 'Renovação semanal',
+          primaryResetText: liveProbe?.primaryResetText || (primaryUsedFraction != null ? 'Janela contínua (5h)' : 'Sem dados de cota'),
+          secondaryResetText: liveProbe?.secondaryResetText || (secondaryUsedFraction != null ? 'Renovação semanal' : 'Sem dados de cota'),
           quotaPercent,
           secondaryPercent,
-          windows: liveProbe?.windows || [
-            {
-              id: '5h',
-              title: 'Sessão de 5 Horas',
-              usedFraction: primaryUsedFraction,
-              resetsAt: null,
-              formattedReset: liveProbe?.primaryResetText || 'Janela contínua'
-            },
-            {
-              id: 'weekly',
-              title: 'Cota Semanal',
-              usedFraction: secondaryUsedFraction,
-              resetsAt: null,
-              formattedReset: liveProbe?.secondaryResetText || 'Renovação semanal'
-            }
-          ],
+          windows: liveProbe?.windows || buildUsageWindows(primaryUsedFraction, secondaryUsedFraction, liveProbe?.primaryResetText, liveProbe?.secondaryResetText),
           details: [
             { label: 'Janela de Contexto', value: '1.048.576 tokens (1M)' },
             { label: 'Taxa de Requisições', value: '60 RPM / 4.000.000 TPM' },
             { label: 'Modelo Ativo', value: activeModel },
-            { label: 'Uso Sessão (5h)', value: `${quotaPercent}% utilizado` },
-            { label: 'Uso Semanal (7d)', value: `${secondaryPercent}% utilizado` },
+            { label: 'Uso Sessão (5h)', value: quotaPercent != null ? `${quotaPercent}% utilizado` : 'Sem dados de cota' },
+            { label: 'Uso Semanal (7d)', value: secondaryPercent != null ? `${secondaryPercent}% utilizado` : 'Sem dados de cota' },
             { label: 'Modo Padrão', value: 'Autônomo com auto-aprovação' },
             { label: 'Sessões Registradas', value: `${sessionCount} sessões em disco` },
             { label: 'Executável', value: agent.path || 'agy.exe' },
@@ -803,7 +1160,7 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
         let authMode = 'ChatGPT Plus';
         let mcpCount = 3;
         let sessionCount = 0;
-        let userEmail = 'mabruschi02@gmail.com';
+        let userEmail = 'conta local';
         let planRenewal = '05/11/2026';
         let sandboxMode = 'Elevated';
         try {
@@ -823,7 +1180,7 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
             if (data.tokens && data.tokens.id_token) {
               try {
                 const payload = JSON.parse(Buffer.from(data.tokens.id_token.split('.')[1], 'base64').toString('utf8'));
-                if (payload.email) userEmail = payload.email;
+                if (typeof payload.email === 'string') userEmail = maskEmail(payload.email);
                 if (payload['https://api.openai.com/auth']?.chatgpt_plan_type) {
                   const plan = payload['https://api.openai.com/auth'].chatgpt_plan_type;
                   authMode = plan === 'plus' ? 'ChatGPT Plus' : `ChatGPT ${plan.toUpperCase()}`;
@@ -853,14 +1210,14 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           liveProbe = await probeCodex(agent.path || 'codex');
         } catch {}
 
-        const primaryUsedFraction = liveProbe?.primaryUsedFraction ?? 0.0;
-        const secondaryUsedFraction = liveProbe?.secondaryUsedFraction ?? 0.03;
-        const quotaPercent = Math.round(primaryUsedFraction * 100);
-        const secondaryPercent = Math.round(secondaryUsedFraction * 100);
+        const primaryUsedFraction = liveProbe?.primaryUsedFraction ?? null;
+        const secondaryUsedFraction = liveProbe?.secondaryUsedFraction ?? null;
+        const quotaPercent = liveProbe?.quotaPercent ?? (primaryUsedFraction != null ? Math.round(primaryUsedFraction * 100) : null);
+        const secondaryPercent = liveProbe?.secondaryPercent ?? (secondaryUsedFraction != null ? Math.round(secondaryUsedFraction * 100) : null);
 
         reports.push({
           id: agent.id,
-          name: 'OpenAI Codex (codex)',
+          name: 'Codex',
           command: agent.command,
           icon: 'brain',
           installed: true,
@@ -874,32 +1231,17 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           secondaryUsedFraction,
           primaryLabel: 'Sessão (5h)',
           secondaryLabel: 'Semanal (7d)',
-          primaryResetText: liveProbe?.primaryResetText || 'Janela de 5h',
-          secondaryResetText: liveProbe?.secondaryResetText || 'Janela de 7d',
+          primaryResetText: liveProbe?.primaryResetText || (primaryUsedFraction != null ? 'Janela de 5h' : 'Sem dados de cota'),
+          secondaryResetText: liveProbe?.secondaryResetText || (secondaryUsedFraction != null ? 'Janela de 7d' : 'Sem dados de cota'),
           quotaPercent,
           secondaryPercent,
-          windows: liveProbe?.windows || [
-            {
-              id: 'primary',
-              title: 'Janela de Sessão (5h)',
-              usedFraction: primaryUsedFraction,
-              resetsAt: null,
-              formattedReset: liveProbe?.primaryResetText || 'Janela de 5h'
-            },
-            {
-              id: 'secondary',
-              title: 'Janela Semanal (7d)',
-              usedFraction: secondaryUsedFraction,
-              resetsAt: null,
-              formattedReset: liveProbe?.secondaryResetText || 'Janela de 7d'
-            }
-          ],
+          windows: liveProbe?.windows || buildUsageWindows(primaryUsedFraction, secondaryUsedFraction, liveProbe?.primaryResetText, liveProbe?.secondaryResetText),
           details: [
             { label: 'Conta & Plano', value: `${authMode} (${userEmail})` },
             { label: 'Renovação do Plano', value: planRenewal },
             { label: 'Modelo Ativo', value: activeModel },
-            { label: 'Uso Sessão (5h)', value: `${quotaPercent}% utilizado` },
-            { label: 'Uso Semanal (7d)', value: `${secondaryPercent}% utilizado` },
+            { label: 'Uso Sessão (5h)', value: quotaPercent != null ? `${quotaPercent}% utilizado` : 'Sem dados de cota' },
+            { label: 'Uso Semanal (7d)', value: secondaryPercent != null ? `${secondaryPercent}% utilizado` : 'Sem dados de cota' },
             { label: 'Janela de Contexto', value: '128.000 tokens (128k)' },
             { label: 'Taxa de Mensagens', value: '80 requisições a cada 3 horas' },
             { label: 'Servidores MCP', value: `${mcpCount} servidores (mcp, figma, rea)` },
@@ -925,12 +1267,14 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           liveProbe = await probeOpenCode(agent.path || 'opencode');
         } catch {}
 
-        const primaryUsedFraction = liveProbe?.primaryUsedFraction ?? 0.05;
-        const quotaPercent = Math.round(primaryUsedFraction * 100);
+        const primaryUsedFraction = liveProbe?.primaryUsedFraction ?? null;
+        const secondaryUsedFraction = liveProbe?.secondaryUsedFraction ?? null;
+        const quotaPercent = liveProbe?.quotaPercent ?? (primaryUsedFraction != null ? Math.round(primaryUsedFraction * 100) : null);
+        const secondaryPercent = liveProbe?.secondaryPercent ?? (secondaryUsedFraction != null ? Math.round(secondaryUsedFraction * 100) : null);
 
         reports.push({
           id: agent.id,
-          name: 'OpenCode CLI (opencode)',
+          name: 'OpenCode',
           command: agent.command,
           icon: 'rectangle.portrait',
           installed: true,
@@ -941,31 +1285,40 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           provider: 'OpenCode AI',
           planOrTier: liveProbe?.planOrTier || 'Developer Edition',
           primaryUsedFraction,
-          primaryLabel: 'Taxa por Minuto',
-          primaryResetText: liveProbe?.primaryResetText || 'Janela de 1 min',
+          secondaryUsedFraction,
+          primaryLabel: 'Sessão / Diário',
+          secondaryLabel: 'Semanal (7d)',
+          primaryResetText: liveProbe?.primaryResetText || (primaryUsedFraction != null ? 'Janela de 1 min' : 'Sem dados de cota'),
+          secondaryResetText: liveProbe?.secondaryResetText || 'Sem dados de cota',
           quotaPercent,
-          windows: liveProbe?.windows || [
-            {
-              id: 'rpm',
-              title: 'Janela por Minuto',
-              usedFraction: primaryUsedFraction,
-              resetsAt: null,
-              formattedReset: 'Janela contínua de 1 min'
-            }
-          ],
+          secondaryPercent,
+          windows: liveProbe?.windows || buildUsageWindows(primaryUsedFraction, secondaryUsedFraction, liveProbe?.primaryResetText, liveProbe?.secondaryResetText),
           details: [
             { label: 'Janela de Contexto', value: '200.000 tokens (200k)' },
             { label: 'Limite de Requisições', value: '50 RPM / 250.000 TPM' },
             { label: 'Servidores MCP', value: `${mcpCount} configurados (rea, mcp)` },
             { label: 'Modelo Padrão', value: 'Multi-Provider (Claude / GPT)' },
+            { label: 'Uso Sessão (Diário)', value: quotaPercent != null ? `${quotaPercent}% utilizado` : 'Sem dados de cota' },
+            { label: 'Uso Semanal (7d)', value: secondaryPercent != null ? `${secondaryPercent}% utilizado` : 'Sem dados de cota' },
             { label: 'Executável', value: agent.path || 'opencode.ps1' },
           ]
         });
       } else if (agent.id === 'github-copilot' || agent.id === 'gh-copilot') {
         if (reports.some(r => r.id === 'github-copilot')) continue;
+
+        let liveProbe: Partial<AgentUsageReport> | null = null;
+        try {
+          liveProbe = await probeCopilot(agent.path || 'copilot');
+        } catch {}
+
+        const primaryUsedFraction = liveProbe?.primaryUsedFraction ?? null;
+        const secondaryUsedFraction = liveProbe?.secondaryUsedFraction ?? null;
+        const quotaPercent = liveProbe?.quotaPercent ?? (primaryUsedFraction != null ? Math.round(primaryUsedFraction * 100) : null);
+        const secondaryPercent = liveProbe?.secondaryPercent ?? (secondaryUsedFraction != null ? Math.round(secondaryUsedFraction * 100) : null);
+
         reports.push({
           id: 'github-copilot',
-          name: 'GitHub Copilot (copilot / gh)',
+          name: 'GitHub Copilot',
           command: agent.command,
           icon: 'terminal',
           installed: true,
@@ -975,23 +1328,21 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           activeModel: 'GPT-4o / Claude 3.5 Sonnet (Copilot Engine)',
           provider: 'GitHub / Microsoft Azure',
           planOrTier: 'Copilot Pro / Business',
-          primaryUsedFraction: 0.18,
-          primaryLabel: 'Cota Mensal',
-          primaryResetText: '2.000 chats premium / mês',
-          quotaPercent: 18,
-          windows: [
-            {
-              id: 'monthly',
-              title: 'Cota Mensal de Chat',
-              usedFraction: 0.18,
-              resetsAt: null,
-              formattedReset: 'Virada do mês'
-            }
-          ],
+          primaryUsedFraction,
+          secondaryUsedFraction,
+          primaryLabel: 'Sessão / Diário',
+          secondaryLabel: 'Semanal (7d)',
+          primaryResetText: liveProbe?.primaryResetText || (primaryUsedFraction != null ? '2.000 chats / mês' : 'Sem dados de cota'),
+          secondaryResetText: liveProbe?.secondaryResetText || 'Sem dados de cota',
+          quotaPercent,
+          secondaryPercent,
+          windows: liveProbe?.windows || buildUsageWindows(primaryUsedFraction, secondaryUsedFraction, liveProbe?.primaryResetText, liveProbe?.secondaryResetText),
           details: [
             { label: 'Janela de Contexto', value: '128.000 tokens (128k)' },
             { label: 'Taxa de Requisições', value: '30 RPM' },
-            { label: 'Cota de Chat Mensal', value: '2.000 turnos premium / mês' },
+            { label: 'Cota de Chat', value: 'Turnos premium / mês' },
+            { label: 'Uso Sessão (Diário)', value: quotaPercent != null ? `${quotaPercent}% utilizado` : 'Sem dados de cota' },
+            { label: 'Uso Semanal (7d)', value: secondaryPercent != null ? `${secondaryPercent}% utilizado` : 'Sem dados de cota' },
             { label: 'Completions de Código', value: 'Ilimitadas em tempo real' },
             { label: 'Executável', value: agent.path || 'copilot.ps1' },
           ]
@@ -1010,9 +1361,19 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           // ignore
         }
 
+        let liveProbe: Partial<AgentUsageReport> | null = null;
+        try {
+          liveProbe = await probeClaude(agent.path || 'claude');
+        } catch {}
+
+        const primaryUsedFraction = liveProbe?.primaryUsedFraction ?? null;
+        const secondaryUsedFraction = liveProbe?.secondaryUsedFraction ?? null;
+        const quotaPercent = liveProbe?.quotaPercent ?? (primaryUsedFraction != null ? Math.round(primaryUsedFraction * 100) : null);
+        const secondaryPercent = liveProbe?.secondaryPercent ?? (secondaryUsedFraction != null ? Math.round(secondaryUsedFraction * 100) : null);
+
         reports.push({
           id: agent.id,
-          name: 'Claude Code (claude)',
+          name: 'Claude Code',
           command: agent.command,
           icon: 'seal',
           installed: true,
@@ -1022,23 +1383,21 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           activeModel: 'Claude 3.7 Sonnet / Claude 3.5 Sonnet',
           provider: 'Anthropic',
           planOrTier: 'Anthropic Claude Code',
-          primaryUsedFraction: 0.10,
-          primaryLabel: 'Taxa por Minuto',
-          primaryResetText: 'Janela de 1 min',
-          quotaPercent: 10,
-          windows: [
-            {
-              id: 'rpm',
-              title: 'Taxa por Minuto',
-              usedFraction: 0.10,
-              resetsAt: null,
-              formattedReset: 'Janela contínua de 1 min'
-            }
-          ],
+          primaryUsedFraction,
+          secondaryUsedFraction,
+          primaryLabel: 'Sessão / Diário',
+          secondaryLabel: 'Semanal (7d)',
+          primaryResetText: liveProbe?.primaryResetText || (primaryUsedFraction != null ? 'Janela de 1 min' : 'Sem dados de cota'),
+          secondaryResetText: liveProbe?.secondaryResetText || 'Sem dados de cota',
+          quotaPercent,
+          secondaryPercent,
+          windows: liveProbe?.windows || buildUsageWindows(primaryUsedFraction, secondaryUsedFraction, liveProbe?.primaryResetText, liveProbe?.secondaryResetText),
           details: [
             { label: 'Janela de Contexto', value: '200.000 tokens (200k)' },
             { label: 'Taxa de Requisições', value: '50 RPM / 40.000 TPM' },
             { label: 'Modelo Ativo', value: 'Claude 3.7 Sonnet / Claude 3.5 Sonnet' },
+            { label: 'Uso Sessão (Diário)', value: quotaPercent != null ? `${quotaPercent}% utilizado` : 'Sem dados de cota' },
+            { label: 'Uso Semanal (7d)', value: secondaryPercent != null ? `${secondaryPercent}% utilizado` : 'Sem dados de cota' },
             { label: 'Servidores MCP', value: `${mcpList.length} servidores (${mcpList.join(', ')})` },
             { label: 'Limite de Saída', value: '8.192 tokens' },
             { label: 'Configuração', value: path.join(os.homedir(), '.claude.json') },
@@ -1046,9 +1405,10 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           ]
         });
       } else if (agent.id === 'ollama') {
+        const windows = buildUsageWindows(null, null, 'Sem limites de taxa', '100% Offline');
         reports.push({
           id: agent.id,
-          name: 'Ollama (ollama)',
+          name: 'Ollama',
           command: agent.command,
           icon: 'cpu',
           installed: true,
@@ -1058,22 +1418,20 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
           activeModel: 'Modelos Locais (Llama 3, Mistral, Qwen)',
           provider: 'Ollama Local Runtime',
           planOrTier: 'Hardware Local (100% Offline)',
-          primaryUsedFraction: 0.0,
-          primaryLabel: 'Capacidade Local',
+          primaryUsedFraction: null,
+          secondaryUsedFraction: null,
+          primaryLabel: 'Sessão / Diário',
+          secondaryLabel: 'Semanal (7d)',
           primaryResetText: 'Sem limites de taxa',
-          quotaPercent: 0,
-          windows: [
-            {
-              id: 'local',
-              title: 'Hardware Local GPU/CPU',
-              usedFraction: 0.0,
-              resetsAt: null,
-              formattedReset: '100% Offline'
-            }
-          ],
+          secondaryResetText: '100% Offline',
+          quotaPercent: null,
+          secondaryPercent: null,
+          windows,
           details: [
             { label: 'Janela de Contexto', value: '8.192 a 32.768 tokens (VRAM GPU)' },
             { label: 'Taxa de Limite', value: 'Sem restrição de RPM/TPM' },
+            { label: 'Uso Sessão (Diário)', value: 'Sem limites (Local)' },
+            { label: 'Uso Semanal (7d)', value: 'Sem limites (Local)' },
             { label: 'Privacidade', value: '100% Offline e Local' },
             { label: 'Executável', value: agent.path || 'ollama.exe' },
           ]
@@ -1102,6 +1460,8 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
     }
 
     for (const dir of pathDirs) {
+      // S5: ignore empty / relative PATH entries (they resolve against the cwd => binary planting)
+      if (!dir || !path.isAbsolute(dir)) continue;
       for (const ext of exts) {
         const full = path.join(dir, cmd + (isWin && !cmd.toLowerCase().endsWith('.exe') ? ext : ''));
         if (fs.existsSync(full)) {
@@ -1112,7 +1472,134 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
     return null;
   }
 
+  private async loadConnectedRefs(workspaceId?: string, terminalId?: string): Promise<AgentRefInfo[]> {
+    if (!this.dataService || !workspaceId || !terminalId) return [];
+    try {
+      const ws = await this.dataService.getWorkspace(workspaceId);
+      if (!ws) return [];
+      const nodes: any[] = [];
+      const cableTies: any[] = [];
+      if (Array.isArray(ws.nodes)) nodes.push(...ws.nodes);
+      if (Array.isArray(ws.cableTies)) cableTies.push(...ws.cableTies);
+      if (Array.isArray(ws.floors)) {
+        for (const f of ws.floors) {
+          if (Array.isArray(f.nodes)) nodes.push(...f.nodes);
+          if (Array.isArray(f.cableTies)) cableTies.push(...f.cableTies);
+        }
+      }
+      const myNodeIds = new Set<string>([terminalId]);
+      for (const n of nodes) {
+        if (n && n.kind === 'terminal' && (n.content?.terminalId === terminalId || n.id === terminalId)) {
+          myNodeIds.add(n.id);
+          if (n.content?.terminalId) myNodeIds.add(n.content.terminalId);
+        }
+      }
+      const refNodeIds = new Set<string>();
+      for (const tie of cableTies) {
+        if (!tie) continue;
+        const from = tie.fromNodeId || tie.fromId;
+        const to = tie.toNodeId || tie.toId;
+        if (myNodeIds.has(from) && to) refNodeIds.add(to);
+        if (myNodeIds.has(to) && from) refNodeIds.add(from);
+      }
+      const out: AgentRefInfo[] = [];
+      for (const n of nodes) {
+        if (n && n.kind === 'fileRef' && refNodeIds.has(n.id) && n.content?.path) {
+          out.push({
+            path: String(n.content.path),
+            isDirectory: Boolean(n.content.isDirectory),
+            label: n.content.label ? String(n.content.label) : undefined
+          });
+        }
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  }
+
+  private updateAgentRefs(terminalId: string, refs: AgentRefInfo[]): void {
+    const session = this.sessions.get(terminalId);
+    if (session) {
+      session.refs = refs;
+    }
+    const agentName = session?.title || 'Agent';
+    const cwd = session?.cwd || os.homedir();
+    const memoryLine = this.memory.hasSummary(cwd, agentName) ? `Memória: leia ${memorySummaryRelPath(agentName)}` : '';
+    this.ensureMindAgenticsSkills(cwd, {
+      title: agentName,
+      agentRole: session?.agentRole,
+      instructions: session?.instructions,
+      terminalId,
+      refs,
+      memoryLine
+    });
+  }
+
+  private formatRefLine(ref: AgentRefInfo): string {
+    const typeLabel = ref.isDirectory ? 'pasta' : 'arquivo';
+    const cleanPath = String(ref.path || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+    return `[ref] ${typeLabel}: ${cleanPath}`;
+  }
+
+  private buildBriefing(
+    cheatsheetHeader: string,
+    briefingParts: string[],
+    refLines: string[],
+    memoryLine: string,
+    hasExtras: boolean
+  ): string {
+    const parts = [...briefingParts];
+    for (const r of refLines.slice(0, 3)) parts.push(r);
+    if (memoryLine) parts.push(memoryLine);
+
+    let result = parts.length > 0
+      ? `${cheatsheetHeader}\n[${parts.join(' | ')}]`
+      : cheatsheetHeader;
+
+    if (estimateTokens(result) > MAX_BRIEFING_TOKENS) {
+      const compactHeader = [
+        '[mindAgentics Cheatsheet]',
+        '1. Equipe: mindagentics list | 2. Delegar: mindagentics ask "<Nome>" "<Instrução>"',
+        '3. Nota: mindagentics note create|write|read "<Nome>"',
+        '4. Referência: mindagentics ref add|list|remove <caminho> | 5. Memória: mindagentics recall "<termo>"'
+      ].join('\n');
+      result = `${compactHeader}\n[${parts.join(' | ')}]`;
+    }
+    while (estimateTokens(result) > MAX_BRIEFING_TOKENS && parts.length > 1) {
+      parts.pop();
+      result = `[mindAgentics Cheatsheet]\n[${parts.join(' | ')}]`;
+    }
+    return result;
+  }
+
+  private claudeHasSession(cwd: string): boolean {
+    try {
+      const projectClaude = path.join(cwd, '.claude');
+      if (fs.existsSync(projectClaude)) return true;
+      const globalClaude = path.join(os.homedir(), '.claude');
+      if (fs.existsSync(globalClaude)) {
+        const historyFile = path.join(globalClaude, 'history.jsonl');
+        if (fs.existsSync(historyFile) && fs.statSync(historyFile).size > 0) return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  private codexHasSession(): boolean {
+    try {
+      const codexDir = path.join(os.homedir(), '.codex');
+      const sessionFile = path.join(codexDir, 'session_index.jsonl');
+      return fs.existsSync(sessionFile) && fs.statSync(sessionFile).size > 0;
+    } catch {
+      return false;
+    }
+  }
+
   public killAll(): void {
+    this.memory.endAll();
     this.flushAllScrollbacks();
     for (const session of this.sessions.values()) {
       session.isAlive = false;
@@ -1125,3 +1612,11 @@ Trabalhe de forma colaborativa com os outros agentes conectados no canvas usando
     this.sessions.clear();
   }
 }
+
+/** S5: never show full account e-mail in the UI (PII). */
+function maskEmail(email: string): string {
+  const [user, domain] = email.split('@');
+  if (!user || !domain) return 'conta local';
+  return `${user.slice(0, 1)}***@${domain}`.replace(/[\u0000-\u001F]/g, '');
+}
+

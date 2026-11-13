@@ -50,10 +50,10 @@ export const CreateAgentModal: React.FC = () => {
 
   // Detected Agents and Limits
   const [installedMap, setInstalledMap] = useState<Record<string, boolean>>({
-    antigravity: true,
-    codex: true,
-    opencode: true,
-    copilot: true,
+    antigravity: false,
+    codex: false,
+    opencode: false,
+    copilot: false,
     claude: false,
     shell: true,
   });
@@ -279,7 +279,7 @@ export const CreateAgentModal: React.FC = () => {
               Início Rápido
             </span>
             <div className="grid grid-cols-3 gap-2">
-              {presets.map((preset) => {
+              {presets.filter((p) => p.id === 'shell' || installedMap[p.id] === true).map((preset) => {
                 const isSelected = selectedPresetId === preset.id;
 
                 return (

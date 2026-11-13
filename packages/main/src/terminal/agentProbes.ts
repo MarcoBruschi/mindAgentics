@@ -2,11 +2,58 @@ import { spawn, execFile } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { sanitizeLabel, hasControlChars } from '@mindagentics/shared';
+
+// ---------------------------------------------------------------------------
+// S5 — safe execution of agent CLIs for usage probes
+//  * binary is resolved to an ABSOLUTE path (no cwd / relative PATH entries => no binary planting)
+//  * never through a shell (execFile/spawn without `shell`), args are fixed literals
+//  * hard timeouts + bounded stdout (maxBuffer) so a hostile binary cannot hang or exhaust memory
+//  * child env drops mindAgentics internals; probe output is allow-listed, sanitized and truncated,
+//    errors/stdout/stderr are never logged or forwarded to the UI (they may contain credentials)
+// ---------------------------------------------------------------------------
+const PROBE_MAX_OUTPUT_BYTES = 256 * 1024;
+
+export function resolveProbeBinary(agentPath: string | undefined, fallbackName: string): string | null {
+  const isWin = process.platform === 'win32';
+  const candidate = agentPath || fallbackName;
+  if (typeof candidate !== 'string' || candidate.length === 0 || candidate.length > 4096 || hasControlChars(candidate)) {
+    return null;
+  }
+  const isRunnable = (p: string): boolean => {
+    try {
+      if (!fs.statSync(p).isFile()) return false;
+      // .cmd/.bat/.ps1 would require a shell => refuse instead of enabling shell injection
+      return !(isWin && /\.(cmd|bat|ps1|vbs|js)$/i.test(p));
+    } catch { return false; }
+  };
+  if (path.isAbsolute(candidate)) return isRunnable(candidate) ? candidate : null;
+  if (/[\\/]/.test(candidate)) return null; // relative paths are never executed
+  const exts = isWin ? (process.env.PATHEXT || '.EXE;.COM').split(';').filter((e) => /^\.(exe|com)$/i.test(e)) : [''];
+  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+    if (!dir || !path.isAbsolute(dir)) continue;
+    for (const ext of exts) {
+      const full = path.join(dir, candidate + (isWin && !/\.(exe|com)$/i.test(candidate) ? ext : ''));
+      if (isRunnable(full)) return full;
+    }
+  }
+  return null;
+}
+
+function probeEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const k of Object.keys(env)) {
+    if (k.startsWith('MINDAGENTICS_') || k === 'ELECTRON_RUN_AS_NODE') delete env[k];
+  }
+  return env;
+}
+
+const probeLabel = (v: unknown, max = 60) => sanitizeLabel(v, max);
 
 export interface AgentUsageWindow {
   id: string;
   title: string;
-  usedFraction: number; // 0.0 to 1.0
+  usedFraction: number | null; // 0.0 to 1.0 or null when unavailable
   resetsAt: string | number | null;
   durationMinutes?: number;
   formattedReset?: string;
@@ -24,16 +71,40 @@ export interface AgentUsageReport {
   activeModel: string;
   provider: string;
   planOrTier: string;
-  primaryUsedFraction: number; // 0.0 to 1.0
-  secondaryUsedFraction?: number; // 0.0 to 1.0
+  primaryUsedFraction: number | null; // 0.0 to 1.0 or null
+  secondaryUsedFraction?: number | null; // 0.0 to 1.0 or null
   primaryLabel: string;
   secondaryLabel?: string;
   primaryResetText: string;
   secondaryResetText?: string;
-  quotaPercent: number; // Integer 0 to 100
-  secondaryPercent?: number;
+  quotaPercent: number | null; // Integer 0 to 100 or null
+  secondaryPercent?: number | null;
   windows: AgentUsageWindow[];
   details: Array<{ label: string; value: string }>;
+}
+
+export function buildUsageWindows(
+  primaryFraction: number | null,
+  secondaryFraction: number | null,
+  primaryReset?: string,
+  secondaryReset?: string
+): AgentUsageWindow[] {
+  return [
+    {
+      id: 'session',
+      title: 'Sessão / Diário',
+      usedFraction: primaryFraction,
+      resetsAt: null,
+      formattedReset: primaryReset || (primaryFraction != null ? 'Janela contínua' : 'Sem dados de cota')
+    },
+    {
+      id: 'weekly',
+      title: 'Semanal (7d)',
+      usedFraction: secondaryFraction,
+      resetsAt: null,
+      formattedReset: secondaryReset || (secondaryFraction != null ? 'Renovação semanal' : 'Sem dados de cota')
+    }
+  ];
 }
 
 export function formatResetCountdown(resetsAt: string | number | null | undefined): string {
@@ -68,8 +139,9 @@ export function formatResetCountdown(resetsAt: string | number | null | undefine
 
 export async function probeAntigravity(agentPath: string): Promise<Partial<AgentUsageReport> | null> {
   return new Promise((resolve) => {
-    const agyBin = agentPath || 'agy';
-    execFile(agyBin, ['-p', '/usage', '--output-format', 'json'], { timeout: 8000, windowsHide: true }, (err, stdout) => {
+    const agyBin = resolveProbeBinary(agentPath, 'agy');
+    if (!agyBin) return resolve(null);
+    execFile(agyBin, ['-p', '/usage', '--output-format', 'json'], { timeout: 8000, windowsHide: true, maxBuffer: PROBE_MAX_OUTPUT_BYTES, killSignal: 'SIGKILL', env: probeEnv(), shell: false }, (err, stdout) => {
       if (err || !stdout) {
         return resolve(null);
       }
@@ -84,40 +156,35 @@ export async function probeAntigravity(agentPath: string): Promise<Partial<Agent
         const b5h = geminiGroup.buckets.find((b: any) => b.window === '5h' || b.id?.includes('5h'));
         const bWeekly = geminiGroup.buckets.find((b: any) => b.window === 'weekly' || b.id?.includes('weekly'));
 
-        const primaryFraction = b5h ? Math.max(0, Math.min(1, 1 - (b5h.remaining_fraction ?? 1))) : 0.07;
-        const secondaryFraction = bWeekly ? Math.max(0, Math.min(1, 1 - (bWeekly.remaining_fraction ?? 1))) : 0.63;
+        const primaryFraction = b5h && b5h.remaining_fraction !== undefined && b5h.remaining_fraction !== null
+          ? Math.max(0, Math.min(1, 1 - b5h.remaining_fraction))
+          : null;
+        const secondaryFraction = bWeekly && bWeekly.remaining_fraction !== undefined && bWeekly.remaining_fraction !== null
+          ? Math.max(0, Math.min(1, 1 - bWeekly.remaining_fraction))
+          : null;
 
-        const windows: AgentUsageWindow[] = [];
-        if (b5h) {
-          windows.push({
-            id: '5h',
-            title: 'Sessão de 5 Horas',
-            usedFraction: primaryFraction,
-            resetsAt: b5h.reset_time,
-            durationMinutes: 300,
-            formattedReset: formatResetCountdown(b5h.reset_time)
-          });
+        const primaryReset = b5h ? formatResetCountdown(b5h.reset_time) : (primaryFraction != null ? 'Janela contínua' : 'Sem dados de cota');
+        const secondaryReset = bWeekly ? formatResetCountdown(bWeekly.reset_time) : (secondaryFraction != null ? 'Renovação semanal' : 'Sem dados de cota');
+
+        const windows = buildUsageWindows(primaryFraction, secondaryFraction, primaryReset, secondaryReset);
+        if (b5h && windows[0]) {
+          windows[0].resetsAt = b5h.reset_time;
+          windows[0].durationMinutes = 300;
         }
-        if (bWeekly) {
-          windows.push({
-            id: 'weekly',
-            title: 'Cota Semanal',
-            usedFraction: secondaryFraction,
-            resetsAt: bWeekly.reset_time,
-            durationMinutes: 10080,
-            formattedReset: formatResetCountdown(bWeekly.reset_time)
-          });
+        if (bWeekly && windows[1]) {
+          windows[1].resetsAt = bWeekly.reset_time;
+          windows[1].durationMinutes = 10080;
         }
 
         resolve({
           primaryUsedFraction: primaryFraction,
           secondaryUsedFraction: secondaryFraction,
-          quotaPercent: Math.round(primaryFraction * 100),
-          secondaryPercent: Math.round(secondaryFraction * 100),
+          quotaPercent: primaryFraction != null ? Math.round(primaryFraction * 100) : null,
+          secondaryPercent: secondaryFraction != null ? Math.round(secondaryFraction * 100) : null,
           primaryLabel: 'Sessão (5h)',
           secondaryLabel: 'Semanal (7d)',
-          primaryResetText: b5h ? formatResetCountdown(b5h.reset_time) : 'Janela contínua',
-          secondaryResetText: bWeekly ? formatResetCountdown(bWeekly.reset_time) : 'Renovação semanal',
+          primaryResetText: primaryReset,
+          secondaryResetText: secondaryReset,
           windows
         });
       } catch {
@@ -130,20 +197,28 @@ export async function probeAntigravity(agentPath: string): Promise<Partial<Agent
 export async function probeCodex(agentPath: string): Promise<Partial<AgentUsageReport> | null> {
   return new Promise((resolve) => {
     let resolved = false;
-    const codexBin = agentPath || 'codex';
-    const proc = spawn(codexBin, ['app-server', '--stdio'], { windowsHide: true });
+    const codexBin = resolveProbeBinary(agentPath, 'codex');
+    if (!codexBin) return resolve(null);
+    let proc: ReturnType<typeof spawn>;
+    try {
+      proc = spawn(codexBin, ['app-server', '--stdio'], { windowsHide: true, shell: false, env: probeEnv(), stdio: ['pipe', 'pipe', 'ignore'] });
+    } catch {
+      return resolve(null);
+    }
+    const finish = (value: Partial<AgentUsageReport> | null) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
+      try { proc.kill('SIGKILL'); } catch {}
+      resolve(value);
+    };
 
-    const timer = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        try { proc.kill(); } catch {}
-        resolve(null);
-      }
-    }, 4500);
+    const timer = setTimeout(() => finish(null), 4500);
 
     let buffer = '';
-    proc.stdout.on('data', (chunk) => {
+    proc.stdout!.on('data', (chunk) => {
       buffer += chunk.toString();
+      if (buffer.length > PROBE_MAX_OUTPUT_BYTES) return finish(null);
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
 
@@ -152,8 +227,8 @@ export async function probeCodex(agentPath: string): Promise<Partial<AgentUsageR
         try {
           const msg = JSON.parse(line);
           if (msg.id === 1) {
-            proc.stdin.write(JSON.stringify({ method: 'initialized' }) + '\n');
-            proc.stdin.write(JSON.stringify({
+            proc.stdin!.write(JSON.stringify({ method: 'initialized' }) + '\n');
+            proc.stdin!.write(JSON.stringify({
               id: 2,
               method: 'account/rateLimits/read',
               params: { excludeResetCreditDetails: true }
@@ -162,49 +237,44 @@ export async function probeCodex(agentPath: string): Promise<Partial<AgentUsageR
             if (!resolved) {
               resolved = true;
               clearTimeout(timer);
-              try { proc.kill(); } catch {}
+              try { proc.kill('SIGKILL'); } catch {}
 
               const res = msg.result;
               const rateLimits = res.rateLimits || {};
               const primary = rateLimits.primary;
               const secondary = rateLimits.secondary;
-              const planType = rateLimits.planType || 'plus';
+              const planType = probeLabel(rateLimits.planType || 'plus', 20);
 
-              const primaryFrac = primary ? (primary.usedPercent ?? 0) / 100 : 0;
-              const secondaryFrac = secondary ? (secondary.usedPercent ?? 0) / 100 : 0;
+              const primaryFrac = primary && primary.usedPercent !== undefined && primary.usedPercent !== null
+                ? primary.usedPercent / 100
+                : null;
+              const secondaryFrac = secondary && secondary.usedPercent !== undefined && secondary.usedPercent !== null
+                ? secondary.usedPercent / 100
+                : null;
 
-              const windows: AgentUsageWindow[] = [];
-              if (primary) {
-                windows.push({
-                  id: 'primary',
-                  title: 'Janela de Sessão (5h)',
-                  usedFraction: primaryFrac,
-                  resetsAt: primary.resetsAt,
-                  durationMinutes: primary.windowDurationMins || 300,
-                  formattedReset: formatResetCountdown(primary.resetsAt)
-                });
+              const primaryReset = primary ? formatResetCountdown(primary.resetsAt) : (primaryFrac != null ? 'Janela de 5h' : 'Sem dados de cota');
+              const secondaryReset = secondary ? formatResetCountdown(secondary.resetsAt) : (secondaryFrac != null ? 'Janela de 7d' : 'Sem dados de cota');
+
+              const windows = buildUsageWindows(primaryFrac, secondaryFrac, primaryReset, secondaryReset);
+              if (primary && windows[0]) {
+                windows[0].resetsAt = primary.resetsAt;
+                windows[0].durationMinutes = primary.windowDurationMins || 300;
               }
-              if (secondary) {
-                windows.push({
-                  id: 'secondary',
-                  title: 'Janela Semanal (7d)',
-                  usedFraction: secondaryFrac,
-                  resetsAt: secondary.resetsAt,
-                  durationMinutes: secondary.windowDurationMins || 10080,
-                  formattedReset: formatResetCountdown(secondary.resetsAt)
-                });
+              if (secondary && windows[1]) {
+                windows[1].resetsAt = secondary.resetsAt;
+                windows[1].durationMinutes = secondary.windowDurationMins || 10080;
               }
 
               resolve({
                 planOrTier: `ChatGPT ${planType.toUpperCase()}`,
                 primaryUsedFraction: primaryFrac,
                 secondaryUsedFraction: secondaryFrac,
-                quotaPercent: Math.round(primaryFrac * 100),
-                secondaryPercent: Math.round(secondaryFrac * 100),
+                quotaPercent: primaryFrac != null ? Math.round(primaryFrac * 100) : null,
+                secondaryPercent: secondaryFrac != null ? Math.round(secondaryFrac * 100) : null,
                 primaryLabel: 'Sessão (5h)',
                 secondaryLabel: 'Semanal (7d)',
-                primaryResetText: primary ? formatResetCountdown(primary.resetsAt) : 'Janela de 5h',
-                secondaryResetText: secondary ? formatResetCountdown(secondary.resetsAt) : 'Janela de 7d',
+                primaryResetText: primaryReset,
+                secondaryResetText: secondaryReset,
                 windows
               });
             }
@@ -213,15 +283,11 @@ export async function probeCodex(agentPath: string): Promise<Partial<AgentUsageR
       }
     });
 
-    proc.on('error', () => {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timer);
-        resolve(null);
-      }
-    });
+    proc.on('error', () => finish(null));
+    proc.on('close', () => finish(null));
+    proc.stdin!.on('error', () => finish(null));
 
-    proc.stdin.write(JSON.stringify({
+    proc.stdin!.write(JSON.stringify({
       id: 1,
       method: 'initialize',
       params: { clientInfo: { name: 'mindagentics', title: 'mindAgentics', version: '1' } }
@@ -231,34 +297,75 @@ export async function probeCodex(agentPath: string): Promise<Partial<AgentUsageR
 
 export async function probeOpenCode(agentPath: string): Promise<Partial<AgentUsageReport> | null> {
   return new Promise((resolve) => {
-    const opencodeBin = agentPath || 'opencode';
-    execFile(opencodeBin, ['auth', 'list', '--format', 'json', '--standalone'], { timeout: 4000, windowsHide: true }, (err, stdout) => {
-      if (err || !stdout) {
-        return resolve(null);
+    const opencodeBin = resolveProbeBinary(agentPath, 'opencode');
+    if (!opencodeBin) {
+      return resolve({
+        planOrTier: 'Developer Edition',
+        primaryUsedFraction: null,
+        secondaryUsedFraction: null,
+        quotaPercent: null,
+        secondaryPercent: null,
+        primaryLabel: 'Sessão / Diário',
+        secondaryLabel: 'Semanal (7d)',
+        primaryResetText: 'Sem dados de cota',
+        secondaryResetText: 'Sem dados de cota',
+        windows: buildUsageWindows(null, null)
+      });
+    }
+    execFile(opencodeBin, ['auth', 'list', '--format', 'json', '--standalone'], { timeout: 4000, windowsHide: true, maxBuffer: PROBE_MAX_OUTPUT_BYTES, killSignal: 'SIGKILL', env: probeEnv(), shell: false }, (err, stdout) => {
+      let credNames = 'Conectado';
+      if (!err && stdout) {
+        try {
+          const credentials = JSON.parse(stdout);
+          // Only provider NAMES (allow-listed field, sanitized, max 5) ever reach the UI — never keys/tokens from the CLI output.
+          credNames = Array.isArray(credentials)
+            ? credentials.slice(0, 5).map((c: any) => probeLabel(c?.name ?? c?.id, 30)).filter(Boolean).join(', ') || 'Conectado'
+            : 'Conectado';
+        } catch {}
       }
-      try {
-        const credentials = JSON.parse(stdout);
-        const credNames = Array.isArray(credentials) ? credentials.map((c: any) => c.name || c.id).join(', ') : 'Conectado';
-        resolve({
-          planOrTier: `Developer Edition (${credNames})`,
-          primaryUsedFraction: 0.05,
-          quotaPercent: 5,
-          primaryLabel: 'Taxa por Minuto',
-          primaryResetText: 'Janela contínua de 1 min',
-          windows: [
-            {
-              id: 'rpm',
-              title: 'Janela por Minuto',
-              usedFraction: 0.05,
-              resetsAt: null,
-              durationMinutes: 1,
-              formattedReset: 'Janela contínua de 1 min'
-            }
-          ]
-        });
-      } catch {
-        resolve(null);
-      }
+      resolve({
+        planOrTier: `Developer Edition (${credNames})`,
+        primaryUsedFraction: null,
+        secondaryUsedFraction: null,
+        quotaPercent: null,
+        secondaryPercent: null,
+        primaryLabel: 'Sessão / Diário',
+        secondaryLabel: 'Semanal (7d)',
+        primaryResetText: 'Sem dados de cota',
+        secondaryResetText: 'Sem dados de cota',
+        windows: buildUsageWindows(null, null)
+      });
     });
   });
 }
+
+export async function probeClaude(_agentPath?: string): Promise<Partial<AgentUsageReport> | null> {
+  return Promise.resolve({
+    planOrTier: 'Anthropic Claude Code',
+    primaryUsedFraction: null,
+    secondaryUsedFraction: null,
+    quotaPercent: null,
+    secondaryPercent: null,
+    primaryLabel: 'Sessão / Diário',
+    secondaryLabel: 'Semanal (7d)',
+    primaryResetText: 'Sem dados de cota',
+    secondaryResetText: 'Sem dados de cota',
+    windows: buildUsageWindows(null, null)
+  });
+}
+
+export async function probeCopilot(_agentPath?: string): Promise<Partial<AgentUsageReport> | null> {
+  return Promise.resolve({
+    planOrTier: 'Copilot Pro / Business',
+    primaryUsedFraction: null,
+    secondaryUsedFraction: null,
+    quotaPercent: null,
+    secondaryPercent: null,
+    primaryLabel: 'Sessão / Diário',
+    secondaryLabel: 'Semanal (7d)',
+    primaryResetText: 'Sem dados de cota',
+    secondaryResetText: 'Sem dados de cota',
+    windows: buildUsageWindows(null, null)
+  });
+}
+

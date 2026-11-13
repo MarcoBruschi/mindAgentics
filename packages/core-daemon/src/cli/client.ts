@@ -21,7 +21,8 @@ Commands:
     --raw <string>                              Send raw input or escape sequences
   check <agent>                                 Read an agent's current terminal output
   say <message>                                 Broadcast a message to connected agents
-  recall <query>                                Semantic search of terminal memory
+  recall <query>                                Busca local (SQLite FTS5) na memória do agente: 3 melhores trechos
+  ref <add|list|remove>                         Referências de arquivo/pasta no canvas (só caminho, nunca conteúdo)
   note <create|read|write|edit|stack|delete>    Manage sticky notes and fichários on canvas
   portal <snapshot|click|fill|type|key|...>     Automate browser and device portals
   preset <list|show|create|set|delete>          Manage agent quick-start presets
@@ -69,13 +70,77 @@ export async function runCliClient(argv: string[]): Promise<void> {
     process.exit(1);
   }
 
+  let stdinContent: string | undefined;
+  const subcmd = (parsed.args[0] || '').toLowerCase();
+  const wantsStdin =
+    Boolean(parsed.options.stdin) ||
+    parsed.args.includes('-') ||
+    (parsed.command === 'note' &&
+      (subcmd === 'write' || subcmd === 'create') &&
+      !parsed.options.file &&
+      !parsed.options.f &&
+      !parsed.options.body &&
+      !parsed.options.content &&
+      parsed.args.length <= 2 &&
+      !process.stdin.isTTY);
+
+  if (wantsStdin) {
+    stdinContent = await new Promise<string | undefined>((resolve) => {
+      const chunks: Buffer[] = [];
+      let receivedData = false;
+      let settled = false;
+      const done = (val?: string) => {
+        if (settled) return;
+        settled = true;
+        process.stdin.removeAllListeners('data');
+        process.stdin.removeAllListeners('end');
+        process.stdin.removeAllListeners('error');
+        try {
+          process.stdin.pause();
+        } catch {}
+        resolve(val);
+      };
+
+      const firstChunkTimer = setTimeout(() => {
+        if (!receivedData) {
+          done(undefined);
+        }
+      }, 50);
+
+      process.stdin.on('data', (chunk: Buffer | string) => {
+        receivedData = true;
+        clearTimeout(firstChunkTimer);
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      });
+
+      process.stdin.on('end', () => {
+        clearTimeout(firstChunkTimer);
+        done(receivedData ? Buffer.concat(chunks).toString('utf8') : undefined);
+      });
+
+      process.stdin.on('error', () => {
+        clearTimeout(firstChunkTimer);
+        done(undefined);
+      });
+
+      try {
+        process.stdin.resume();
+      } catch {
+        clearTimeout(firstChunkTimer);
+        done(undefined);
+      }
+    });
+  }
+
   const req: CliRequestEnvelope = {
     id: `req-${randomUUID().slice(0, 8)}`,
     terminalId: terminalId!,
     workspaceId: process.env.MINDAGENTICS_WORKSPACE_ID,
     floorId: process.env.MINDAGENTICS_FLOOR_ID,
+    cwd: process.cwd(),
+    ...(stdinContent !== undefined ? { stdin: stdinContent } : {}),
     command: parsed.command,
-    args: parsed.args,
+    args: parsed.args.filter((a) => a !== '-'),
     options: {
       ...parsed.options,
       orchestratorMode:

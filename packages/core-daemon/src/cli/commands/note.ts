@@ -1,7 +1,45 @@
 import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
-import type { NoteNode, NoteContent, NoteColor, NoteStackNode } from '@mindagentics/shared';
+import type { NoteNode, NoteContent, NoteColor, NoteStackNode, CliRequestEnvelope } from '@mindagentics/shared';
 import { placeNode } from '../../daemon/spatial.js';
+
+function resolveNoteInputContent(
+  req: CliRequestEnvelope,
+  state: any,
+  fallbackContent: string | undefined,
+): { content?: string; error?: string } {
+  const fileOpt = (req.options.file ?? req.options.f) as string | boolean | undefined;
+  if (fileOpt !== undefined) {
+    if (typeof fileOpt !== 'string' || !fileOpt.trim()) {
+      return { error: 'mindagentics note: a flag --file requer um caminho de arquivo válido.' };
+    }
+    const baseCwd =
+      req.cwd ||
+      state.terminals?.get(req.terminalId)?.cwd ||
+      process.cwd();
+    const resolvedPath = path.resolve(baseCwd, fileOpt.trim());
+    if (!fs.existsSync(resolvedPath)) {
+      return { error: `mindagentics note: arquivo não encontrado: "${resolvedPath}"` };
+    }
+    try {
+      return { content: fs.readFileSync(resolvedPath, 'utf8') };
+    } catch (err: any) {
+      return { error: `mindagentics note: falha ao ler arquivo "${resolvedPath}": ${err.message || String(err)}` };
+    }
+  }
+
+  if (typeof req.stdin === 'string' && req.stdin.length > 0) {
+    return { content: req.stdin };
+  }
+
+  if (typeof req.options.stdin === 'string' && req.options.stdin.length > 0) {
+    return { content: req.options.stdin };
+  }
+
+  return { content: fallbackContent };
+}
 
 function findNote(state: any, nameOrId: string): NoteNode | undefined {
   const norm = (nameOrId || '').toLowerCase().trim();
@@ -44,10 +82,11 @@ export const noteCommand: CommandHandler = async (req, state, router, scheduler,
       output: `Uso: mindagentics note <subcomando> [argumentos] [opções]
 
 Subcomandos:
-  create ["<Título>"] [--body "<Texto>"] [--color <cor>] [--stack "<Fichário>"]
+  create ["<Título>"] [--body "<Texto>"] [--file <caminho>] [--color <cor>] [--stack "<Fichário>"]
       Cria uma nova nota adesiva ou adiciona como página dentro de um Fichário.
       Opções:
         --body, --content "<texto>"    Conteúdo Markdown da nota
+        --file, -f <caminho>           Lê o conteúdo diretamente de um arquivo (ou via stdin)
         --color <yellow|blue|green|pink|purple|gray>  Cor da nota (padrão: yellow)
         --stack "<nome do fichário>"   Insere diretamente dentro de um NoteStack (Fichário)
         --title, --name "<título>"     Título explícito da nota
@@ -62,8 +101,8 @@ Subcomandos:
   read "<Nome da Nota>"
       Lê o conteúdo completo de uma nota.
 
-  write "<Nome da Nota>" "<Novo Conteúdo>"
-      Atualiza e substitui o conteúdo do corpo da nota.
+  write "<Nome da Nota>" ["<Novo Conteúdo>"] [--file <caminho>]
+      Atualiza e substitui o conteúdo do corpo da nota (suporta texto direto, --file <caminho> ou stdin).
 
   edit "<Nome da Nota>" "<Novo Conteúdo>"
       Alias para write.
@@ -89,6 +128,12 @@ Subcomandos:
           content = restArgs.slice(1).join(' ');
         }
       }
+
+      const resolvedCreate = resolveNoteInputContent(req, state, content);
+      if (resolvedCreate.error) {
+        return { error: resolvedCreate.error, exitCode: 1 };
+      }
+      content = resolvedCreate.content;
 
       if (!content) {
         content = (req.options.body || req.options.content || '') as string;
@@ -311,14 +356,23 @@ Subcomandos:
 
     case 'write': {
       const noteName = restArgs[0];
-      const newContent = restArgs.slice(1).join(' ') || (req.options.content as string) || '';
+      const fallbackContent = restArgs.slice(1).join(' ') || (req.options.content as string) || (req.options.body as string) || '';
 
       if (!noteName) {
         return {
-          error: 'mindagentics note write: note name required. Usage: mindagentics note write "Note Name" "content"',
+          error: 'mindagentics note write: note name required. Usage: mindagentics note write "Note Name" ["content"] [--file <path>]',
           exitCode: 1,
         };
       }
+
+      const resolvedWrite = resolveNoteInputContent(req, state, fallbackContent);
+      if (resolvedWrite.error) {
+        return {
+          error: resolvedWrite.error,
+          exitCode: 1,
+        };
+      }
+      const newContent = resolvedWrite.content ?? '';
 
       const note = findNote(state, noteName);
       if (!note) {

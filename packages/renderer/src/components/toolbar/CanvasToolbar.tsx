@@ -17,7 +17,7 @@ import {
   Terminal,
   StickyNote,
   Cable,
-  Layers,
+  FolderOpen,
   Compass,
   Network,
   Type,
@@ -181,44 +181,45 @@ export const CanvasToolbar: React.FC = () => {
     setMode('select');
   };
 
-  const addNoteStack = () => {
-    const id = `node-stack-${Date.now()}`;
-    const placed = getViewportCenter(380, 340);
+  const addFileRef = async () => {
+    const api = (window as any).api || (window as any).mindAgentics;
+    const pickFn = api?.app?.pickReference || api?.app?.pickDirectory;
+    if (!pickFn) return;
+    try {
+      const res = await pickFn();
+      if (!res) return;
+      const pickedPath = typeof res === 'string' ? res : res.path;
+      const isDir = typeof res === 'object' && 'isDirectory' in res ? res.isDirectory : true;
+      if (!pickedPath) return;
 
-    setNodes((prev) => [
-      ...prev,
-      {
-        id,
-        kind: 'noteStack',
-        x: placed.x,
-        y: placed.y,
-        width: 380,
-        height: 340,
-        zIndex: Math.max(...prev.map((n) => n.zIndex || 1), 10) + 1,
-        content: {
-          stackId: `stack-${Date.now()}`,
-          title: 'Fichário',
-          noteIds: ['p-1', 'p-2'],
-          activePageIndex: 0,
-          tabOrientation: 'side',
-          pages: [
-            {
-              id: 'p-1',
-              title: 'Visão Geral',
-              color: 'blue',
-              body: '## Fichário de Páginas\nUse as abas laterais para navegar.',
-            },
-            {
-              id: 'p-2',
-              title: 'Notas',
-              color: 'purple',
-              body: '## Anotações\nInformações adicionais.',
-            },
-          ],
-        },
-      },
-    ]);
-    setMode('select');
+      const normalized = pickedPath.replace(/\\/g, '/');
+      const parts = normalized.split('/').filter(Boolean);
+      const label = parts[parts.length - 1] || pickedPath;
+      const id = `node-ref-${Date.now()}`;
+      const placed = getViewportCenter(140, 128);
+
+      setNodes((prev) => [
+        ...prev,
+        {
+          id,
+          kind: 'fileRef',
+          x: placed.x,
+          y: placed.y,
+          width: 140,
+          height: 128,
+          zIndex: Math.max(...prev.map((n) => n.zIndex || 1), 10) + 1,
+          content: {
+            path: pickedPath,
+            isDirectory: isDir,
+            label,
+          },
+        } as any,
+      ]);
+      setSelectedIds([id]);
+      setMode('select');
+    } catch (err) {
+      console.error('Failed to pick reference:', err);
+    }
   };
 
   const addPortal = () => {
@@ -302,15 +303,13 @@ export const CanvasToolbar: React.FC = () => {
     { id: 'neon', label: 'Neon' },
   ];
 
-  const agentCount = installedAgents.length > 0 ? installedAgents.length : 3;
-  const avgQuota = installedAgents.length > 0
-    ? Math.round(
-        installedAgents.reduce((acc, a) => {
-          const frac = a.primaryUsedFraction ?? (a.quotaPercent ? a.quotaPercent / 100 : 0.15);
-          return acc + frac;
-        }, 0) / installedAgents.length * 100
-      )
-    : 15;
+  const agentCount = installedAgents.length;
+  const validQuotas = installedAgents
+    .map((a) => a.primaryUsedFraction ?? (a.quotaPercent != null ? a.quotaPercent / 100 : null))
+    .filter((f): f is number => f !== null && f !== undefined);
+  const avgQuota = validQuotas.length > 0
+    ? Math.round((validQuotas.reduce((acc, f) => acc + f, 0) / validQuotas.length) * 100)
+    : null;
 
   return (
     <>
@@ -324,7 +323,7 @@ export const CanvasToolbar: React.FC = () => {
             : 'translate-y-0'
         }`}
         style={{
-          left: isSidebarOpen ? 'calc(50% + 124px)' : '50%',
+          left: '50%',
         } as React.CSSProperties}
       >
         {/* Indicador Recolhido Unificado: Linha/Cápsula lisa, pura e minimalista (Eixo Central em 28px do topo) */}
@@ -358,7 +357,7 @@ export const CanvasToolbar: React.FC = () => {
         {/* Barra de Ferramentas Aberta (Capsule com acabamento acetinado escuro) */}
         <div
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          className={`flex items-center gap-1 px-2 py-1.5 rounded-full bg-[#121418]/90 border border-white/[0.08] backdrop-blur-md shadow-2xl transition-all duration-200 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] canvas-toolbar ${
+          className={`flex items-center gap-1 px-2 py-1.5 max-w-[calc(100vw-1rem)] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0 rounded-full bg-[#121418]/90 border border-white/[0.08] backdrop-blur-md shadow-2xl transition-all duration-200 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] canvas-toolbar ${
             isExpanded
               ? 'pointer-events-auto opacity-100 translate-y-0'
               : 'pointer-events-none opacity-0 -translate-y-8'
@@ -408,13 +407,13 @@ export const CanvasToolbar: React.FC = () => {
             <Cable className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
-          {/* 5. Fichário de Páginas (NoteStack) */}
+          {/* 5. Referência de Arquivo ou Pasta (FileRef) */}
           <button
-            onClick={addNoteStack}
+            onClick={addFileRef}
             className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A8F98] hover:text-[#E7E8EA] hover:bg-white/[0.06] transition-colors cursor-pointer"
-            title="Adicionar Fichário (Binder)"
+            title="Adicionar Referência (Pasta ou Arquivo)"
           >
-            <Layers className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <FolderOpen className="w-[17px] h-[17px]" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
           </button>
 
           {/* 6. Portal Web / Navegador */}
@@ -584,7 +583,7 @@ export const CanvasToolbar: React.FC = () => {
       </div>
 
       {/* Bottom-Right Corner: Unified Floating Capsule (Agent Usage + Zoom Controls) */}
-      <div className="absolute bottom-6 right-6 flex items-center z-40 select-none pointer-events-none">
+      <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 max-w-[calc(100vw-1.5rem)] flex items-center z-40 select-none pointer-events-none">
         <div className="h-9 px-3 rounded-full flex items-center gap-3 bg-[#121418]/90 border border-white/[0.08] backdrop-blur-md shadow-2xl text-xs text-[#E7E8EA] pointer-events-auto">
           {/* Agent Usage Indicator */}
           <button
@@ -595,7 +594,7 @@ export const CanvasToolbar: React.FC = () => {
           >
             <div className="w-2 h-2 rounded-full bg-[#5FD3A0] shrink-0" />
             <span className="text-[11px] font-medium tracking-tight">
-              {agentCount} agentes · {avgQuota}%
+              {agentCount > 0 ? `${agentCount} agentes` : 'Agentes'} · {avgQuota !== null ? `${avgQuota}%` : 'sem dados'}
             </span>
           </button>
 

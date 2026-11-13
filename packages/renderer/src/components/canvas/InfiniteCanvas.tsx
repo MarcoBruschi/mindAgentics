@@ -36,6 +36,7 @@ import { StickyNoteNode } from '../nodes/StickyNoteNode';
 import { NoteStackNode } from '../nodes/NoteStackNode';
 import { PortalNode } from '../nodes/PortalNode';
 import { TextBlockNode } from '../nodes/TextBlockNode';
+import { FileRefNode } from '../nodes/FileRefNode';
 import {
   zoomAtPoint,
   snapToGrid,
@@ -789,7 +790,7 @@ export const InfiniteCanvas: React.FC = () => {
 
   // Node operations
   const handleMoveNode = useCallback((id: string, x: number, y: number) => {
-    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, x, y } : n)));
+    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, x: Math.round(x), y: Math.round(y) } : n)));
   }, [setNodes]);
 
   const handleMoveNodes = useCallback((nodeIds: string[], dx: number, dy: number) => {
@@ -807,7 +808,7 @@ export const InfiniteCanvas: React.FC = () => {
   }, [setNodes]);
 
   const handleResizeNode = useCallback((id: string, width: number, height: number) => {
-    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, width, height } : n)));
+    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, width: Math.round(width), height: Math.round(height) } : n)));
   }, [setNodes]);
 
   const handleUpdateNode = useCallback((updated: CanvasNode) => {
@@ -905,12 +906,12 @@ export const InfiniteCanvas: React.FC = () => {
 
       {/* Canvas World Container */}
       <div
-        className={`absolute origin-top-left ${isPanning ? 'will-change-transform' : ''}`}
+        className="absolute origin-top-left"
         style={{
           transform: `translate(${Math.round(offset.x)}px, ${Math.round(offset.y)}px) scale(${offset.zoom})`,
           WebkitFontSmoothing: 'antialiased',
           MozOsxFontSmoothing: 'grayscale',
-          textRendering: 'geometricPrecision',
+          textRendering: 'optimizeLegibility',
         }}
       >
         {/* Bands Layer */}
@@ -999,6 +1000,13 @@ export const InfiniteCanvas: React.FC = () => {
             )}
             {node.kind === 'textBlock' && (
               <TextBlockNode
+                node={node as any}
+                onUpdate={handleUpdateNode as any}
+                onDelete={handleDeleteNode}
+              />
+            )}
+            {node.kind === 'fileRef' && (
+              <FileRefNode
                 node={node as any}
                 onUpdate={handleUpdateNode as any}
                 onDelete={handleDeleteNode}

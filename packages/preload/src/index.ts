@@ -115,6 +115,9 @@ app: {
     pickDirectory() {
       return electron.ipcRenderer.invoke(C.appPickDirectory);
     },
+    pickReference(options?: { target?: 'file' | 'folder' | 'all'; title?: string }) {
+      return electron.ipcRenderer.invoke(C.appPickReference, options);
+    },
     quit() {
       return electron.ipcRenderer.invoke(C.appQuit);
     },
@@ -744,6 +747,9 @@ app: {
     },
     restart(terminalId) {
       return electron.ipcRenderer.invoke(C.terminalRestart, terminalId);
+    },
+    reconfigure(arg1: any, arg2?: any) {
+      return electron.ipcRenderer.invoke(C.terminalReconfigure, arg1, arg2);
     },
     attach(terminalId) {
       return electron.ipcRenderer.invoke(C.terminalAttach, terminalId);

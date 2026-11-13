@@ -57,9 +57,7 @@ export const TitleBar: React.FC = () => {
     <header
       data-titlebar-drag="true"
       onDoubleClick={handleDoubleClick}
-      className={`fixed top-0 right-0 h-14 flex items-center justify-between select-none pointer-events-auto transition-all duration-300 ease-in-out z-30 ${
-        isMaximized ? 'px-4 pt-1.5' : 'px-3'
-      } ${
+      className={`fixed top-0 right-0 h-14 flex items-center justify-between px-3 select-none pointer-events-auto transition-all duration-300 ease-in-out z-30 ${
         isSidebarOpen ? 'left-[248px]' : 'left-0'
       }`}
       style={{
@@ -75,9 +73,9 @@ export const TitleBar: React.FC = () => {
           onClick={() => setIsSidebarOpen((prev: boolean) => !prev)}
           className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-300 hover:text-white shadow-lg transition-all duration-200 cursor-pointer hover:bg-white/10"
           style={{
-            backgroundColor: 'var(--sidebar-bg, rgba(10, 12, 16, 0.22))',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            backgroundColor: 'var(--sidebar-bg, #121418)',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
             border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
           title={isSidebarOpen ? 'Esconder barra lateral' : 'Mostrar barra lateral'}

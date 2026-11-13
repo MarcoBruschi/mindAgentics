@@ -4,6 +4,7 @@
  */
 
 import { snapNode, tidyNode, placeNode } from './spatial.js';
+import { notifyRefsChanged } from './refs.js';
 import type { DaemonState } from './state.js';
 import type { MessageRouter } from './router.js';
 import type { RoutineScheduler } from './scheduler.js';
@@ -140,6 +141,9 @@ export class RpcHandler {
       }
 
       case 'syncCanvas': {
+        const prevNodes = new Map(this.state.nodes);
+        const prevConnections = [...this.state.connections];
+
         if (Array.isArray(payload?.nodes)) {
           this.state.nodes.clear();
           const activeTerminalIds = new Set<string>();
@@ -180,11 +184,61 @@ export class RpcHandler {
           }
         }
         if (Array.isArray(payload?.cableTies)) {
-          this.state.connections = payload.cableTies.map((c: any) => ({
-            fromId: c.fromNodeId,
-            toId: c.toNodeId,
+          const newConnections = payload.cableTies.map((c: any) => ({
+            fromId: c.fromNodeId || c.fromId,
+            toId: c.toNodeId || c.toId,
             label: c.label,
           }));
+
+          const getRefTermPair = (fromId: string, toId: string, nodeMap: Map<string, any>) => {
+            const fromNode = nodeMap.get(fromId);
+            const toNode = nodeMap.get(toId);
+            if (fromNode?.kind === 'fileRef' && (toNode?.kind === 'terminal' || this.state.terminals.has(toId))) {
+              const termId = (toNode?.content as any)?.terminalId || toId;
+              return { refNode: fromNode, terminalId: termId };
+            }
+            if (toNode?.kind === 'fileRef' && (fromNode?.kind === 'terminal' || this.state.terminals.has(fromId))) {
+              const termId = (fromNode?.content as any)?.terminalId || fromId;
+              return { refNode: toNode, terminalId: termId };
+            }
+            return null;
+          };
+
+          const prevPairs = new Map<string, { refNode: any; terminalId: string }>();
+          for (const conn of prevConnections) {
+            const pair = getRefTermPair(conn.fromId, conn.toId, prevNodes);
+            if (pair) {
+              prevPairs.set(`${pair.refNode.id}::${pair.terminalId}`, pair);
+            }
+          }
+
+          const newPairs = new Map<string, { refNode: any; terminalId: string }>();
+          for (const conn of newConnections) {
+            const pair = getRefTermPair(conn.fromId, conn.toId, this.state.nodes);
+            if (pair) {
+              newPairs.set(`${pair.refNode.id}::${pair.terminalId}`, pair);
+            }
+          }
+
+          this.state.connections = newConnections;
+
+          // Avisar o agente imediatamente no terminal quando ligado via UI (mouse / cabo)
+          for (const [key, pair] of newPairs.entries()) {
+            if (!prevPairs.has(key)) {
+              const content = pair.refNode.content || {};
+              notifyRefsChanged(this.state, pair.terminalId, this.sendFrame.bind(this), {
+                path: String(content.path || ''),
+                isDirectory: Boolean(content.isDirectory),
+              });
+            }
+          }
+
+          // Avisar desvinculação para atualizar o AGENTS.md
+          for (const [key, pair] of prevPairs.entries()) {
+            if (!newPairs.has(key)) {
+              notifyRefsChanged(this.state, pair.terminalId, this.sendFrame.bind(this));
+            }
+          }
         }
         break;
       }

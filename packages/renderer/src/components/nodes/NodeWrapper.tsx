@@ -245,6 +245,7 @@ const NodeWrapperComponent: React.FC<NodeWrapperProps> = ({
 
   const isConnectingOrigin = connectingFromId === node.id;
   const isTextBlock = node.kind === 'textBlock';
+  const isFileRef = node.kind === 'fileRef';
   const isOrchestratorNode = node.kind === 'terminal' && Boolean((node.content as any)?.orchestratorMode ?? (node.content as any)?.maestroMode);
 
   return (
@@ -274,18 +275,14 @@ const NodeWrapperComponent: React.FC<NodeWrapperProps> = ({
           : ''
       }`}
       style={{
-        left: 0,
-        top: 0,
-        transform: isTextBlock
-          ? `translate(${Math.round(node.x)}px, ${Math.round(node.y)}px)`
-          : `translate3d(${node.x}px, ${node.y}px, 0)`,
-        width: isTextBlock ? 'max-content' : `${node.width}px`,
-        height: isTextBlock ? 'auto' : `${node.height}px`,
+        left: `${Math.round(node.x)}px`,
+        top: `${Math.round(node.y)}px`,
+        width: isTextBlock ? 'max-content' : isFileRef ? '140px' : `${node.width}px`,
+        height: isTextBlock ? 'auto' : isFileRef ? '128px' : `${node.height}px`,
         minWidth: isTextBlock ? '180px' : undefined,
         whiteSpace: isTextBlock ? 'nowrap' : undefined,
         writingMode: isTextBlock ? 'horizontal-tb' : undefined,
         zIndex: isDragging ? 9999 : node.zIndex,
-        willChange: isTextBlock ? (isDragging ? 'transform' : 'auto') : 'transform',
       }}
     >
       {/* Passing header drag handler to children via header container */}
@@ -307,8 +304,8 @@ const NodeWrapperComponent: React.FC<NodeWrapperProps> = ({
         {children}
       </div>
 
-      {/* Resize handles only for non-textBlock nodes */}
-      {!isTextBlock && (
+      {/* Resize handles only for non-textBlock and non-fileRef nodes */}
+      {!isTextBlock && !isFileRef && (
         <>
           {/* Right Edge Resize Handle */}
           <div
