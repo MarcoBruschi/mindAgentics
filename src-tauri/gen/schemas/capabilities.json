@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capability for the main window with minimal ACL and remote iframe isolation","local":true,"windows":["main"],"permissions":["core:default","core:event:default","core:window:default","core:webview:default","dialog:default","opener:default","clipboard-manager:default"]}}

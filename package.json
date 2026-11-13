@@ -17,6 +17,9 @@
     "build:main": "npm run build --workspace=@mindagentics/main",
     "build": "npm run build:shared && npm run build:public && npm run build:core && npm run build:preload && npm run build:renderer && npm run build:main",
     "dev:renderer": "npm run dev --workspace=@mindagentics/renderer",
+    "tauri": "node scripts/tauri.mjs",
+    "tauri:dev": "node scripts/tauri.mjs dev",
+    "tauri:build": "node scripts/tauri.mjs build",
     "start": "electron packages/main/dist/index.js",
     "test:authorship": "node --test tests/audit/*.test.mjs",
     "test:security": "node --test tests/security/*.test.mjs",
@@ -35,6 +38,7 @@
     "node-pty": "1.2.0-beta.15"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^26.6.5",
     "electron": "^33.2.0",
     "electron-builder": "^26.18.0",

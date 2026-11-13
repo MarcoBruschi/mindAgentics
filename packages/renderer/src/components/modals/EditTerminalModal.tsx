@@ -7,6 +7,8 @@ import {
   Terminal,
   Check,
   Sparkles,
+  RefreshCw,
+  Cpu,
 } from 'lucide-react';
 import {
   ClaudeIcon,
@@ -22,6 +24,16 @@ export interface AgentOption {
   command: string;
   installed: boolean;
 }
+
+export const BASE_AGENTS: AgentOption[] = [
+  { id: 'antigravity', name: 'Antigravity', command: 'agy', installed: true },
+  { id: 'codex', name: 'Codex', command: 'codex', installed: true },
+  { id: 'claude', name: 'Claude Code', command: 'claude', installed: true },
+  { id: 'opencode', name: 'OpenCode', command: 'opencode', installed: true },
+  { id: 'github-copilot', name: 'GitHub Copilot', command: 'copilot', installed: true },
+  { id: 'ollama', name: 'Ollama', command: 'ollama', installed: true },
+  { id: 'shell', name: 'Shell Padrão', command: '', installed: true },
+];
 
 interface EditTerminalModalProps {
   isOpen: boolean;
@@ -41,10 +53,9 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
   const [instructions, setInstructions] = useState(node.content.instructions || '');
   const [isOrchestrator, setIsOrchestrator] = useState(Boolean(node.content.orchestratorMode ?? node.content.maestroMode));
   const [isAutonomous, setIsAutonomous] = useState(node.content.isAutonomous ?? true);
+  const [shouldRestart, setShouldRestart] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState(node.content.presetId || 'shell');
-  const [installedAgents, setInstalledAgents] = useState<AgentOption[]>([
-    { id: 'shell', name: 'Shell Padrão', command: '', installed: true },
-  ]);
+  const [installedAgents, setInstalledAgents] = useState<AgentOption[]>(BASE_AGENTS);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -55,6 +66,7 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
       setIsOrchestrator(Boolean(node.content.orchestratorMode ?? node.content.maestroMode));
       setIsAutonomous(node.content.isAutonomous ?? true);
       setSelectedAgentId(node.content.presetId || 'shell');
+      setShouldRestart(false);
 
       const detect = async () => {
         try {
@@ -65,18 +77,22 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
           if (detectFn) {
             const list = await detectFn();
             if (Array.isArray(list)) {
-              const installed = list
-                .filter((a: any) => a.installed && !['powershell', 'cmd', 'bash'].includes(a.id))
-                .map((a: any) => ({
-                  id: a.id,
-                  name: a.name || a.id,
-                  command: a.command || a.id,
-                  installed: true,
-                }));
-              setInstalledAgents([
-                ...installed,
-                { id: 'shell', name: 'Shell Padrão', command: '', installed: true },
-              ]);
+              const detectedMap = new Map<string, any>();
+              for (const a of list) {
+                if (a && a.id) detectedMap.set(a.id, a);
+              }
+              const merged = BASE_AGENTS.map((base) => {
+                const found = detectedMap.get(base.id);
+                if (found) {
+                  return {
+                    ...base,
+                    command: found.command || base.command,
+                    installed: Boolean(found.installed),
+                  };
+                }
+                return base;
+              });
+              setInstalledAgents(merged);
             }
           }
         } catch {}
@@ -87,12 +103,30 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleSelectAgent = (agent: AgentOption) => {
+    setSelectedAgentId(agent.id);
+    const isAgentChanging = agent.id !== (node.content.presetId || 'shell');
+    if (isAgentChanging) {
+      setShouldRestart(true);
+      const prevMatchesAgent = BASE_AGENTS.some(
+        (b) => b.name === title || b.id === title || title === 'Terminal'
+      );
+      if (prevMatchesAgent || !title.trim()) {
+        setTitle(agent.name);
+      }
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const selectedAgent = installedAgents.find((a) => a.id === selectedAgentId);
-      const commandChanged = selectedAgent && selectedAgent.command !== node.content.command;
-      const agentChanged = selectedAgentId !== node.content.presetId || commandChanged;
+      const selectedAgent =
+        installedAgents.find((a) => a.id === selectedAgentId) ||
+        BASE_AGENTS.find((a) => a.id === selectedAgentId);
+      const targetCommand = selectedAgent ? selectedAgent.command : (node.content.command ?? '');
+      const commandChanged = targetCommand !== (node.content.command ?? '');
+      const agentChanged = selectedAgentId !== (node.content.presetId || 'shell') || commandChanged;
+      const needsRestart = shouldRestart || agentChanged;
 
       const updatedNode: TerminalNodeType = {
         ...node,
@@ -105,13 +139,11 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
           maestroMode: isOrchestrator,
           isAutonomous,
           presetId: selectedAgentId,
-          command: selectedAgent ? selectedAgent.command : node.content.command,
+          command: targetCommand,
         },
       };
 
-      onUpdate(updatedNode);
-
-      // Reconfigure the backend session immediately
+      // 1. Reconfigure backend session FIRST
       const terminalApi = window.mindAgentics?.terminal || window.api?.terminal;
       if (terminalApi?.reconfigure) {
         await terminalApi.reconfigure(node.content.terminalId, {
@@ -120,15 +152,17 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
           instructions: updatedNode.content.instructions,
           orchestratorMode: isOrchestrator,
           maestroMode: isOrchestrator,
-          command: selectedAgent?.command,
+          command: targetCommand,
           presetId: selectedAgentId,
           isAutonomous,
-          restart: agentChanged,
+          restart: needsRestart,
         });
-      } else if (agentChanged && terminalApi?.restart) {
+      } else if (needsRestart && terminalApi?.restart) {
         await terminalApi.restart(node.content.terminalId);
       }
 
+      // 2. Then update React state
+      onUpdate(updatedNode);
       onClose();
     } catch (err) {
       console.error('Failed to reconfigure terminal:', err);
@@ -143,6 +177,7 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
     if (lower.includes('codex') || lower.includes('openai')) return <CodexIcon size={16} className="text-emerald-400 shrink-0" />;
     if (lower.includes('antigravity') || lower.includes('agy')) return <AntigravityIcon size={16} className="text-indigo-400 shrink-0" />;
     if (lower.includes('opencode')) return <OpenCodeIcon size={16} className="text-sky-400 shrink-0" />;
+    if (lower.includes('ollama')) return <Cpu className="w-4 h-4 text-emerald-400 shrink-0" strokeWidth={1.75} />;
     return <ShellIcon size={16} className="text-zinc-400 shrink-0" />;
   };
 
@@ -184,7 +219,7 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
                   <button
                     key={agent.id}
                     type="button"
-                    onClick={() => setSelectedAgentId(agent.id)}
+                    onClick={() => handleSelectAgent(agent)}
                     className={`p-2.5 rounded-xl border flex items-center gap-2 transition-all cursor-pointer text-left ${
                       isSelected
                         ? 'bg-[#181B20] border-[#8B93FF] ring-1 ring-[#8B93FF] text-white shadow-sm'
@@ -284,6 +319,31 @@ export const EditTerminalModal: React.FC<EditTerminalModalProps> = ({
                 }`}
               >
                 {isAutonomous && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+              </div>
+            </div>
+
+            {/* Restart Session Toggle */}
+            <div
+              onClick={() => setShouldRestart((prev) => !prev)}
+              className={`col-span-2 p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${
+                shouldRestart
+                  ? 'bg-[#8B93FF]/15 border-[#8B93FF]/40 text-[#c2c7ff]'
+                  : 'bg-[#121418] border-[#23262C] text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <RefreshCw className={`w-3.5 h-3.5 ${shouldRestart ? 'text-[#8B93FF]' : 'text-zinc-500'}`} />
+                <div>
+                  <span className="text-[11px] font-medium block">Reiniciar Sessão ao Salvar</span>
+                  <span className="text-[10px] text-zinc-500 block">Inicia um processo limpo aplicando as novas configurações</span>
+                </div>
+              </div>
+              <div
+                className={`w-4 h-4 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
+                  shouldRestart ? 'bg-[#8B93FF] border-[#8B93FF] text-black' : 'border-zinc-600'
+                }`}
+              >
+                {shouldRestart && <Check className="w-2.5 h-2.5 stroke-[3]" />}
               </div>
             </div>
           </div>

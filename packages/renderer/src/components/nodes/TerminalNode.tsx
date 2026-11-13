@@ -68,6 +68,10 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
+    setTitle(node.content.title || '');
+  }, [node.content.title]);
+
+  useEffect(() => {
     if (!isMemoryMenuOpen) return;
     const handleClickOutside = () => setIsMemoryMenuOpen(false);
     window.addEventListener('click', handleClickOutside);
@@ -114,17 +118,17 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       .filter(Boolean) as any[];
   }, [cableTies, allNodes, node.id, node.content.terminalId]);
 
-  const getAgentIcon = (presetName?: string) => {
-    const nameLower = (presetName || '').toLowerCase();
-    if (nameLower.includes('claude')) {
+  const getAgentIcon = (presetId?: string, presetName?: string) => {
+    const check = `${presetId || ''} ${presetName || ''}`.toLowerCase();
+    if (check.includes('claude')) {
       return <ClaudeIcon size={15} className="text-amber-500 shrink-0" />;
-    } else if (nameLower.includes('codex') || nameLower.includes('openai')) {
+    } else if (check.includes('codex') || check.includes('openai')) {
       return <CodexIcon size={15} className="text-emerald-400 shrink-0" />;
-    } else if (nameLower.includes('antigravity') || nameLower.includes('agy')) {
+    } else if (check.includes('antigravity') || check.includes('agy')) {
       return <AntigravityIcon size={15} className="text-indigo-400 shrink-0" />;
-    } else if (nameLower.includes('opencode') || nameLower.includes('code')) {
+    } else if (check.includes('opencode') || check.includes('code')) {
       return <OpenCodeIcon size={15} className="text-sky-400 shrink-0" />;
-    } else if (nameLower.includes('ollama')) {
+    } else if (check.includes('ollama')) {
       return <Cpu className="w-3.5 h-3.5 text-emerald-400 shrink-0" strokeWidth={1.75} />;
     } else {
       return <ShellIcon size={15} className="text-zinc-400 shrink-0" />;
@@ -271,12 +275,12 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     let unsubscribeData: (() => void) | undefined;
     let unsubscribeStatus: (() => void) | undefined;
 
-    const termBridge = window.mindAgentics?.terminal || (window.mindAgentics?.terminal || window.api?.terminal ?.terminal);
+    const termBridge = window.mindAgentics?.terminal || window.api?.terminal;
     if (termBridge) {
       let scrollbackRestored = false;
-      const pendingDataQueue: string[] = [];
+      const pendingDataQueue: (string | Uint8Array)[] = [];
 
-      unsubscribeData = termBridge.onData((receivedId: string, data: string) => {
+      unsubscribeData = termBridge.onData((receivedId: string, data: string | Uint8Array) => {
         if (receivedId === termId && data) {
           if (!scrollbackRestored) {
             pendingDataQueue.push(data);
@@ -391,7 +395,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           fitAddon.fit();
           const termResize =
             window.mindAgentics?.terminal?.resize ||
-            (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.resize;
+            window.api?.terminal?.resize;
           if (termResize) {
             termResize(termId, term.cols, term.rows);
           }
@@ -421,7 +425,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       } catch {}
       term.dispose();
     };
-  }, [node.content.terminalId, agentCommand]);
+  }, [node.content.terminalId, agentCommand, node.content.presetId]);
 
   // Synchronize XTerm canvas pixel density when canvas zoom changes for crisp vector-sharp typography
   useEffect(() => {
@@ -504,7 +508,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       refCommand = `[ref] ${isDir ? 'pasta' : 'arquivo'}: ${p}`;
     }
 
-    const termWrite = window.mindAgentics?.terminal?.write || (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.write;
+    const termWrite = window.mindAgentics?.terminal?.write || window.api?.terminal?.write;
     if (refCommand && termWrite) {
       termWrite(node.content.terminalId, refCommand + '\r');
     } else if (refCommand) {
@@ -515,7 +519,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   const handleMemoryAction = (action: 'summary' | 'clear' | 'resume') => {
     const termWrite =
       window.mindAgentics?.terminal?.write ||
-      (window.mindAgentics?.terminal || window.api?.terminal?.terminal)?.write;
+      window.api?.terminal?.write;
     const term = xtermInstance.current;
 
     let cmd = '';
@@ -587,7 +591,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           <div className="flex items-center shrink-0">{getStatusDot()}</div>
 
           {/* Agent Brand Icon */}
-          <div className="shrink-0 flex items-center">{getAgentIcon(agentName)}</div>
+          <div className="shrink-0 flex items-center">{getAgentIcon(node.content.presetId, agentName)}</div>
 
           {/* Editable Title */}
           {isEditingTitle ? (

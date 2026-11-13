@@ -56,6 +56,7 @@ export const TitleBar: React.FC = () => {
   return (
     <header
       data-titlebar-drag="true"
+      data-tauri-drag-region
       onDoubleClick={handleDoubleClick}
       className={`fixed top-0 right-0 h-14 flex items-center justify-between px-3 select-none pointer-events-auto transition-all duration-300 ease-in-out z-30 ${
         isSidebarOpen ? 'left-[248px]' : 'left-0'
@@ -83,6 +84,15 @@ export const TitleBar: React.FC = () => {
           <Menu className="w-4 h-4" strokeWidth={1.75} />
         </button>
       </div>
+
+      {/* Center Draggable Spacer for Tauri v2 and Electron */}
+      <div
+        data-tauri-drag-region
+        className="flex-1 h-full flex items-center justify-center"
+        style={{
+          WebkitAppRegion: isFullScreen ? 'no-drag' : 'drag',
+        } as React.CSSProperties}
+      />
 
       {/* Right: Window Controls */}
       <div

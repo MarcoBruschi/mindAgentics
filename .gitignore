@@ -22,6 +22,8 @@ dist-electron
 dist-package
 out
 build
+target/
+src-tauri/target/
 *.tsbuildinfo
 .vite
 graphify-out/

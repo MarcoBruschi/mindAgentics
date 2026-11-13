@@ -1,0 +1,54 @@
+[package]
+name = "mindagentics-tauri"
+version = "0.26.0"
+description = "mindAgentics — High-Performance Autonomous Multi-Agent Canvas (Tauri 2.x)"
+authors = ["mindAgentics Team"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "mindagentics_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.2", features = ["tray-icon"] }
+tauri-plugin-opener = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-clipboard-manager = "2.0"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.38", features = ["full", "sync", "process", "io-util", "net"] }
+portable-pty = "0.8"
+regex = "1.10"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.8", features = ["v4", "fast-rng", "serde"] }
+dirs = "5.0"
+dunce = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+zip = "2.1"
+rusqlite = { version = "0.31", features = ["bundled", "bundled-full"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes"
+] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

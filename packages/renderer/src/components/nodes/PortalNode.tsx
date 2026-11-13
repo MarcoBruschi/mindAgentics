@@ -14,7 +14,10 @@ import {
   X,
   Crosshair,
   ExternalLink,
+  AppWindow,
+  AlertTriangle,
 } from 'lucide-react';
+import { isTauriEnvironment } from '@/backend';
 
 interface PortalNodeProps {
   node: PortalNodeType;
@@ -33,9 +36,31 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
   const content = node.content;
   const [urlInput, setUrlInput] = useState(content.url || 'https://example.com');
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [isBlockedOrError, setIsBlockedOrError] = useState(false);
 
+  const isTauri = isTauriEnvironment();
   const isAndroid = content.portalKind === 'android';
   const tags: ActionRefTag[] = content.actionTags || [];
+
+  const handleOpenExternal = () => {
+    const api = (window as any).api || (window as any).mindAgentics;
+    if (api?.app?.openExternal) {
+      api.app.openExternal(content.url);
+    } else {
+      window.open(content.url, '_blank', 'noreferrer');
+    }
+  };
+
+  const handleOpenNativeWindow = () => {
+    const api = (window as any).api || (window as any).mindAgentics;
+    if (api?.portal?.openWindow) {
+      api.portal.openWindow(content.url, content.url);
+    } else if (api?.app?.openExternal) {
+      api.app.openExternal(content.url);
+    } else {
+      window.open(content.url, '_blank', 'noreferrer');
+    }
+  };
 
   const handleNavigate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +69,7 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
       target = 'https://' + target;
     }
     setUrlInput(target);
+    setIsBlockedOrError(false);
     onUpdate({
       ...nodeRef.current,
       content: {
@@ -174,16 +200,23 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
             <Smartphone className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
 
-          {/* External browser open */}
-          <a
-            href={content.url}
-            target="_blank"
-            rel="noreferrer"
+          {/* Open in dedicated native window */}
+          <button
+            onClick={handleOpenNativeWindow}
             className="p-1 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-md transition-colors"
-            title="Open in default browser"
+            title="Abrir em Janela Dedicada"
+          >
+            <AppWindow className="w-3.5 h-3.5" strokeWidth={1.75} />
+          </button>
+
+          {/* External browser open */}
+          <button
+            onClick={handleOpenExternal}
+            className="p-1 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-md transition-colors"
+            title="Abrir no Navegador Externo"
           >
             <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.75} />
-          </a>
+          </button>
 
           {/* Close */}
           <button
@@ -203,7 +236,43 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
           isAndroid ? 'p-2' : ''
         } ${isAddingTag ? 'cursor-crosshair' : ''}`}
       >
-        {isAndroid ? (
+        {isBlockedOrError ? (
+          <div className="flex flex-col items-center justify-center p-6 text-center space-y-3 bg-[#0E0F12] text-zinc-300 w-full h-full select-none">
+            <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold text-white">Embed Restrito (X-Frame-Options / CSP)</h4>
+              <p className="text-xs text-zinc-400 max-w-[340px]">
+                {isTauri
+                  ? 'Este site restringe exibição em iframe no ambiente Tauri.'
+                  : 'Este site restringe exibição incorporada.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={handleOpenNativeWindow}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#8B93FF] hover:bg-[#7a82f8] text-[#0E0F12] transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <AppWindow className="w-3.5 h-3.5" />
+                <span>Janela Nativa</span>
+              </button>
+              <button
+                onClick={handleOpenExternal}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-white/[0.08] hover:bg-white/[0.15] text-white transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Navegador</span>
+              </button>
+            </div>
+            <button
+              onClick={() => setIsBlockedOrError(false)}
+              className="text-[11px] text-zinc-500 hover:text-zinc-300 underline pt-1 cursor-pointer"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : isAndroid ? (
           /* Android / Mobile Phone Frame Simulation (responsive to container) */
           <div className="w-full h-full max-w-[360px] rounded-[32px] border-[6px] border-[#20222A] shadow-2xl relative overflow-hidden bg-[#0A0A0D] flex flex-col ring-1 ring-white/10">
             {/* Notch / Speaker Bar */}
@@ -221,7 +290,8 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
               src={content.url}
               title="Android Portal"
               className="w-full flex-1 border-none bg-white"
-              sandbox="allow-same-origin allow-scripts allow-forms"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+              onError={() => setIsBlockedOrError(true)}
             />
 
             {/* Mobile Bottom Home Bar Indicator */}
@@ -235,7 +305,8 @@ export const PortalNode: React.FC<PortalNodeProps> = ({
             src={content.url}
             title="Browser Portal"
             className="w-full h-full border-none bg-white"
-            sandbox="allow-same-origin allow-scripts allow-forms"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+            onError={() => setIsBlockedOrError(true)}
           />
         )}
 

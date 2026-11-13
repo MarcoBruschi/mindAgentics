@@ -86,8 +86,8 @@ export const Sidebar: React.FC = () => {
       }`}
       style={{
         backgroundColor: 'var(--sidebar-bg, #121418)',
-        backdropFilter: 'none',
-        WebkitBackdropFilter: 'none',
+        backdropFilter: 'blur(24px) saturate(140%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(140%)',
         transform: 'translateZ(0)',
         willChange: 'transform',
         WebkitAppRegion: 'no-drag',
