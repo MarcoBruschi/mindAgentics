@@ -267,7 +267,7 @@ export const InfiniteCanvas: React.FC = () => {
       const isResetZoom = isMod && (e.key === '0' || e.code === 'Numpad0');
 
       // Master Zoom Handling (Ctrl++, Ctrl+=, Ctrl+-, Ctrl+NumpadAdd, Ctrl+NumpadSubtract, Ctrl+0)
-      // Immediately prevent native browser/Electron window zoom so UI chrome remains 100% crisp
+      // Immediately prevent native browser/window zoom so UI chrome remains 100% crisp
       if (isZoomIn || isZoomOut || isResetZoom) {
         e.preventDefault();
         if (isResetZoom) {

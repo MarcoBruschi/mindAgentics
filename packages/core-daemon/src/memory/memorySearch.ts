@@ -6,10 +6,10 @@
  *     `better-sqlite3` when installed. The index is created and kept in sync
  *     incrementally from the JSONL logs (rows newer than the last indexed ts).
  *  2. In-process BM25 over the same logs when no SQLite binding exists in the
- *     runtime (e.g. Electron 33 / Node 20).
+ *     runtime (e.g. Node 20).
  *
  * NOTE: the folder naming (`agentSlug`) must stay identical to
- * packages/main/src/memory/memoryService.ts.
+ * packages/core-daemon/src/memory/memoryService.ts.
  */
 
 import * as fs from 'node:fs';

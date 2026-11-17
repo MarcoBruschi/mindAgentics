@@ -34,10 +34,10 @@ import {
 } from '../../packages/core-daemon/dist/daemon/pipeServer.js';
 import {
   resolveProbeBinary,
-} from '../../packages/main/dist/terminal/agentProbes.js';
+} from '../../packages/core-daemon/dist/terminal/agentProbes.js';
 import {
   MemoryService,
-} from '../../packages/main/dist/memory/memoryService.js';
+} from '../../packages/core-daemon/dist/memory/memoryService.js';
 
 describe('S1 - S6 Comprehensive Security Verification Suite', () => {
   let tempWs;

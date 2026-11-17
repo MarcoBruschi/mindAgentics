@@ -3,17 +3,17 @@
 > **Documento de Arquitetura e Especificação de Interface (Fase de Migração para Tauri 2.x)**  
 > **Status:** Ativo & Homologado  
 > **Última Atualização:** 2026-11-13  
-> **Escopo:** Mapeamento integral dos **89 handlers ativos** do `packages/main/src/ipc/dispatcher.ts`, separação categórica dos ~380 canais legados/mortos do `packages/shared/src/ipc/channels.ts`, e definição dos schemas tipados para interoperabilidade Rust ↔ TypeScript.
+> **Escopo:** Mapeamento integral dos **89 handlers ativos** do `src-tauri/src/commands/mod.rs`, separação categórica dos ~380 canais legados/mortos do `packages/shared/src/ipc/channels.ts`, e definição dos schemas tipados para interoperabilidade Rust ↔ TypeScript.
 
 ---
 
 ## 1. Visão Geral da Arquitetura IPC no Tauri 2.x
 
-No Electron, a comunicação entre o Renderer e o processo Main dependia de canais IPC com strings no formato `mindagentics:<categoria>:<ação>` (`ipcRenderer.invoke` e `ipcRenderer.on`), despachados em um arquivo monolítico (`dispatcher.ts`) com verificação dinâmica de payload (`assertPayloadWithinLimit`).
+A comunicação entre o Renderer e o backend nativo baseia-se em canais IPC com strings no formato `mindagentics:<categoria>:<ação>` e comandos tipados do Tauri v2 com verificação de payload (`assertPayloadWithinLimit`).
 
 Na arquitetura Tauri 2.x:
 1. **Comandos RPC Bidirecionais (`tauri::command`):** Invocados via `@tauri-apps/api/core::invoke('nome_do_comando', { ...args })`. Cada comando possui tipagem estrita de argumentos via structs Serde (`Deserialize`) e retorno serializado (`Serialize`).
-2. **Streaming e Canais de Alta Frequência (`tauri::ipc::Channel` / `tauri::Emitter`):** O stream do terminal PTY (dados binários e ANSI), eventos de saída de processos e batimentos cardíacos do supervisor utilizam canais binários dedicados ou eventos fortemente tipados, eliminando a sobrecarga de serialização JSON do Electron.
+2. **Streaming e Canais de Alta Frequência (`tauri::ipc::Channel` / `tauri::Emitter`):** O stream do terminal PTY (dados binários e ANSI), eventos de saída de processos e batimentos cardíacos do supervisor utilizam canais binários dedicados ou eventos fortemente tipados.
 3. **Segurança e Confinamento de Caminhos:** Toda verificação de path safety (`assertSafePathString`, confinamento de workspace, bloqueio de `..` e links simbólicos fora do workspace) é executada em Rust nativo em tempo constante, sem custos de contexto V8.
 4. **Isolamento de Processos no Windows:** No Windows, subprocessos criados pelo terminal são associados a um Windows Job Object (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`), impedindo processos órfãos (`agy`, `claude`, `codex`, `node`) caso a aplicação seja encerrada de forma abrupta.
 
@@ -44,7 +44,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.1 App, Sistema & SO
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada (`Rust Struct`) | Retorno (`Rust Result<T>`) | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada (`Rust Struct`) | Retorno (`Rust Result<T>`) | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:app:info` | `app_get_info` | `()` | `AppInfoResponse` | Apenas metadados estáticos do build. |
 | `mindagentics:app:diagnosticReport` | `app_get_diagnostic_report` | `()` | `DiagnosticReport` | Sanitizado; omite chaves ou segredos. |
@@ -64,7 +64,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.2 Window Controls & DWM
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:windowControls:state` | `window_get_state` | `()` | `WindowState` | Retorna dimensões, maximizado e escala DPI. |
 | `mindagentics:windowControls:minimize` | `window_minimize` | `()` | `()` | Minimiza a janela nativa. |
@@ -73,7 +73,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.3 App State & Preferências
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:appState:get` | `app_state_get` | `()` | `AppStateDocument` | Lê atomicamente `app-state.json`. |
 | `mindagentics:appState:setOnboardingCompleted` | `app_state_set_onboarding_completed` | `BoolPayload { value: bool }` | `AppStateDocument` | Grava atomicamente `completedOnboarding`. |
@@ -83,7 +83,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.4 Gerenciamento de Workspaces
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:workspace:list` | `workspace_list` | `()` | `Vec<Workspace>` | Lê `manifest.json` com mutex assíncrono. |
 | `mindagentics:workspace:create` | `workspace_create` | `CreateWorkspaceInput` | `Workspace` | Cria pasta, `workspace.json` e atualiza manifesto. |
@@ -98,7 +98,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.5 Floors & Worktrees Git
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:floor:isolationAvailable` | `floor_isolation_available` | `DirPayload { dir: String }` | `bool` | Executa `git rev-parse --is-inside-work-tree`. |
 | `mindagentics:floor:canCopy` | `floor_can_copy` | `()` | `CanCopyResult` | Retorna `{ can_copy: true }`. |
@@ -111,7 +111,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.6 Terminal, Agentes & PTY
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno / Stream | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno / Stream | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:terminal:detectAgents` | `terminal_detect_agents` | `()` | `Vec<AgentCandidate>` | Retorna nomes limpos (`Antigravity`, `Codex`, etc.). |
 | `mindagentics:terminal:getAgentLimits` | `terminal_get_agent_limits` | `()` | `Vec<AgentUsageReport>` | Retorna quotas reais ou `null` se não suportado. |
@@ -134,7 +134,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.7 Notas & Canvas Nodes
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:note:read` | `note_read` | `NoteReadPayload { workspace_id: String, note_id: String }` | `String` | Confinado em `notes/<ws>/<id>.md`. |
 | `mindagentics:note:write` | `note_write` | `NoteWritePayload { workspace_id: String, note_id: String, content: String }` | `GenericResult` | Escrita atômica verbatim (fidelidade total). |
@@ -142,7 +142,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.8 Routines (Cron / Automação)
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:routine:list` | `routine_list` | `()` | `Vec<Routine>` | Lê `routines.json`. |
 | `mindagentics:routine:create` | `routine_create` | `CreateRoutineInput` | `Routine` | Valida expressão cron e salva. |
@@ -153,7 +153,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.9 Licença & Spatial
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:license:get` | `license_get` | `()` | `LicenseInfo` | Retorna status da licença. |
 | `mindagentics:license:activate` | `license_activate` | `KeyPayload { key: String }` | `LicenseInfo` | Validação offline de chave ed25519 / HMAC. |
@@ -163,7 +163,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.10 Armazenamento & Dados
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:clipboard:writeImage` | `clipboard_write_image` | `ImagePayload { data_url: String }` | `GenericResult` | Decodifica base64 e copia para clipboard nativo. |
 | `mindagentics:data:exportBackup` | `data_export_backup` | `BackupExportOptions { dest?: String }` | `BackupResult` | Cria arquivo `.zip` com workspaces e notas. |
@@ -172,7 +172,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.11 Perfil & Gamificação
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:profile:get` | `profile_get` | `()` | `UserProfile` | Lê `profile.json` com fallback para padrão. |
 | `mindagentics:profile:update` | `profile_update` | `ProfilePatch` | `UserProfile` | Atualiza avatar, callsign e preferências. |
@@ -180,7 +180,7 @@ Na arquitetura Tauri 2.x:
 
 ### 3.12 Knowledge Graph (Graphify)
 
-| Canal Electron | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
+| Canal IPC | Comando Tauri (`Rust / TS`) | Payload de Entrada | Retorno | Segurança / Confinamento |
 |---|---|---|---|---|
 | `mindagentics:graphify:build` | `graphify_build` | `GraphifyBuildParams` | `GraphifyBuildResult` | Constrói Knowledge Graph AST via subprocesso Rust/Python. |
 | `mindagentics:graphify:check` | `graphify_check` | `DirPayload { dir: String }` | `GraphifyCheckResult` | Verifica se grafo já está construído no diretório. |

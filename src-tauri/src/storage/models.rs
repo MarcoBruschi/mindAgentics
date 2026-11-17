@@ -15,7 +15,7 @@ fn default_today() -> String {
 }
 
 // ==========================================
-// Generic Electron Storage Envelope
+// Generic mindAgentics Storage Envelope
 // ==========================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -595,75 +595,7 @@ impl Default for UserBadge {
 }
 
 pub fn initial_badges() -> Vec<UserBadge> {
-    vec![
-        UserBadge {
-            id: "badge-primeira-sinfonia".to_string(),
-            name: "Primeira Sinfonia".to_string(),
-            description: "Conectou e executou seu primeiro agente no canvas interativo.".to_string(),
-            icon: "sparkles".to_string(),
-            tier: "bronze".to_string(),
-            unlocked_at: None,
-            progress: Some(0),
-            max_progress: Some(1),
-            extra: serde_json::Map::new(),
-        },
-        UserBadge {
-            id: "badge-delegacao-cirurgica".to_string(),
-            name: "Delegação Cirúrgica".to_string(),
-            description: "Delegou tarefas de forma estruturada para agentes conectados.".to_string(),
-            icon: "paperplane".to_string(),
-            tier: "silver".to_string(),
-            unlocked_at: None,
-            progress: Some(0),
-            max_progress: Some(10),
-            extra: serde_json::Map::new(),
-        },
-        UserBadge {
-            id: "badge-mapeador-neural".to_string(),
-            name: "Mapeador Neural".to_string(),
-            description: "Construiu e explorou o Knowledge Graph determinístico do projeto."
-                .to_string(),
-            icon: "cpu".to_string(),
-            tier: "gold".to_string(),
-            unlocked_at: None,
-            progress: Some(0),
-            max_progress: Some(1),
-            extra: serde_json::Map::new(),
-        },
-        UserBadge {
-            id: "badge-ponte-conhecimento".to_string(),
-            name: "Ponte de Conhecimento".to_string(),
-            description: "Abriu e conectou 5 portais de referência aos seus agentes.".to_string(),
-            icon: "globe".to_string(),
-            tier: "bronze".to_string(),
-            unlocked_at: None,
-            progress: Some(0),
-            max_progress: Some(5),
-            extra: serde_json::Map::new(),
-        },
-        UserBadge {
-            id: "badge-sentinela-autonomo".to_string(),
-            name: "Sentinela Autônomo".to_string(),
-            description: "Configurou e executou uma rotina automatizada de background.".to_string(),
-            icon: "clock".to_string(),
-            tier: "silver".to_string(),
-            unlocked_at: None,
-            progress: Some(0),
-            max_progress: Some(1),
-            extra: serde_json::Map::new(),
-        },
-        UserBadge {
-            id: "badge-em-chamas".to_string(),
-            name: "Em Chamas".to_string(),
-            description: "Manteve uma sequência de 3 dias ativos orquestrando no canvas.".to_string(),
-            icon: "flame".to_string(),
-            tier: "platinum".to_string(),
-            unlocked_at: None,
-            progress: Some(1),
-            max_progress: Some(3),
-            extra: serde_json::Map::new(),
-        },
-    ]
+    Vec::new()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -689,7 +621,7 @@ pub struct OrchestratorStats {
     pub knowledge_graphs_built: u64,
     #[serde(alias = "messages_routed")]
     pub messages_routed: u64,
-    // Electron shared/models/profile.ts fields
+    // Shared profile model fields (shared/models/profile.ts)
     #[serde(alias = "recruits_count")]
     pub recruits_count: u64,
     #[serde(alias = "tasks_delegated")]
@@ -781,7 +713,11 @@ pub struct UserProfile {
     pub xp_to_next_level: u64,
     pub total_xp: u64,
     pub streak_days: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub longest_streak_days: Option<u32>,
     pub last_active_date: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub activity_history: Option<std::collections::HashMap<String, u32>>,
     pub has_completed_onboarding: bool,
     pub badges: Vec<UserBadge>,
     pub stats: OrchestratorStats,
@@ -792,6 +728,9 @@ pub struct UserProfile {
 impl Default for UserProfile {
     fn default() -> Self {
         let (level, current_xp, xp_to_next_level, title) = calculate_level_and_xp(0);
+        let mut history = std::collections::HashMap::new();
+        let today = default_today();
+        history.insert(today.clone(), 1);
         Self {
             id: "user-default".to_string(),
             name: "Orchestrator".to_string(),
@@ -804,9 +743,11 @@ impl Default for UserProfile {
             xp_to_next_level,
             total_xp: 0,
             streak_days: 1,
-            last_active_date: default_today(),
+            longest_streak_days: Some(1),
+            last_active_date: today,
+            activity_history: Some(history),
             has_completed_onboarding: false,
-            badges: initial_badges(),
+            badges: Vec::new(),
             stats: OrchestratorStats::default(),
             extra: serde_json::Map::new(),
         }
@@ -833,30 +774,8 @@ impl UserProfile {
             }
         }
 
-        if self.badges.is_empty() {
-            self.badges = initial_badges();
-        }
-
-        if let Some(legacy_unlocked) = self
-            .extra
-            .get("unlockedBadges")
-            .and_then(|v| v.as_array())
-            .cloned()
-        {
-            let now_iso = chrono::Utc::now().to_rfc3339();
-            for item in legacy_unlocked {
-                if let Some(bid) = item.as_str() {
-                    if let Some(badge) = self.badges.iter_mut().find(|b| b.id == bid) {
-                        if badge.unlocked_at.is_none() {
-                            badge.unlocked_at = Some(now_iso.clone());
-                            if let Some(max_p) = badge.max_progress {
-                                badge.progress = Some(max_p);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        self.badges.clear();
+        self.extra.remove("unlockedBadges");
     }
 }
 

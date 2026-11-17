@@ -37,14 +37,14 @@ function findRoutine(scheduler: any, nameOrId: string): Routine | undefined {
 }
 
 export const routineCommand: CommandHandler = async (req, state, router, scheduler, sendToMain) => {
-  const caller = state.terminals.get(req.terminalId);
-  if (caller && !caller.orchestratorMode && !caller.maestroMode) {
-    // Check if orchestrator mode required
-    // Spec says: "These commands require Orchestrator Mode on your terminal."
-  }
-
   const [subaction, ...restArgs] = req.args;
   const action = (subaction || '').toLowerCase();
+
+  const caller = req.terminalId ? state.terminals.get(req.terminalId) : undefined;
+  const mutableActions = new Set(['create', 'edit', 'delete', 'enable', 'disable', 'trigger']);
+  if (caller && !caller.orchestratorMode && !caller.maestroMode && mutableActions.has(action)) {
+    return { error: 'mindagentics routine requer Modo Orquestrador ativo.', exitCode: 1 };
+  }
 
   switch (action) {
     case 'list': {

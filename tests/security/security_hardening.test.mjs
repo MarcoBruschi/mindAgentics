@@ -6,8 +6,8 @@ import os from 'node:os';
 import net from 'node:net';
 import crypto from 'node:crypto';
 
-// Import DataService from compiled main distribution
-import { DataService } from '../../packages/main/dist/storage/dataService.js';
+// Import DataService from compiled core-daemon distribution
+import { DataService } from '../../packages/core-daemon/dist/storage/dataService.js';
 import { NamedPipeServer } from '../../packages/core-daemon/dist/daemon/pipeServer.js';
 import { DaemonState } from '../../packages/core-daemon/dist/daemon/state.js';
 import { MessageRouter } from '../../packages/core-daemon/dist/daemon/router.js';
@@ -219,7 +219,7 @@ describe('mindAgentics Security Hardening & Isolation Suite', () => {
   // =========================================================================
   describe('Vector 2: Parameterized Subprocess Execution & Shell Injection Prevention', () => {
     it('should verify GraphifyService uses parameterized arguments array without shell execution', () => {
-      const graphifyPath = path.join(process.cwd(), 'packages/main/src/graphify/graphifyService.ts');
+      const graphifyPath = path.join(process.cwd(), 'packages/core-daemon/src/graphify/graphifyService.ts');
       assert.ok(fs.existsSync(graphifyPath), 'graphifyService.ts must exist');
 
       const content = fs.readFileSync(graphifyPath, 'utf8');
@@ -242,7 +242,7 @@ describe('mindAgentics Security Hardening & Isolation Suite', () => {
     });
 
     it('should verify TerminalManager and agentProbes use parameterized execution', () => {
-      const probesPath = path.join(process.cwd(), 'packages/main/src/terminal/agentProbes.ts');
+      const probesPath = path.join(process.cwd(), 'packages/core-daemon/src/terminal/agentProbes.ts');
       assert.ok(fs.existsSync(probesPath), 'agentProbes.ts must exist');
 
       const content = fs.readFileSync(probesPath, 'utf8');
@@ -253,17 +253,12 @@ describe('mindAgentics Security Hardening & Isolation Suite', () => {
       assert.ok(content.includes('spawn('), 'agentProbes must use spawn with argument arrays');
     });
 
-    it('should verify IPC dispatcher does not expose unparameterized shell exec', () => {
-      const dispatcherPath = path.join(process.cwd(), 'packages/main/src/ipc/dispatcher.ts');
-      const content = fs.readFileSync(dispatcherPath, 'utf8');
+    it('should verify Tauri v2 process execution does not expose unparameterized shell exec', () => {
+      const processRsPath = path.join(process.cwd(), 'src-tauri/src/security/process.rs');
+      const content = fs.readFileSync(processRsPath, 'utf8');
 
-      // Verify no execAsync is actually invoked in handlers
-      const invocations = content.match(/await\s+execAsync\s*\(/g) || [];
-      assert.strictEqual(
-        invocations.length,
-        0,
-        'dispatcher.ts must have zero invocations of execAsync'
-      );
+      assert.ok(content.includes('Command::new(binary)'), 'process.rs must use parameterized Command::new(binary)');
+      assert.strictEqual(content.includes('/bin/sh'), false, 'process.rs must not invoke shell');
     });
   });
 
@@ -405,66 +400,46 @@ describe('mindAgentics Security Hardening & Isolation Suite', () => {
   });
 
   // =========================================================================
-  // 4. Preload & Renderer Isolation
+  // 4. Tauri v2 & Renderer Boundary Isolation
   // =========================================================================
-  describe('Vector 4: Preload & Renderer Boundary Isolation', () => {
-    it('should verify statically that preload does not expose process, require, or child_process', () => {
-      const preloadSrcPath = path.join(process.cwd(), 'packages/preload/src/index.ts');
-      assert.ok(fs.existsSync(preloadSrcPath), 'Preload source index.ts must exist');
+  describe('Vector 4: Tauri v2 & Renderer Boundary Isolation', () => {
+    it('should verify statically that tauriBackend.ts does not expose process, require, or child_process', () => {
+      const tauriBackendPath = path.join(process.cwd(), 'packages/renderer/src/tauriBackend.ts');
+      assert.ok(fs.existsSync(tauriBackendPath), 'tauriBackend.ts must exist');
 
-      const content = fs.readFileSync(preloadSrcPath, 'utf8');
+      const content = fs.readFileSync(tauriBackendPath, 'utf8');
 
-      // Check forbidden patterns in source
       const forbiddenPatterns = [
         /\bprocess\.env\b/,
         /\bprocess\.binding\b/,
         /\bchild_process\b/,
         /\bwindow\.require\b/,
-        /\bexposeInMainWorld\s*\(\s*["']process["']/,
-        /\bexposeInMainWorld\s*\(\s*["']require["']/
       ];
 
       for (const pattern of forbiddenPatterns) {
         assert.strictEqual(
           pattern.test(content),
           false,
-          `Preload source contains forbidden pattern: ${pattern}`
+          `tauriBackend.ts contains forbidden pattern: ${pattern}`
         );
       }
     });
 
-    it('should verify compiled preload bundle does not expose raw ipcRenderer or node globals in API', () => {
-      const preloadDistPath = path.join(process.cwd(), 'packages/preload/dist/index.js');
-      assert.ok(fs.existsSync(preloadDistPath), 'Preload dist bundle must exist');
+    it('should verify Tauri v2 configuration disables withGlobalTauri and enforces strict CSP', () => {
+      const tauriConfPath = path.join(process.cwd(), 'src-tauri/tauri.conf.json');
+      assert.ok(fs.existsSync(tauriConfPath), 'src-tauri/tauri.conf.json must exist');
 
-      const bundleContent = fs.readFileSync(preloadDistPath, 'utf8');
-
-      // Ensure electron.contextBridge is utilized
-      assert.ok(
-        bundleContent.includes('contextBridge.exposeInMainWorld') ||
-        bundleContent.includes('exposeInMainWorld'),
-        'Preload bundle must use contextBridge for secure main world isolation'
-      );
-
-      // Verify that api definition does not leak direct native Buffer or process
-      const leaksProcess = /api\s*=\s*\{[^}]*process\s*:/i.test(bundleContent);
-      assert.strictEqual(leaksProcess, false, 'API object must not leak process');
-
-      const leaksRequire = /api\s*=\s*\{[^}]*require\s*:/i.test(bundleContent);
-      assert.strictEqual(leaksRequire, false, 'API object must not leak require');
+      const config = JSON.parse(fs.readFileSync(tauriConfPath, 'utf8'));
+      assert.strictEqual(config.app?.withGlobalTauri, false, 'withGlobalTauri must be false');
+      assert.ok(config.app?.security?.csp?.includes("object-src 'none'"), 'CSP must block object-src');
     });
 
-    it('should ensure asar archive integrity and unpacked native module constraints', () => {
-      const builderConfigPath = path.join(process.cwd(), 'electron-builder.json');
-      assert.ok(fs.existsSync(builderConfigPath), 'electron-builder.json configuration must exist');
+    it('should ensure Tauri bundle configuration and capabilities constraints', () => {
+      const capPath = path.join(process.cwd(), 'src-tauri/capabilities/default.json');
+      assert.ok(fs.existsSync(capPath), 'src-tauri/capabilities/default.json must exist');
 
-      const config = JSON.parse(fs.readFileSync(builderConfigPath, 'utf8'));
-      assert.strictEqual(config.asar, true, 'ASAR bundling must be enabled for security & integrity');
-      assert.ok(Array.isArray(config.asarUnpack), 'asarUnpack must be configured for native binaries');
-      assert.ok(
-        config.asarUnpack.some((pattern) => pattern.includes('node-pty')),
-        'node-pty must be explicitly specified in asarUnpack for binary execution isolation'
-      );
+      const cap = JSON.parse(fs.readFileSync(capPath, 'utf8'));
+      assert.deepStrictEqual(cap.windows, ['main'], 'Capabilities must be restricted to window main');
     });
   });
 });

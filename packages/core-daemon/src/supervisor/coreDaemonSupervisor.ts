@@ -3,6 +3,9 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import EventEmitter from 'events';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export interface PendingRequest {
   resolve: (value: any) => void;
@@ -76,7 +79,6 @@ export class CoreDaemonSupervisor extends EventEmitter {
         windowsHide: true,
         env: {
           ...process.env,
-          ELECTRON_RUN_AS_NODE: '1',
           MINDAGENTICS_SECRET_STORE: 'file'
         }
       });
@@ -203,6 +205,9 @@ export class CoreDaemonSupervisor extends EventEmitter {
         break;
       case 'placeNode':
         this.emit('placeNode', frame.payload);
+        break;
+      case 'reconfigureTerminal':
+        this.emit('reconfigureTerminal', frame.payload);
         break;
       case 'deleteNode':
         this.emit('deleteNode', frame.payload);

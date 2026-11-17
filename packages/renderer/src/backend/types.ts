@@ -1,6 +1,6 @@
 /**
  * Unified Backend Adapter interface for mindAgentics
- * Allows seamless execution under both Electron (IPC preload) and Tauri v2 (Rust IPC / invoke).
+ * Executes under Tauri v2 (Rust IPC / invoke).
  */
 
 export interface TerminalSpawnOptions {
@@ -22,7 +22,6 @@ export interface TerminalSpawnOptions {
 
 export interface BackendAdapter {
   isTauri: boolean;
-  isElectron: boolean;
 
   app: {
     pickDirectory: () => Promise<string | null>;

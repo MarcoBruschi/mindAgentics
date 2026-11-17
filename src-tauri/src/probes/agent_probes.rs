@@ -166,7 +166,7 @@ fn configure_probe_command(cmd: &mut tokio::process::Command) {
     cmd.creation_flags(CREATE_NO_WINDOW);
 
     for (k, _) in std::env::vars() {
-        if k.starts_with("MINDAGENTICS_") || k == "ELECTRON_RUN_AS_NODE" {
+        if k.starts_with("MINDAGENTICS_") {
             cmd.env_remove(&k);
         }
     }
@@ -857,4 +857,139 @@ pub async fn get_agent_limits() -> Vec<AgentUsageReport> {
     }
 
     reports
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentModelOption {
+    pub id: String,
+    pub label: String,
+}
+
+pub fn fallback_models_for(preset: &str) -> Vec<AgentModelOption> {
+    match preset {
+        "antigravity" | "agy" => vec![
+            AgentModelOption { id: "gemini-4-argon-high".into(), label: "Gemini 4 Argon (High)".into() },
+            AgentModelOption { id: "gemini-4-argon-medium".into(), label: "Gemini 4 Argon (Medium)".into() },
+            AgentModelOption { id: "gemini-4-hydrogen-high".into(), label: "Gemini 4 Hydrogen (High)".into() },
+            AgentModelOption { id: "gemini-4-hydrogen-xhigh".into(), label: "Gemini 4 Hydrogen (XHigh)".into() },
+            AgentModelOption { id: "gemini-3.8-flash-high".into(), label: "Gemini 3.8 Flash (High)".into() },
+            AgentModelOption { id: "claude-opus-5-5-high".into(), label: "Claude Opus 5.5 (High)".into() },
+            AgentModelOption { id: "claude-sonnet-5-5-high".into(), label: "Claude Sonnet 5.5 (High)".into() },
+            AgentModelOption { id: "claude-sonnet-5-5-medium".into(), label: "Claude Sonnet 5.5 (Medium)".into() },
+            AgentModelOption { id: "gpt-oss-120b-medium".into(), label: "GPT-OSS 120B (Medium)".into() },
+        ],
+        "claude" | "claude-code" => vec![
+            AgentModelOption { id: "sonnet".into(), label: "Claude Sonnet".into() },
+            AgentModelOption { id: "opus".into(), label: "Claude Opus".into() },
+            AgentModelOption { id: "haiku".into(), label: "Claude Haiku".into() },
+        ],
+        "codex" => vec![
+            AgentModelOption { id: "gpt-5-codex".into(), label: "GPT-5 Codex".into() },
+            AgentModelOption { id: "gpt-5".into(), label: "GPT-5".into() },
+            AgentModelOption { id: "o3".into(), label: "o3".into() },
+            AgentModelOption { id: "o4-mini".into(), label: "o4-mini".into() },
+        ],
+        "opencode" => vec![
+            AgentModelOption { id: "anthropic/claude-sonnet-4-5".into(), label: "anthropic/claude-sonnet-4-5".into() },
+            AgentModelOption { id: "anthropic/claude-opus-4-5".into(), label: "anthropic/claude-opus-4-5".into() },
+            AgentModelOption { id: "openai/gpt-5".into(), label: "openai/gpt-5".into() },
+            AgentModelOption { id: "google/gemini-2.5-pro".into(), label: "google/gemini-2.5-pro".into() },
+        ],
+        "ollama" => vec![
+            AgentModelOption { id: "llama3".into(), label: "Llama 3".into() },
+            AgentModelOption { id: "qwen2.5-coder".into(), label: "Qwen 2.5 Coder".into() },
+            AgentModelOption { id: "deepseek-r1".into(), label: "DeepSeek R1".into() },
+        ],
+        _ => Vec::new(),
+    }
+}
+
+pub async fn query_antigravity_models() -> Vec<AgentModelOption> {
+    if let Some(agy_bin) = which_binary("agy") {
+        let mut cmd = tokio::process::Command::new(agy_bin);
+        cmd.arg("models");
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        if let Ok(Ok(output)) = tokio::time::timeout(Duration::from_millis(4000), cmd.output()).await {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let mut models = Vec::new();
+                for line in stdout.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.is_empty() || trimmed.starts_with("Fetching") {
+                        continue;
+                    }
+                    if let Some((id, label)) = trimmed.split_once('\t') {
+                        let id_clean = id.trim().to_string();
+                        let label_clean = label.trim().to_string();
+                        if !id_clean.is_empty() {
+                            models.push(AgentModelOption {
+                                id: id_clean,
+                                label: if label_clean.is_empty() { id.trim().to_string() } else { label_clean },
+                            });
+                        }
+                    }
+                }
+                if !models.is_empty() {
+                    return models;
+                }
+            }
+        }
+    }
+    fallback_models_for("antigravity")
+}
+
+pub async fn query_ollama_models() -> Vec<AgentModelOption> {
+    if let Some(ollama_bin) = which_binary("ollama") {
+        let mut cmd = tokio::process::Command::new(ollama_bin);
+        cmd.arg("list");
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        if let Ok(Ok(output)) = tokio::time::timeout(Duration::from_millis(4000), cmd.output()).await {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let mut models = Vec::new();
+                for (i, line) in stdout.lines().enumerate() {
+                    if i == 0 {
+                        continue; // Header: NAME ID SIZE MODIFIED
+                    }
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if let Some(name) = parts.first() {
+                        models.push(AgentModelOption {
+                            id: name.to_string(),
+                            label: name.to_string(),
+                        });
+                    }
+                }
+                if !models.is_empty() {
+                    return models;
+                }
+            }
+        }
+    }
+    fallback_models_for("ollama")
+}
+
+pub async fn get_agent_models(preset_id: Option<&str>) -> Value {
+    let norm = preset_id.unwrap_or("").trim().to_lowercase();
+    match norm.as_str() {
+        "antigravity" | "agy" => serde_json::to_value(query_antigravity_models().await).unwrap_or(Value::Array(Vec::new())),
+        "claude" | "claude-code" => serde_json::to_value(fallback_models_for("claude")).unwrap_or(Value::Array(Vec::new())),
+        "codex" => serde_json::to_value(fallback_models_for("codex")).unwrap_or(Value::Array(Vec::new())),
+        "opencode" => serde_json::to_value(fallback_models_for("opencode")).unwrap_or(Value::Array(Vec::new())),
+        "ollama" => serde_json::to_value(query_ollama_models().await).unwrap_or(Value::Array(Vec::new())),
+        _ => {
+            let (agy, ollama) = tokio::join!(query_antigravity_models(), query_ollama_models());
+            let mut map = serde_json::Map::new();
+            map.insert("antigravity".into(), serde_json::to_value(agy).unwrap_or(Value::Array(Vec::new())));
+            map.insert("claude".into(), serde_json::to_value(fallback_models_for("claude")).unwrap_or(Value::Array(Vec::new())));
+            map.insert("codex".into(), serde_json::to_value(fallback_models_for("codex")).unwrap_or(Value::Array(Vec::new())));
+            map.insert("opencode".into(), serde_json::to_value(fallback_models_for("opencode")).unwrap_or(Value::Array(Vec::new())));
+            map.insert("ollama".into(), serde_json::to_value(ollama).unwrap_or(Value::Array(Vec::new())));
+            Value::Object(map)
+        }
+    }
 }

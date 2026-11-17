@@ -502,6 +502,16 @@ pub async fn get_agent_limits() -> Vec<AgentUsageReport> {
 }
 
 #[tauri::command]
+pub async fn terminal_get_agent_models(preset_id: Option<String>) -> Value {
+    crate::probes::get_agent_models(preset_id.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn get_agent_models(preset_id: Option<String>) -> Value {
+    terminal_get_agent_models(preset_id).await
+}
+
+#[tauri::command]
 pub async fn terminal_spawn(
     pty: State<'_, Arc<PtyManager>>,
     options: TerminalSpawnOptions,
@@ -2118,7 +2128,7 @@ async fn import_zip_backup(storage: &StorageEngine, zip_path: &str) -> Result<Va
 }
 
 // ============================================================================
-// Universal IPC Dispatcher (Electron parity for mindagentics:* channels)
+// Universal IPC Dispatcher (Tauri v2 native mindagentics:* channels)
 // ============================================================================
 
 #[tauri::command]
@@ -2740,6 +2750,11 @@ pub async fn ipc_dispatch(
             let limits = crate::probes::get_agent_limits().await;
             serde_json::to_value(limits).map_err(|e| e.to_string())
         }
+        "mindagentics:terminal:getAgentModels" => {
+            let preset_id = arg_str(&args, 0);
+            let models = crate::probes::get_agent_models(preset_id.as_deref()).await;
+            Ok(models)
+        }
         "mindagentics:terminal:detectAgents" => {
             let agents = crate::probes::detect_installed_agents();
             serde_json::to_value(agents).map_err(|e| e.to_string())
@@ -3271,7 +3286,7 @@ pub async fn ipc_dispatch(
         })),
 
         // --------------------------------------------------------------------
-        // Fallback for remaining Electron channels
+        // Fallback for remaining mindAgentics IPC channels
         // --------------------------------------------------------------------
         _ => Ok(json!({ "ok": true })),
     }

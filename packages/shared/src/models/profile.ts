@@ -37,68 +37,15 @@ export interface UserProfile {
   xpToNextLevel: number;
   totalXp: number;
   streakDays: number;
+  longestStreakDays?: number;
   lastActiveDate: string;
+  activityHistory?: Record<string, number>;
   hasCompletedOnboarding?: boolean;
   badges: UserBadge[];
   stats: OrchestratorStats;
 }
 
-export const INITIAL_BADGES: UserBadge[] = [
-  {
-    id: 'badge-primeira-sinfonia',
-    name: 'Primeira Sinfonia',
-    description: 'Conectou e executou seu primeiro agente no canvas interativo.',
-    icon: 'sparkles',
-    tier: 'bronze',
-    progress: 0,
-    maxProgress: 1,
-  },
-  {
-    id: 'badge-delegacao-cirurgica',
-    name: 'Delegação Cirúrgica',
-    description: 'Delegou tarefas de forma estruturada para agentes conectados.',
-    icon: 'paperplane',
-    tier: 'silver',
-    progress: 0,
-    maxProgress: 10,
-  },
-  {
-    id: 'badge-mapeador-neural',
-    name: 'Mapeador Neural',
-    description: 'Construiu e explorou o Knowledge Graph determinístico do projeto.',
-    icon: 'cpu',
-    tier: 'gold',
-    progress: 0,
-    maxProgress: 1,
-  },
-  {
-    id: 'badge-ponte-conhecimento',
-    name: 'Ponte de Conhecimento',
-    description: 'Abriu e conectou 5 portais de referência aos seus agentes.',
-    icon: 'globe',
-    tier: 'bronze',
-    progress: 0,
-    maxProgress: 5,
-  },
-  {
-    id: 'badge-sentinela-autonomo',
-    name: 'Sentinela Autônomo',
-    description: 'Configurou e executou uma rotina automatizada de background.',
-    icon: 'clock',
-    tier: 'silver',
-    progress: 0,
-    maxProgress: 1,
-  },
-  {
-    id: 'badge-em-chamas',
-    name: 'Em Chamas',
-    description: 'Manteve uma sequência de 3 dias ativos orquestrando no canvas.',
-    icon: 'flame',
-    tier: 'platinum',
-    progress: 1,
-    maxProgress: 3,
-  },
-];
+export const INITIAL_BADGES: UserBadge[] = [];
 
 export function getTitleForLevel(level: number): string {
   if (level <= 1) return 'Aprendiz de Orquestrador';
@@ -154,9 +101,11 @@ export function createDefaultProfile(): UserProfile {
     xpToNextLevel: initialLvl.xpToNextLevel,
     totalXp: 0,
     streakDays: 1,
+    longestStreakDays: 1,
+    activityHistory: { [today]: 1 },
     lastActiveDate: today,
     hasCompletedOnboarding: false,
-    badges: INITIAL_BADGES.map((b) => ({ ...b })),
+    badges: [],
     stats: {
       recruitsCount: 0,
       tasksDelegated: 0,

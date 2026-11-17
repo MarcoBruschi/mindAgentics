@@ -92,7 +92,6 @@ export function createTauriBackend(): BackendAdapter {
   return {
     ...base,
     isTauri: true,
-    isElectron: false,
 
     app: {
       ...(base.app ?? {}),

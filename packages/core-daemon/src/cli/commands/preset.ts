@@ -67,8 +67,13 @@ export const presetCommand: CommandHandler = async (req, state) => {
       if (req.options.command !== undefined) p.command = req.options.command;
       if (req.options.orquestrador !== undefined || req.options.orchestrator !== undefined || req.options.maestro !== undefined) {
         const val = req.options.orquestrador === 'on' || req.options.orchestrator === 'on' || req.options.maestro === 'on';
-        (p as any).orchestratorMode = val;
-        p.maestroMode = val;
+        const current = Boolean(p.orchestratorMode || p.maestroMode);
+        if (current && !val) {
+          return { error: 'Downgrade do modo orquestrador não permitido.', exitCode: 1 };
+        }
+        if (!current && val) {
+          return { error: 'Promoção do modo orquestrador não permitida: status é imutável pós-criação.', exitCode: 1 };
+        }
       }
       if (req.options.chat !== undefined) p.startInChatMode = req.options.chat === 'on';
 

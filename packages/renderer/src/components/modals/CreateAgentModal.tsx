@@ -10,7 +10,9 @@ import {
   X,
   Network,
   Wand2,
+  Check,
 } from 'lucide-react';
+import { AGENT_MODELS, composeAgentCommand } from './EditTerminalModal';
 
 interface PresetItem {
   id: string;
@@ -27,10 +29,11 @@ export const CreateAgentModal: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'detalhes' | 'aparencia' | 'agente'>('detalhes');
   const [selectedPresetId, setSelectedPresetId] = useState<string>('antigravity');
+  const [selectedModelId, setSelectedModelId] = useState<string>('gemini-3.8-flash-high');
 
   // Form State
   const [terminalName, setTerminalName] = useState('Antigravity');
-  const [command, setCommand] = useState('agy');
+  const [command, setCommand] = useState(composeAgentCommand('antigravity', 'gemini-3.8-flash-high', ''));
   const [executionTarget, setExecutionTarget] = useState('workspace_default');
   const [workingDirectory, setWorkingDirectory] = useState('');
   const [monitorActivity, setMonitorActivity] = useState(true);
@@ -53,11 +56,32 @@ export const CreateAgentModal: React.FC = () => {
     antigravity: false,
     codex: false,
     opencode: false,
-    copilot: false,
+    'github-copilot': false,
     claude: false,
+    ollama: false,
     shell: true,
   });
-  const [limitsReports, setLimitsReports] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedPresetId('antigravity');
+      setSelectedModelId('gemini-3.8-flash-high');
+      setTerminalName('Antigravity');
+      setCommand(composeAgentCommand('antigravity', 'gemini-3.8-flash-high', ''));
+      setExecutionTarget('workspace_default');
+      setWorkingDirectory(activeWorkspace?.workingDirectory || '');
+      setMonitorActivity(true);
+      setIsOrchestrator(false);
+      setInjectKnowledgeGraph(true);
+      setActiveTab('detalhes');
+      setFontFamily("Cascadia Mono, Consolas, monospace");
+      setFontSize(13);
+      setThemeColor('#8B93FF');
+      setAgentRole('Lead Architect');
+      setIsAutonomous(true);
+      setCustomInstructions('');
+    }
+  }, [isOpen, activeWorkspace?.workingDirectory]);
 
   useEffect(() => {
     if (activeWorkspace?.workingDirectory && !workingDirectory) {
@@ -68,18 +92,6 @@ export const CreateAgentModal: React.FC = () => {
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const getLimitsFn =
-          window.mindAgentics?.terminal?.getAgentLimits ||
-          (window.mindAgentics?.terminal?.getAgentLimits || window.api?.terminal?.getAgentLimits) ||
-          window.api?.terminal?.getAgentLimits;
-
-        if (typeof getLimitsFn === 'function') {
-          const res = await getLimitsFn();
-          if (Array.isArray(res)) {
-            setLimitsReports(res);
-          }
-        }
-
         const detectFn = window.mindAgentics?.terminal?.detectAgents || window.api?.terminal?.detectAgents;
         if (detectFn) {
           const agents = await detectFn();
@@ -87,7 +99,9 @@ export const CreateAgentModal: React.FC = () => {
             const map: Record<string, boolean> = {};
             for (const a of agents) {
               map[a.id] = !!a.installed;
-              if (a.id === 'github-copilot' || a.id === 'gh-copilot') map['copilot'] = !!a.installed;
+              if (a.id === 'github-copilot' || a.id === 'copilot' || a.id === 'gh-copilot') {
+                map['github-copilot'] = !!a.installed;
+              }
             }
             setInstalledMap((prev) => ({ ...prev, ...map }));
           }
@@ -99,16 +113,19 @@ export const CreateAgentModal: React.FC = () => {
   }, []);
 
   const presets: PresetItem[] = [
-    { id: 'claude', name: 'Claude Code', command: 'claude' },
-    { id: 'codex', name: 'Codex', command: 'codex --no-daemon' },
     { id: 'antigravity', name: 'Antigravity', command: 'agy' },
+    { id: 'codex', name: 'Codex', command: 'codex --no-daemon' },
+    { id: 'claude', name: 'Claude Code', command: 'claude' },
     { id: 'opencode', name: 'OpenCode', command: 'opencode' },
-    { id: 'copilot', name: 'GitHub Copilot', command: 'copilot' },
+    { id: 'github-copilot', name: 'GitHub Copilot', command: 'copilot' },
+    { id: 'ollama', name: 'Ollama', command: 'ollama' },
     { id: 'shell', name: 'Shell', command: '' },
   ];
 
   const handleSelectPreset = (preset: PresetItem) => {
     setSelectedPresetId(preset.id);
+    const defaultModel = AGENT_MODELS[preset.id]?.[0]?.id || '';
+    setSelectedModelId(defaultModel);
 
     const existingCount = nodes.filter(
       (n) => n.kind === 'terminal' && n.content?.title?.toLowerCase().startsWith(preset.name.toLowerCase())
@@ -116,7 +133,12 @@ export const CreateAgentModal: React.FC = () => {
     const assignedName = existingCount === 0 ? preset.name : `${preset.name} ${existingCount + 1}`;
 
     setTerminalName(assignedName);
-    setCommand(preset.command);
+    setCommand(composeAgentCommand(preset.id, defaultModel, ''));
+  };
+
+  const handleModelChange = (modelId: string) => {
+    setSelectedModelId(modelId);
+    setCommand(composeAgentCommand(selectedPresetId, modelId, ''));
   };
 
   const handlePickDirectory = async () => {
@@ -132,34 +154,8 @@ export const CreateAgentModal: React.FC = () => {
 
   const handleCreate = async () => {
     const finalName = terminalName.trim() || 'Terminal';
-    let finalCmd = command.trim();
+    const finalCmd = command.trim();
     const finalDir = workingDirectory.trim() || activeWorkspace?.workingDirectory || 'C:\\Users\\mabru\\Documents\\mindAgentics';
-
-    // Auto-approval in autonomous mode
-    if (isAutonomous && finalCmd) {
-      if (finalCmd.startsWith('agy')) {
-        if (!finalCmd.includes('--dangerously-skip-permissions')) {
-          finalCmd += ' --dangerously-skip-permissions --mode auto';
-        }
-      } else if (finalCmd.startsWith('codex')) {
-        finalCmd = finalCmd.replace(/--ask-for-approval\s+[^\s]+/g, '').trim();
-        if (!finalCmd.includes('--dangerously-bypass-approvals-and-sandbox')) {
-          finalCmd += ' --dangerously-bypass-approvals-and-sandbox';
-        }
-      } else if (finalCmd.startsWith('claude')) {
-        if (!finalCmd.includes('--dangerously-skip-permissions')) {
-          finalCmd += ' --dangerously-skip-permissions';
-        }
-      } else if (finalCmd.startsWith('opencode')) {
-        if (!finalCmd.includes('--dangerously-skip-permissions')) {
-          finalCmd += ' --dangerously-skip-permissions';
-        }
-      } else {
-        if (!finalCmd.includes('--dangerously-skip-permissions')) {
-          finalCmd += ' --dangerously-skip-permissions';
-        }
-      }
-    }
 
     const viewportCenterX = -offset.x / offset.zoom + 200;
     const viewportCenterY = -offset.y / offset.zoom + 120;
@@ -202,6 +198,7 @@ export const CreateAgentModal: React.FC = () => {
       zIndex: 10 + nodes.length,
       content: {
         terminalId: newTerminalId,
+        presetId: selectedPresetId,
         title: finalName,
         agentRole: agentRole || 'Developer',
         isLocked: false,
@@ -370,6 +367,35 @@ export const CreateAgentModal: React.FC = () => {
                 </div>
               </div>
 
+              {/* Modelo de IA (select dropdown) */}
+              {AGENT_MODELS[selectedPresetId] && AGENT_MODELS[selectedPresetId].length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-semibold text-[#8A8F98] uppercase tracking-wider">
+                      Modelo de IA
+                    </label>
+                    <span className="text-[10px] text-zinc-500 font-mono">
+                      {selectedPresetId === 'antigravity' || selectedPresetId === 'claude'
+                        ? '--model'
+                        : selectedPresetId === 'codex' || selectedPresetId === 'opencode'
+                        ? '-m'
+                        : 'ollama run'}
+                    </span>
+                  </div>
+                  <select
+                    value={selectedModelId}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="w-full h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                  >
+                    {AGENT_MODELS[selectedPresetId].map((m) => (
+                      <option key={m.id} value={m.id} className="bg-[#14161A] text-white">
+                        {m.label} ({m.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Executa em */}
               <div>
                 <label className="block text-[11px] font-semibold text-[#8A8F98] uppercase tracking-wider mb-1.5">
@@ -445,10 +471,18 @@ export const CreateAgentModal: React.FC = () => {
                   <div className="flex flex-col">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-medium text-[#E7E8EA]">Modo Orquestrador</span>
-                      <Wand2 className="w-3 h-3 text-indigo-400" />
+                      <Wand2 className={`w-3 h-3 ${isOrchestrator ? 'text-amber-400' : 'text-zinc-500'}`} />
+                      {isOrchestrator && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium">
+                          Orquestrador
+                        </span>
+                      )}
                     </div>
                     <span className="text-[11px] text-[#8A8F98] leading-tight">
                       Promove este terminal a orquestrador coordenador da equipe no canvas.
+                    </span>
+                    <span className="text-[10px] text-amber-400/80 leading-tight mt-0.5">
+                      Após criado como Orquestrador, este modo não poderá ser desativado.
                     </span>
                   </div>
                   <button
@@ -458,7 +492,7 @@ export const CreateAgentModal: React.FC = () => {
                     aria-label="Modo Orquestrador"
                     onClick={() => setIsOrchestrator(!isOrchestrator)}
                     className={`w-9 h-5 rounded-full transition-colors relative shrink-0 p-0.5 cursor-pointer ${
-                      isOrchestrator ? 'bg-indigo-600' : 'bg-[#23262C]'
+                      isOrchestrator ? 'bg-amber-500' : 'bg-[#23262C]'
                     }`}
                   >
                     <div
@@ -614,47 +648,6 @@ export const CreateAgentModal: React.FC = () => {
                   className="w-full p-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs text-[#E7E8EA] placeholder-[#8A8F98]/40 outline-none focus:border-[#8B93FF]"
                 />
               </div>
-
-              {/* Card de Limites e Especificações */}
-              {(() => {
-                const report = limitsReports.find(
-                  (r) =>
-                    r.id === selectedPresetId ||
-                    (selectedPresetId === 'copilot' && (r.id === 'github-copilot' || r.id === 'gh-copilot'))
-                );
-                const isInst = installedMap[selectedPresetId] ?? false;
-
-                return (
-                  <div className="p-3 bg-[#14161A] border border-[#23262C] rounded-xl space-y-2">
-                    <div className="flex items-center justify-between text-xs font-semibold text-[#E7E8EA]">
-                      <span>Especificações e Limites</span>
-                    </div>
-
-                    {report ? (
-                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                        <div className="p-2 bg-[#181B20] rounded-lg border border-[#23262C]">
-                          <span className="text-[#8A8F98] block text-[10px]">Modelo / Plano</span>
-                          <span className="text-[#E7E8EA] font-medium truncate block">
-                            {report.activeModel || report.planOrTier}
-                          </span>
-                        </div>
-                        <div className="p-2 bg-[#181B20] rounded-lg border border-[#23262C]">
-                          <span className="text-[#8A8F98] block text-[10px]">Janela de Contexto</span>
-                          <span className="text-[#E7E8EA] font-medium truncate block">
-                            {report.contextWindowFormatted || 'Padrão'}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-[#8A8F98] pt-1">
-                        {isInst
-                          ? 'Pronto para execução local no terminal.'
-                          : 'Este executável CLI não foi detectado no sistema desta máquina.'}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
           )}
         </div>

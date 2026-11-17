@@ -1,7 +1,7 @@
 /**
  * Daemon Mode Coordinator
  * `mindagentics --serve <token>`
- * Communicates with Electron Main via line-delimited JSON RPC on stdin/stdout.
+ * Communicates with Host Runtime via line-delimited JSON RPC on stdin/stdout.
  * Creates Named Pipe server for CLI connections.
  */
 

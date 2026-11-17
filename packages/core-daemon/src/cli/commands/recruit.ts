@@ -3,6 +3,21 @@ import type { CommandHandler } from '../../daemon/pipeServer.js';
 import type { TerminalNode } from '@mindagentics/shared';
 import { placeNode } from '../../daemon/spatial.js';
 
+function normalizePresetId(input?: string): string {
+  const s = (input || '').toLowerCase().trim();
+  if (s.includes('antigravity') || s === 'agy') return 'antigravity';
+  if (s.includes('claude')) return 'claude';
+  if (s.includes('codex')) return 'codex';
+  if (s.includes('opencode')) return 'opencode';
+  if (s.includes('copilot') || s.includes('github-copilot')) return 'github-copilot';
+  if (s.includes('ollama')) return 'ollama';
+  if (s.includes('powershell')) return 'powershell';
+  if (s === 'cmd') return 'cmd';
+  if (s === 'bash') return 'bash';
+  if (s.includes('shell')) return 'shell';
+  return s.replace(/[^a-z0-9_-]/g, '-') || 'shell';
+}
+
 export const recruitCommand: CommandHandler = async (req, state, router, scheduler, sendToMain) => {
   const name = req.args[0] || (req.options.name as string);
   const replaceTarget = req.options.replace as string | undefined;
@@ -13,10 +28,67 @@ export const recruitCommand: CommandHandler = async (req, state, router, schedul
     if (!existing) {
       return { error: `Recruit "${replaceTarget}" to replace not found.`, exitCode: 1 };
     }
+    const newName = name || existing.title;
+    const rawPreset = (req.options.preset as string) || existing.presetId || 'shell';
+    const canonicalPreset = normalizePresetId(rawPreset);
+    const newRole = (req.options.role as string) || existing.agentRole || '';
+
+    // Resolve command
+    let cmd = '';
+    const rawLower = rawPreset.toLowerCase();
+    for (const [pName, pObj] of state.presets.entries()) {
+      const pLower = pName.toLowerCase();
+      const typeLower = (pObj.agentType || '').toLowerCase();
+      if (pLower === rawLower || typeLower === rawLower || pLower.includes(canonicalPreset)) {
+        cmd = pObj.command || '';
+        break;
+      }
+    }
+    if (!cmd) {
+      if (canonicalPreset === 'antigravity') cmd = 'agy';
+      else if (canonicalPreset === 'codex') cmd = 'codex --no-daemon';
+      else if (canonicalPreset === 'claude') cmd = 'claude';
+      else if (canonicalPreset === 'opencode') cmd = 'opencode';
+      else if (canonicalPreset === 'github-copilot') cmd = 'copilot';
+      else if (canonicalPreset === 'ollama') cmd = 'ollama run llama3';
+    }
+
     if (name) existing.title = name;
-    if (req.options.preset) existing.presetId = req.options.preset;
+    existing.presetId = canonicalPreset;
     if (req.options.role) existing.agentRole = req.options.role;
     if (req.options.account) existing.account = req.options.account;
+
+    // Update canvas node content
+    for (const [nId, node] of state.nodes.entries()) {
+      if (node.kind === 'terminal' && (node as any).content?.terminalId === existing.id) {
+        (node as any).content.title = newName;
+        (node as any).content.presetId = canonicalPreset;
+        (node as any).content.agentRole = newRole;
+        if (cmd) (node as any).content.command = cmd;
+        sendToMain({
+          type: 'placeNode',
+          id: `update-${nId}`,
+          payload: {
+            node,
+          },
+        });
+        break;
+      }
+    }
+
+    // Emit event to reconfigure/restart real PTY session
+    sendToMain({
+      type: 'reconfigureTerminal',
+      id: `reconfig-${existing.id}`,
+      payload: {
+        terminalId: existing.id,
+        title: newName,
+        agentRole: newRole,
+        presetId: canonicalPreset,
+        command: cmd || undefined,
+        restart: true,
+      },
+    });
 
     return {
       output: `Replaced agent on terminal "${existing.title}" in place. Process restarted.`,
@@ -89,12 +161,14 @@ export const recruitCommand: CommandHandler = async (req, state, router, schedul
     placementDirection: 'right',
   });
 
+  const canonicalPreset = normalizePresetId(presetName);
+
   state.registerTerminal({
     id: terminalId,
     title: name,
     workspaceId: workspace,
     floorId: floor,
-    presetId: presetName,
+    presetId: canonicalPreset,
     agentRole: role,
     account,
     orchestratorMode: false,
@@ -113,7 +187,7 @@ export const recruitCommand: CommandHandler = async (req, state, router, schedul
     zIndex: 10,
     content: {
       terminalId,
-      presetId: presetName,
+      presetId: canonicalPreset,
       title: name,
       agentRole: role,
       account,

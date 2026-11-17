@@ -31,9 +31,7 @@ dunce = "1.0"
 thiserror = "1.0"
 anyhow = "1.0"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 zip = "2.1"
-rusqlite = { version = "0.31", features = ["bundled", "bundled-full"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.52", features = [

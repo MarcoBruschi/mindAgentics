@@ -114,7 +114,7 @@ impl GitEngine {
         Ok(())
     }
 
-    pub async fn preflight_landing(&self, base_dir: &Path, floor_dir: &Path) -> Result<PreflightVerdict> {
+    pub async fn preflight_landing(&self, _base_dir: &Path, floor_dir: &Path) -> Result<PreflightVerdict> {
         let mut status_cmd = self.base_command(floor_dir);
         status_cmd.args(["status", "--porcelain"]);
         let status_out = status_cmd.output().await?;

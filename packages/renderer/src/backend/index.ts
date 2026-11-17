@@ -1,11 +1,10 @@
 import { BackendAdapter } from './types';
-import { createElectronBackend } from './electronBackend';
 import { createTauriBackend } from './tauriBackend';
 
 let activeBackend: BackendAdapter | null = null;
 
 /**
- * Detects whether the frontend is running inside Tauri v2 or Electron
+ * Detects whether the frontend is running inside Tauri v2
  */
 export function isTauriEnvironment(): boolean {
   if (import.meta.env.VITE_BACKEND === 'tauri') return true;
@@ -20,8 +19,7 @@ export function isTauriEnvironment(): boolean {
 export function initBackend(): BackendAdapter {
   if (activeBackend) return activeBackend;
 
-  const isTauri = isTauriEnvironment();
-  activeBackend = isTauri ? createTauriBackend() : createElectronBackend();
+  activeBackend = createTauriBackend();
 
   if (typeof window !== 'undefined') {
     (window as any).api = activeBackend;
@@ -42,5 +40,4 @@ export function getBackend(): BackendAdapter {
 }
 
 export * from './types';
-export { createElectronBackend } from './electronBackend';
 export { createTauriBackend, safeListen } from './tauriBackend';

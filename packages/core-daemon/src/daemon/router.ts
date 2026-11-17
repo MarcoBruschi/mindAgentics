@@ -56,7 +56,7 @@ export class MessageRouter {
       this.state.asksInFlight.set(askId, session);
       this.broadcastAsksInFlight();
 
-      // Send prompt delivery request to Electron Main
+      // Send prompt delivery request to Host Runtime
       const deliverPayload: DeliverPromptPayload = {
         terminalId: target.id,
         prompt: options.raw ? prompt : `${prompt}\r`,

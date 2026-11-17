@@ -15,7 +15,7 @@ import { TitleBar } from '@/components/window/TitleBar';
 import { isSidebarOpenAtom } from '@/atoms/ui';
 import { profileToastAtom } from '@/atoms/profile';
 import { isInputOrEditable, hasPrimaryModifier } from '@/utils/keyboard';
-import { X, CheckCircle2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import {
   nodesAtom,
   cableTiesAtom,
@@ -37,17 +37,8 @@ export const App: React.FC = () => {
   const [, redo] = useAtom(redoAtom);
   const [, setNodes] = useAtom(nodesAtom);
   const [, setCableTies] = useAtom(cableTiesAtom);
-  const [profileToast, setProfileToast] = useAtom(profileToastAtom);
-
-  // Auto-dismiss celebratory level-up/badge toast after 5s
-  useEffect(() => {
-    if (profileToast) {
-      const timer = setTimeout(() => {
-        setProfileToast(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [profileToast, setProfileToast]);
+  // Level-up toasts removed per design specifications
+  const [, setProfileToast] = useAtom(profileToastAtom);
 
   // Initial backend load with normalization for existing disk workspaces
   useEffect(() => {
@@ -285,7 +276,7 @@ export const App: React.FC = () => {
       <div className="w-full h-full flex flex-col relative overflow-hidden bg-transparent">
         <TitleBar />
         <div className="w-full flex-1 flex overflow-hidden relative">
-          {/* Sidebar Transparente: Canal alfa direto para a janela do Electron */}
+          {/* Sidebar Transparente: Canal alfa direto para a janela do Tauri v2 */}
           <Sidebar />
 
           {/* Canvas Sólido: Fica ESTRITAMENTE ao lado da barra lateral, NUNCA atrás dela */}
@@ -295,35 +286,6 @@ export const App: React.FC = () => {
           </main>
         </div>
       </div>
-
-      {/* Technical System Toast Notification (Sonner Style - Anti-AI-Slop) */}
-      {profileToast && (
-        <div className="fixed top-16 right-6 z-50 flex items-center gap-3 px-3.5 py-2.5 bg-[#14161A]/95 border border-white/[0.08] rounded-xl shadow-xl backdrop-blur-md text-[#E7E8EA] animate-in slide-in-from-top-4 duration-150">
-          <div className="w-7 h-7 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={1.75} />
-          </div>
-          <div className="flex flex-col min-w-0 pr-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-white tracking-tight">
-                {profileToast.title}
-              </span>
-              <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/[0.05] border border-white/[0.08] text-[#8A8F98] font-mono">
-                system
-              </span>
-            </div>
-            <span className="text-[11px] text-[#8A8F98] font-mono truncate mt-0.5">
-              {profileToast.description}
-            </span>
-          </div>
-          <button
-            onClick={() => setProfileToast(null)}
-            className="p-1 rounded-md text-[#8A8F98] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
-            title="Fechar notificação"
-          >
-            <X className="w-3.5 h-3.5" strokeWidth={1.75} />
-          </button>
-        </div>
-      )}
 
       {/* Modals */}
       <WorkspaceSettingsModal />

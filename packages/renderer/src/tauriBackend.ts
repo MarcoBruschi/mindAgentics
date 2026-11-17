@@ -266,7 +266,7 @@ app: {
       return tauriInvoke(C.partituraPickFiles);
     },
     readFiles(files) {
-      const paths = files.map((file) => electron.webUtils.getPathForFile(file));
+      const paths = files.map((file) => (file as any)?.path || file?.name || '');
       if (paths.some((path) => path === "")) {
         return Promise.resolve({ ok: false, failure: { kind: "unreadableFile" } });
       }
@@ -303,7 +303,7 @@ app: {
     },
     prepareImport(file) {
       if (file === void 0) return tauriInvoke(C.workspaceImport);
-      const path = electron.webUtils.getPathForFile(file);
+      const path = (file as any)?.path || file?.name || '';
       if (path === "") return Promise.resolve(null);
       return tauriInvoke(C.workspaceImport, [path]);
     },
@@ -729,6 +729,9 @@ app: {
     },
     getAgentLimits() {
       return tauriInvoke('mindagentics:terminal:getAgentLimits');
+    },
+    getAgentModels(presetId) {
+      return tauriInvoke('mindagentics:terminal:getAgentModels', presetId);
     },
     setOrchestratorMode(terminalId, orchestratorMode) {
       return tauriInvoke('mindagentics:terminal:setOrchestratorMode', terminalId, orchestratorMode);
@@ -1557,7 +1560,7 @@ app: {
   },
   pathForFile(file) {
     try {
-      return electron.webUtils.getPathForFile(file);
+      return (file as any)?.path || file?.name || '';
     } catch {
       return "";
     }

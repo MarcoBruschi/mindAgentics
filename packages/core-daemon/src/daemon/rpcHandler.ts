@@ -1,6 +1,6 @@
 /**
- * Stdio JSON-RPC Handler for Electron Main Process
- * Implements framed JSON-RPC communication between daemon and main process.
+ * Stdio JSON-RPC Handler for Host Runtime Process
+ * Implements framed JSON-RPC communication between daemon and host process.
  */
 
 import { snapNode, tidyNode, placeNode } from './spatial.js';

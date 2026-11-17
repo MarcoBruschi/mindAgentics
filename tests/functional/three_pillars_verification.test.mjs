@@ -40,14 +40,14 @@ describe('Three Pillars Verification Suite: Gamification, Crisp Text & Icon Mode
       assert.strictEqual(statsLvl3.title, 'Condutor de Enxame');
     });
 
-    test('should generate default orchestrator profile with full badge inventory', () => {
+    test('should generate default orchestrator profile with daily activity history and empty badges', () => {
       const profile = createDefaultProfile();
       assert.strictEqual(profile.name, 'Orchestrator');
       assert.strictEqual(profile.level, 1);
-      assert.strictEqual(profile.badges.length, INITIAL_BADGES.length);
-      assert.ok(profile.badges.some((b) => b.id === 'badge-primeira-sinfonia'));
-      assert.ok(profile.badges.some((b) => b.id === 'badge-mapeador-neural'));
-      assert.ok(profile.badges.some((b) => b.tier === 'platinum'));
+      assert.strictEqual(profile.badges.length, 0);
+      assert.strictEqual(INITIAL_BADGES.length, 0);
+      assert.ok(profile.activityHistory);
+      assert.strictEqual(profile.longestStreakDays, 1);
     });
 
     test('should have proper titles for all tiers up to Sovereign', () => {
@@ -56,21 +56,46 @@ describe('Three Pillars Verification Suite: Gamification, Crisp Text & Icon Mode
       assert.strictEqual(getTitleForLevel(10), 'Soberano do Canvas');
     });
 
-    test('should have IPC handlers registered in main dispatcher for profile', () => {
-      const dispatcherPath = path.join(rootDir, 'packages/main/src/ipc/dispatcher.ts');
-      const content = fs.readFileSync(dispatcherPath, 'utf8');
-      assert.ok(content.includes('profileGet') || content.includes('mindagentics:profile:get'), 'profileGet IPC channel handled');
-      assert.ok(content.includes('profileUpdate') || content.includes('mindagentics:profile:update'), 'profileUpdate IPC channel handled');
-      assert.ok(content.includes('profileAwardXp') || content.includes('mindagentics:profile:awardXp'), 'profileAwardXp IPC channel handled');
+    test('should have IPC handlers registered in Tauri v2 commands for profile', () => {
+      const commandsPath = path.join(rootDir, 'src-tauri/src/commands/mod.rs');
+      const content = fs.readFileSync(commandsPath, 'utf8');
+      assert.ok(content.includes('pub async fn profile_get') || content.includes('mindagentics:profile:get'), 'profileGet IPC channel handled');
+      assert.ok(content.includes('pub async fn profile_update') || content.includes('mindagentics:profile:update'), 'profileUpdate IPC channel handled');
+      assert.ok(content.includes('pub async fn profile_award_xp') || content.includes('mindagentics:profile:awardXp'), 'profileAwardXp IPC channel handled');
     });
 
-    test('Sidebar should contain the Profile and Gamification Card Widget with progress and streak', () => {
+    test('ProfileModal should NOT display level (Nv.), XP bar (currentXp / xpToNextLevel), nor badges', () => {
+      const profileModalPath = path.join(rootDir, 'packages/renderer/src/components/modals/ProfileModal.tsx');
+      const content = fs.readFileSync(profileModalPath, 'utf8');
+      assert.strictEqual(content.includes('Nv.'), false, 'ProfileModal must NOT render Nv.');
+      assert.strictEqual(content.includes('currentXp'), false, 'ProfileModal must NOT render currentXp');
+      assert.strictEqual(content.includes('xpToNextLevel'), false, 'ProfileModal must NOT render xpToNextLevel');
+      assert.strictEqual(content.includes('badges.map'), false, 'ProfileModal must NOT render badges list');
+    });
+
+    test('ProfileModal should display streakDays and GitHub-style contribution grid (activityHistory)', () => {
+      const profileModalPath = path.join(rootDir, 'packages/renderer/src/components/modals/ProfileModal.tsx');
+      const content = fs.readFileSync(profileModalPath, 'utf8');
+      assert.ok(content.includes('streakDays'), 'ProfileModal must display streakDays');
+      assert.ok(content.includes('activityHistory'), 'ProfileModal must display activityHistory contribution grid');
+    });
+
+    test('Sidebar should NOT display level (Nv.), XP bar (currentXp / xpToNextLevel), nor badges', () => {
+      const sidebarPath = path.join(rootDir, 'packages/renderer/src/components/sidebar/Sidebar.tsx');
+      const content = fs.readFileSync(sidebarPath, 'utf8');
+      assert.strictEqual(content.includes('Nv.'), false, 'Sidebar must NOT render Nv.');
+      assert.strictEqual(content.includes('currentXp'), false, 'Sidebar must NOT render currentXp');
+      assert.strictEqual(content.includes('xpToNextLevel'), false, 'Sidebar must NOT render xpToNextLevel');
+      assert.strictEqual(content.includes('badges'), false, 'Sidebar must NOT render badges');
+    });
+
+    test('Sidebar should display streakDays and activityHistory telemetry', () => {
       const sidebarPath = path.join(rootDir, 'packages/renderer/src/components/sidebar/Sidebar.tsx');
       const content = fs.readFileSync(sidebarPath, 'utf8');
       assert.ok(content.includes('isProfileOpen') || content.includes('isProfileModalOpenAtom'), 'Sidebar triggers profile modal');
       assert.ok(content.includes('useUserProfile'), 'Sidebar hooks into user profile atom');
-      assert.ok(content.includes('streakDays'), 'Sidebar displays orchestrator activity streak');
-      assert.ok(content.includes('currentXp'), 'Sidebar displays current XP');
+      assert.ok(content.includes('streakDays'), 'Sidebar displays streakDays');
+      assert.ok(content.includes('activityHistory'), 'Sidebar displays activityHistory');
     });
   });
 

@@ -3,8 +3,8 @@ import fs from 'fs';
 import os from 'os';
 import crypto from 'crypto';
 import EventEmitter from 'events';
+import { fileURLToPath } from 'url';
 import * as nodePty from 'node-pty';
-import { CoreDaemonSupervisor } from '../supervisor/coreDaemonSupervisor.js';
 import type { DataService } from '../storage/dataService.js';
 import type { TerminalStatus } from '@mindagentics/shared';
 import {
@@ -18,8 +18,33 @@ import {
   redactSecrets,
   hasControlChars,
 } from '@mindagentics/shared';
-import { probeAntigravity, probeCodex, probeOpenCode, probeClaude, probeCopilot, formatResetCountdown, buildUsageWindows, type AgentUsageReport } from './agentProbes.js';
+import {
+  probeAntigravity,
+  probeCodex,
+  probeOpenCode,
+  probeClaude,
+  probeCopilot,
+  formatResetCountdown,
+  buildUsageWindows,
+  type AgentUsageReport,
+  type AgentModelOption,
+  FALLBACK_AGENT_MODELS,
+  queryAntigravityModels,
+  queryOllamaModels,
+} from './agentProbes.js';
 import { MemoryService, memorySummaryRelPath } from '../memory/memoryService.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export interface CoreDaemonSupervisor {
+  token?: string;
+  daemonReady?: boolean;
+  pipeAddress?: string;
+  on(event: string, listener: (...args: any[]) => void): any;
+  syncCanvas?(payload: any): void;
+  unregisterTerminal?(terminalId: string): void;
+  chatTurnSettled?(terminalId: string, output: string, askId?: string): void;
+}
 
 export interface AgentRefInfo {
   path: string;
@@ -30,6 +55,113 @@ export interface AgentRefInfo {
 /** Hard budget for the initial prompt injected on spawn (~chars/4 tokens). */
 const MAX_BRIEFING_TOKENS = 580;
 const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
+
+export const ALLOWED_COMMAND_BINARIES = new Set([
+  'agy',
+  'claude',
+  'codex',
+  'opencode',
+  'copilot',
+  'ollama',
+  'node',
+  'powershell',
+  'powershell.exe',
+  'cmd',
+  'cmd.exe',
+  'bash',
+  'bash.exe',
+]);
+
+const DANGEROUS_SHELL_CHARS_RE = /[;&|`]|(?:\$\()|(?:\$\{)|[\x00\r\n]/;
+const TEMP_PATH_RE = /(?:[\\/]tmp(?:[\\/]|$))|(?:[\\/]temp(?:[\\/]|$))|(?:appdata[\\/]local[\\/]temp)|(?:%temp%)|(?:%tmp%)|(?:\$tmp)|(?:\$temp)/i;
+
+export const VALID_MODEL_ID_REGEX = /^[A-Za-z0-9._:/-]{1,80}$/;
+
+export function validateModelIdentifier(modelId: unknown): void {
+  if (typeof modelId !== 'string') {
+    throw new Error('Comando inválido: identificador de modelo deve ser uma string');
+  }
+  const trimmed = modelId.trim();
+  if (!trimmed || !VALID_MODEL_ID_REGEX.test(trimmed)) {
+    throw new Error(`Comando inválido: identificador de modelo "${modelId}" inválido`);
+  }
+}
+
+export function validateReconfigureCommand(command: unknown): void {
+  if (typeof command !== 'string') {
+    throw new Error('Comando inválido: o comando deve ser uma string');
+  }
+
+  // Check for control characters (NUL, ESC, CR, LF, etc.)
+  if (hasControlChars(command) || command.includes('\0') || command.includes('\r') || command.includes('\n')) {
+    throw new Error('Comando inválido: contém caracteres de controle proibidos');
+  }
+
+  // Validate model flag arguments if present in command: --model <modelId>, -m <modelId>, --model=<modelId>, -m=<modelId>
+  const modelFlagRegex = /(?:^|\s)(?:--model|-m)(?:=|\s+)(?:"([^"]*)"|'([^']*)'|([^\s]+))/g;
+  let modelMatch: RegExpExecArray | null;
+  while ((modelMatch = modelFlagRegex.exec(command)) !== null) {
+    const rawModel = modelMatch[1] ?? modelMatch[2] ?? modelMatch[3] ?? '';
+    validateModelIdentifier(rawModel);
+  }
+
+  // Ensure trailing model flags without argument are rejected
+  if (/(?:^|\s)(?:--model|-m)\s*$/.test(command)) {
+    throw new Error('Comando inválido: identificador de modelo ausente');
+  }
+
+  // Check for dangerous shell chaining or substitution: ;, &&, |, `, $(), ${}
+  if (DANGEROUS_SHELL_CHARS_RE.test(command)) {
+    throw new Error('Comando inválido: encadeamento de shell ou substituição proibida');
+  }
+
+  // Check for temp folders (%TEMP%, AppData/Local/Temp, /tmp, etc.)
+  if (TEMP_PATH_RE.test(command)) {
+    throw new Error('Comando inválido: caminhos apontando para diretórios temporários são proibidos');
+  }
+
+  const osTemp = os.tmpdir();
+  if (osTemp && command.toLowerCase().includes(osTemp.toLowerCase())) {
+    throw new Error('Comando inválido: caminhos apontando para diretórios temporários são proibidos');
+  }
+
+  const trimmed = command.trim();
+  // An empty command represents standard plain shell, allowed
+  if (trimmed.length === 0) {
+    return;
+  }
+
+  // Extract binary token (handling quotes if any)
+  let binaryToken = '';
+  if (trimmed.startsWith('"')) {
+    const endQuote = trimmed.indexOf('"', 1);
+    binaryToken = endQuote !== -1 ? trimmed.slice(1, endQuote) : trimmed.slice(1);
+  } else if (trimmed.startsWith("'")) {
+    const endQuote = trimmed.indexOf("'", 1);
+    binaryToken = endQuote !== -1 ? trimmed.slice(1, endQuote) : trimmed.slice(1);
+  } else {
+    binaryToken = trimmed.split(/\s+/)[0];
+  }
+
+  // Check binary token itself for temp directories
+  if (TEMP_PATH_RE.test(binaryToken) || (osTemp && binaryToken.toLowerCase().includes(osTemp.toLowerCase()))) {
+    throw new Error('Comando inválido: binário em diretório temporário');
+  }
+
+  const baseName = path.basename(binaryToken).toLowerCase();
+  const nameWithoutExt = baseName.replace(/\.(exe|cmd|bat)$/i, '');
+
+  if (!ALLOWED_COMMAND_BINARIES.has(baseName) && !ALLOWED_COMMAND_BINARIES.has(nameWithoutExt)) {
+    throw new Error(`Comando inválido: binário "${baseName}" não permitido`);
+  }
+}
+
+export function sanitizeCanvasDirectives(text: string): string {
+  return text
+    .replace(/(?:ignore|ignorar|bypass|desative|disable)\s*(?:as\s*)?(?:zero-read|regras\s*do\s*canvas|instru[çc][õo]es\s*do\s*canvas|canvas\s*rules|diretrizes)/gi, '[bloqueado]')
+    .replace(/(?:ignore|ignorar|bypass)\s*(?:a\s*)?(?:transcri[çc][ãa]o|fidelidade\s*100%)/gi, '[bloqueado]')
+    .replace(/(?:read_file|cat|get-content)\s+.*(?:agents\.md|claude\.md|skill\.md)/gi, '[bloqueado]');
+}
 
 export interface TerminalSpawnOptions {
   id?: string;
@@ -48,6 +180,7 @@ export interface TerminalSpawnOptions {
   isAutonomous?: boolean;
   orchestratorMode?: boolean;
   maestroMode?: boolean;
+  model?: string;
 }
 
 export interface TerminalSession {
@@ -117,10 +250,12 @@ export class TerminalManager extends EventEmitter {
     const fallbackBinName = isWin ? 'mindagentics.cmd' : 'mindagentics.js';
 
     const candidates = [
+      path.resolve(__dirname, '../../bin', binName),
       path.resolve(__dirname, '../../core-daemon/bin', binName),
       path.resolve(__dirname, '../../../core-daemon/bin', binName),
       path.resolve(process.cwd(), 'packages/core-daemon/bin', binName),
       path.resolve(process.cwd(), 'clone/packages/core-daemon/bin', binName),
+      path.resolve(__dirname, '../../bin', fallbackBinName),
       path.resolve(__dirname, '../../core-daemon/bin', fallbackBinName),
       path.resolve(__dirname, '../../../core-daemon/bin', fallbackBinName),
       path.resolve(process.cwd(), 'packages/core-daemon/bin', fallbackBinName),
@@ -312,6 +447,15 @@ export class TerminalManager extends EventEmitter {
     const agentRole = sanitizeLabel(options.agentRole || '', 200);
     const instructions = sanitizeMarkdownBlock(options.instructions || '', 4000);
     const isAutonomous = options.isAutonomous ?? true;
+    const isOrchestrator = Boolean(options.orchestratorMode ?? options.maestroMode);
+
+    // S2: Validate command and model inputs against CWE-78 command injection
+    if (options.command !== undefined && options.command !== null) {
+      validateReconfigureCommand(options.command);
+    }
+    if (options.model !== undefined && options.model !== null) {
+      validateModelIdentifier(options.model);
+    }
 
     // 1. Check if session already exists and is alive (e.g. switching workspaces and returning)
     const existing = this.sessions.get(terminalId);
@@ -356,8 +500,12 @@ export class TerminalManager extends EventEmitter {
       COLORTERM: 'truecolor',
       TERM_PROGRAM: 'mindAgentics',
       PATH: `${cliDir}${path.delimiter}${process.env.PATH || ''}`,
-      ...(options.orchestratorMode || options.maestroMode ? { MINDAGENTICS_ORCHESTRATOR_MODE: '1', MINDAGENTICS_MAESTRO_MODE: '1' } : {}),
-      ...options.env
+      ...options.env,
+      // Orchestrator Lock / Trava Unidirecional: quando ativo, não pode ser resetado para 0 via options.env
+      ...(isOrchestrator ? {
+        MINDAGENTICS_ORCHESTRATOR_MODE: '1',
+        MINDAGENTICS_MAESTRO_MODE: '1'
+      } : {})
     };
 
     const shellArgs = isWin ? ['-NoLogo', '-NoExit'] : ['-l'];
@@ -398,8 +546,8 @@ export class TerminalManager extends EventEmitter {
         isAutonomous,
         agentRole,
         instructions,
-        orchestratorMode: Boolean(options.orchestratorMode ?? options.maestroMode),
-        maestroMode: Boolean(options.orchestratorMode ?? options.maestroMode),
+        orchestratorMode: isOrchestrator,
+        maestroMode: isOrchestrator,
         refs,
         isAlive: true
       };
@@ -428,7 +576,7 @@ export class TerminalManager extends EventEmitter {
       if (agentRole) {
         briefingParts.push(`Papel: ${agentRole}`);
       }
-      if (options.orchestratorMode || options.maestroMode) {
+      if (isOrchestrator) {
         briefingParts.push('Modo: Orquestrador Central');
       }
       if (instructions && instructions.trim().length > 0) {
@@ -538,7 +686,7 @@ export class TerminalManager extends EventEmitter {
               // Strip ANSI control escapes and apply smart 150-line truncation with temp log redirection
               const clean = redactSecrets(rawOut.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '').trim());
               const truncatedResult = this.truncateOutputIfNeeded(terminalId, clean, this.maxCommandOutputLines);
-              this.supervisor.chatTurnSettled(terminalId, truncatedResult.text, askIdToSettle);
+              this.supervisor.chatTurnSettled?.(terminalId, truncatedResult.text, askIdToSettle);
             }
           }, settleDelay);
         }
@@ -628,7 +776,7 @@ export class TerminalManager extends EventEmitter {
       this.sessions.delete(terminalId);
     }
     try {
-      this.supervisor.unregisterTerminal(terminalId);
+      this.supervisor.unregisterTerminal?.(terminalId);
     } catch {
       // ignore
     }
@@ -640,7 +788,15 @@ export class TerminalManager extends EventEmitter {
 
   public setMaestroMode(terminalId: string, maestroMode: boolean): void {
     const session = this.sessions.get(terminalId);
-    if (session) {
+    if (!session) return;
+
+    if (session.orchestratorMode !== undefined) {
+      // Imutabilidade Pós-Criação: orchestratorMode é 100% imutável após o spawn() (proibido promoção e downgrade)
+      if (Boolean(session.orchestratorMode) !== Boolean(maestroMode)) {
+        console.warn(`[Security/PTY] Tentativa de alterar modo orquestrador pós-criação no terminal ${terminalId} rejeitada.`);
+        return;
+      }
+    } else {
       session.orchestratorMode = maestroMode;
       session.maestroMode = maestroMode;
       this.emit('orchestratorMode', { terminalId, orchestratorMode: maestroMode });
@@ -862,8 +1018,10 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
   public async restart(terminalId: string): Promise<void> {
     const session = this.sessions.get(terminalId);
     if (session) {
-      const { cwd, workspaceId, cols, rows, title, agentRole, instructions, orchestratorMode, maestroMode } = session;
+      const { cwd, workspaceId, cols, rows, title, agentRole, instructions, isAutonomous, command, presetId, orchestratorMode, maestroMode } = session;
+      const prevRefs = session.refs ? [...session.refs] : [];
       this.kill(terminalId);
+      await new Promise((resolve) => setTimeout(resolve, 150));
       await this.spawn({
         id: terminalId,
         cwd,
@@ -875,7 +1033,14 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
         instructions,
         orchestratorMode,
         maestroMode,
+        isAutonomous,
+        command,
+        presetId,
       });
+      const newSession = this.sessions.get(terminalId);
+      if (newSession && prevRefs.length > 0) {
+        newSession.refs = prevRefs;
+      }
     }
   }
 
@@ -888,6 +1053,7 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
       orchestratorMode?: boolean;
       maestroMode?: boolean;
       command?: string;
+      model?: string;
       presetId?: string;
       isAutonomous?: boolean;
       restart?: boolean;
@@ -899,6 +1065,7 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
       orchestratorMode?: boolean;
       maestroMode?: boolean;
       command?: string;
+      model?: string;
       presetId?: string;
       isAutonomous?: boolean;
       restart?: boolean;
@@ -912,16 +1079,18 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
       return { ok: false };
     }
 
-    // S2: Validar e sanitizar comandos/presets e metadados contra injeção
+    // S2: Validar e sanitizar comandos/presets e metadados contra injeção (CWE-78)
     if (config.command !== undefined) {
-      if (typeof config.command !== 'string' || hasControlChars(config.command)) {
-        throw new Error('Comando inválido no terminal:reconfigure');
-      }
+      validateReconfigureCommand(config.command);
+    }
+
+    if ((config as any).model !== undefined) {
+      validateModelIdentifier((config as any).model);
     }
 
     if (config.presetId !== undefined) {
       if (typeof config.presetId !== 'string' || hasControlChars(config.presetId) || !/^[A-Za-z0-9_-]{1,64}$/.test(config.presetId)) {
-        throw new Error('Preset inválido no terminal:reconfigure');
+        throw new Error('Comando inválido: presetId inválido no terminal:reconfigure');
       }
     }
 
@@ -933,16 +1102,27 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
       session.title = sanitizeMarkdownInline(config.title, 80) || 'Agent';
     }
     if (config.agentRole !== undefined) {
-      session.agentRole = sanitizeMarkdownInline(config.agentRole, 200);
+      const sanitized = sanitizeMarkdownInline(config.agentRole, 200);
+      session.agentRole = sanitizeCanvasDirectives(sanitized);
     }
     if (config.instructions !== undefined) {
-      session.instructions = sanitizeMarkdownBlock(config.instructions, 4000);
+      const sanitized = sanitizeMarkdownBlock(config.instructions, 4000);
+      session.instructions = sanitizeCanvasDirectives(sanitized);
     }
     if (config.orchestratorMode !== undefined || config.maestroMode !== undefined) {
-      const isOrch = Boolean(config.orchestratorMode ?? config.maestroMode);
-      session.orchestratorMode = isOrch;
-      session.maestroMode = isOrch;
+      const requestedOrch = Boolean(config.orchestratorMode ?? config.maestroMode);
+      if (session.orchestratorMode !== undefined) {
+        // Imutabilidade Pós-Criação: orchestratorMode é 100% imutável após o spawn() (proibido promoção e downgrade)
+        if (Boolean(session.orchestratorMode) !== requestedOrch) {
+          console.warn(`[Security/PTY] Tentativa de alterar modo orquestrador via reconfigure pós-criação no terminal ${terminalId} rejeitada.`);
+          // Mantém session.orchestratorMode inalterado
+        }
+      } else {
+        session.orchestratorMode = requestedOrch;
+        session.maestroMode = requestedOrch;
+      }
     }
+
     if (config.isAutonomous !== undefined) {
       session.isAutonomous = config.isAutonomous;
     }
@@ -964,8 +1144,21 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
     });
 
     if (needsRestart) {
-      const { cwd, workspaceId, cols, rows, title, agentRole, instructions, orchestratorMode, maestroMode, isAutonomous, command, presetId } = session;
+      const { cwd, workspaceId, cols, rows, title, agentRole, instructions, isAutonomous, command, presetId } = session;
+      const prevRefs = session.refs ? [...session.refs] : [];
       this.kill(terminalId);
+      // Aguardar encerramento do processo zumbi
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      // Limpar scrollback em disco para novo agente iniciar limpo
+      const logPath = this.getLogFilePath(terminalId);
+      try {
+        if (fs.existsSync(logPath)) {
+          fs.unlinkSync(logPath);
+        }
+      } catch {}
+      this.emit('data', { terminalId, data: '\x1b[2J\x1b[H' });
+
       await this.spawn({
         id: terminalId,
         cwd,
@@ -975,16 +1168,20 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
         title,
         agentRole,
         instructions,
-        orchestratorMode,
-        maestroMode,
+        orchestratorMode: session.orchestratorMode,
+        maestroMode: session.maestroMode,
         isAutonomous,
         command,
         presetId,
       });
+      const newSession = this.sessions.get(terminalId);
+      if (newSession && prevRefs.length > 0) {
+        newSession.refs = prevRefs;
+      }
     } else {
       try {
         if (this.supervisor?.daemonReady) {
-          this.supervisor.syncCanvas({
+          this.supervisor.syncCanvas?.({
             nodes: [{
               id: terminalId,
               kind: 'terminal',
@@ -1002,12 +1199,16 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
       } catch {}
     }
 
+    const reconfiguredSession = this.sessions.get(terminalId) || session;
     this.emit('reconfigured', {
       terminalId,
-      title: session.title,
-      agentRole: session.agentRole,
-      instructions: session.instructions,
-      orchestratorMode: session.orchestratorMode,
+      title: reconfiguredSession.title,
+      agentRole: reconfiguredSession.agentRole,
+      instructions: reconfiguredSession.instructions,
+      orchestratorMode: reconfiguredSession.orchestratorMode,
+      maestroMode: reconfiguredSession.maestroMode,
+      presetId: reconfiguredSession.presetId,
+      command: reconfiguredSession.command,
     });
 
     return { ok: true };
@@ -1442,6 +1643,43 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
     return reports;
   }
 
+  public async getAgentModels(presetId?: string): Promise<Record<string, AgentModelOption[]> | AgentModelOption[]> {
+    const norm = (presetId || '').toLowerCase().trim();
+    if (norm === 'antigravity' || norm === 'agy') {
+      return queryAntigravityModels();
+    }
+    if (norm === 'claude' || norm === 'claude-code') {
+      return FALLBACK_AGENT_MODELS.claude;
+    }
+    if (norm === 'codex') {
+      return FALLBACK_AGENT_MODELS.codex;
+    }
+    if (norm === 'opencode') {
+      return FALLBACK_AGENT_MODELS.opencode;
+    }
+    if (norm === 'ollama') {
+      return queryOllamaModels();
+    }
+
+    const [agyModels, ollamaModels] = await Promise.all([
+      queryAntigravityModels(),
+      queryOllamaModels(),
+    ]);
+
+    const allModels: Record<string, AgentModelOption[]> = {
+      antigravity: agyModels,
+      claude: FALLBACK_AGENT_MODELS.claude,
+      codex: FALLBACK_AGENT_MODELS.codex,
+      opencode: FALLBACK_AGENT_MODELS.opencode,
+      ollama: ollamaModels,
+    };
+
+    if (norm && allModels[norm]) {
+      return allModels[norm];
+    }
+    return allModels;
+  }
+
   private which(cmd: string): string | null {
     const isWin = process.platform === 'win32';
     const exts = isWin ? ((process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM') + ';.PS1').split(';') : [''];
@@ -1619,4 +1857,3 @@ function maskEmail(email: string): string {
   if (!user || !domain) return 'conta local';
   return `${user.slice(0, 1)}***@${domain}`.replace(/[\u0000-\u001F]/g, '');
 }
-

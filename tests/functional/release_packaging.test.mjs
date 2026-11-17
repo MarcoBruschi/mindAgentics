@@ -12,7 +12,7 @@ describe('Release Packaging & Build Verification Suite', () => {
 
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     assert.strictEqual(pkg.name, 'mind-agentics');
-    assert.strictEqual(pkg.main, 'packages/main/dist/index.js');
+    assert.strictEqual(pkg.main, undefined, 'package.json should not have legacy main field');
 
     // Required scripts
     const expectedScripts = [
@@ -20,6 +20,10 @@ describe('Release Packaging & Build Verification Suite', () => {
       'test:security',
       'test:functional',
       'test',
+      'tauri',
+      'tauri:dev',
+      'tauri:build',
+      'start',
       'pack',
       'dist',
       'dist:win'
@@ -30,46 +34,24 @@ describe('Release Packaging & Build Verification Suite', () => {
     }
   });
 
-  it('should validate electron-builder packaging metadata and Windows release targets', () => {
-    const builderPath = path.join(rootDir, 'electron-builder.json');
-    assert.ok(fs.existsSync(builderPath), 'electron-builder.json must exist');
+  it('should validate Tauri v2 packaging metadata and Windows release targets', () => {
+    const tauriConfPath = path.join(rootDir, 'src-tauri/tauri.conf.json');
+    assert.ok(fs.existsSync(tauriConfPath), 'src-tauri/tauri.conf.json must exist');
 
-    const config = JSON.parse(fs.readFileSync(builderPath, 'utf8'));
-    assert.strictEqual(config.appId, 'com.mindagentics.app');
+    const config = JSON.parse(fs.readFileSync(tauriConfPath, 'utf8'));
+    assert.strictEqual(config.identifier, 'com.mindagentics.app');
     assert.strictEqual(config.productName, 'mindAgentics');
-    assert.strictEqual(config.copyright, 'Copyright © 2026 mindAgentics Team');
-
-    // Windows targets: nsis and portable x64
-    assert.ok(config.win, 'Windows configuration must be specified');
-    const targets = config.win.target;
-    assert.ok(Array.isArray(targets), 'win.target must be an array');
-
-    const hasNsis = targets.some((t) => t.target === 'nsis' && t.arch.includes('x64'));
-    const hasPortable = targets.some((t) => t.target === 'portable' && t.arch.includes('x64'));
-    assert.ok(hasNsis, 'Windows target must include nsis (x64)');
-    assert.ok(hasPortable, 'Windows target must include portable (x64)');
-
-    // Check files array
-    const requiredPatterns = [
-      'packages/main/dist/**/*',
-      'packages/preload/dist/**/*',
-      'packages/renderer/dist/**/*',
-      'packages/core-daemon/dist/**/*',
-      'packages/core-daemon/bin/**/*',
-      'packages/shared/dist/**/*'
-    ];
-
-    for (const pattern of requiredPatterns) {
-      assert.ok(config.files.includes(pattern), `files list must include ${pattern}`);
-    }
+    assert.strictEqual(config.bundle?.active, true, 'Tauri bundle must be active');
+    assert.ok(Array.isArray(config.bundle?.icon), 'bundle.icon must be an array');
+    assert.ok(config.bundle.icon.includes('icons/icon.ico'), 'bundle.icon must include icons/icon.ico');
   });
 
   it('should verify all required build artifacts exist before packaging', () => {
     const requiredArtifacts = [
-      'packages/main/dist/index.js',
-      'packages/preload/dist/index.js',
       'packages/renderer/dist/index.html',
-      'packages/core-daemon/bin/mindagentics.js'
+      'packages/core-daemon/dist/index.js',
+      'packages/core-daemon/bin/mindagentics.js',
+      'packages/shared/dist/index.js'
     ];
 
     for (const relPath of requiredArtifacts) {

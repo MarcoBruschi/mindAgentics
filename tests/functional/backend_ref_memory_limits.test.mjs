@@ -5,13 +5,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 
 // Import compiled backend modules
-import { MemoryService, memorySummaryRelPath, cleanTerminalText, SUMMARY_MAX_CHARS } from '../../packages/main/dist/memory/memoryService.js';
+import { MemoryService, memorySummaryRelPath, cleanTerminalText, SUMMARY_MAX_CHARS } from '../../packages/core-daemon/dist/memory/memoryService.js';
 import { searchMemory, agentSlug } from '../../packages/core-daemon/dist/memory/memorySearch.js';
 import { refCommand } from '../../packages/core-daemon/dist/cli/commands/ref.js';
 import { recallCommand } from '../../packages/core-daemon/dist/cli/commands/recall.js';
 import { connectCommand } from '../../packages/core-daemon/dist/cli/commands/connect.js';
 import { DaemonState } from '../../packages/core-daemon/dist/daemon/state.js';
-import { buildUsageWindows, probeAntigravity, probeCodex, probeOpenCode, probeClaude, probeCopilot } from '../../packages/main/dist/terminal/agentProbes.js';
+import { buildUsageWindows, probeAntigravity, probeCodex, probeOpenCode, probeClaude, probeCopilot } from '../../packages/core-daemon/dist/terminal/agentProbes.js';
 
 describe('Backend Deliverables (B1 - B8) Suite', () => {
   let tempDir;
@@ -282,8 +282,8 @@ describe('Backend Deliverables (B1 - B8) Suite', () => {
       memory.start('term-sum', 'Summarizer', tempDir);
 
       for (let i = 1; i <= 12; i++) {
-        memory.onInput('term-sum', `Edite o arquivo packages/main/src/service_${i}.ts\r`);
-        memory.onOutput('term-sum', `Arquivo packages/main/src/service_${i}.ts modificado com sucesso.\n`);
+        memory.onInput('term-sum', `Edite o arquivo packages/core-daemon/src/service_${i}.ts\r`);
+        memory.onOutput('term-sum', `Arquivo packages/core-daemon/src/service_${i}.ts modificado com sucesso.\n`);
       }
       memory.end('term-sum', true);
 
@@ -400,7 +400,7 @@ describe('Backend Deliverables (B1 - B8) Suite', () => {
     });
 
     it('should sanitize path and extract { path, isDirectory, label } via assertSafePathString and fs.statSync', async () => {
-      const { assertSafePathString } = await import('../../packages/main/dist/security/pathSafety.js');
+      const { assertSafePathString } = await import('../../packages/core-daemon/dist/security/pathSafety.js');
       const testFilePath = path.join(tempDir, 'test-doc.md');
       fs.writeFileSync(testFilePath, '# Test Doc');
 
@@ -428,7 +428,7 @@ describe('Backend Deliverables (B1 - B8) Suite', () => {
     });
 
     it('should update metadata without terminating session and trigger restart on command change', async () => {
-      const { TerminalManager } = await import('../../packages/main/dist/terminal/terminalManager.js');
+      const { TerminalManager } = await import('../../packages/core-daemon/dist/terminal/terminalManager.js');
       const fakeSupervisor = {
         on: () => {},
         pipeAddress: '\\\\.\\pipe\\test-pipe',
@@ -583,7 +583,7 @@ describe('Backend Deliverables (B1 - B8) Suite', () => {
 
   describe('B4. Nomes limpos nos relatórios de uso dos agentes', () => {
     it('should have standardized clean names without command suffixes in detectInstalledAgents()', async () => {
-      const { TerminalManager } = await import('../../packages/main/dist/terminal/terminalManager.js');
+      const { TerminalManager } = await import('../../packages/core-daemon/dist/terminal/terminalManager.js');
       const manager = new TerminalManager({ on: () => {} });
       const candidates = manager.detectInstalledAgents();
 
@@ -607,7 +607,7 @@ describe('Backend Deliverables (B1 - B8) Suite', () => {
     });
 
     it('should return clean report names and null quotaPercent / secondaryPercent when no live limits data', async () => {
-      const { TerminalManager } = await import('../../packages/main/dist/terminal/terminalManager.js');
+      const { TerminalManager } = await import('../../packages/core-daemon/dist/terminal/terminalManager.js');
       const manager = new TerminalManager({ on: () => {} });
       const reports = await manager.getAgentLimits();
 

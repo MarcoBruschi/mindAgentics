@@ -13,7 +13,9 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@mindagentics/shared": "*"
+    "@mindagentics/shared": "*",
+    "fflate": "^0.8.3",
+    "node-pty": "1.2.0-beta.15"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

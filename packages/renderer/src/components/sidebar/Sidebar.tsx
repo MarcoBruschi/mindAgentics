@@ -37,11 +37,6 @@ export const Sidebar: React.FC = () => {
   const [, setIsProfileOpen] = useAtom(isProfileModalOpenAtom);
   const { profile } = useUserProfile();
   const avatar = getAvatarOption(profile?.avatarId);
-  const xpTotalRequired = (profile?.currentXp || 0) + (profile?.xpToNextLevel || 100);
-  const xpPercent = Math.min(
-    100,
-    Math.max(0, Math.round(((profile?.currentXp || 0) / (xpTotalRequired || 1)) * 100))
-  );
 
   const [workspaceToDelete, setWorkspaceToDelete] = useState<Workspace | null>(null);
 
@@ -107,7 +102,7 @@ export const Sidebar: React.FC = () => {
               }
             }}
             data-streak={profile?.streakDays || 1}
-            data-xp={profile?.currentXp || 0}
+            data-activity="activityHistory"
             className="group flex items-center justify-between p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.12] cursor-pointer transition-all select-none"
             style={{ WebkitAppRegion: 'no-drag' } as any}
             title="Perfil do Operador & Configurações"
@@ -140,6 +135,12 @@ export const Sidebar: React.FC = () => {
                   {profile?.title || 'Compositor de Agentes'}
                 </span>
               </div>
+            </div>
+
+            {/* Streak Badge with Flame Icon */}
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-medium shrink-0 ml-1">
+              <Flame className="w-3 h-3 text-emerald-400 fill-emerald-500/20" />
+              <span>{profile?.streakDays || 1}d</span>
             </div>
           </div>
         </div>

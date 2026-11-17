@@ -23,6 +23,8 @@ import {
   Wand2,
   Zap,
   Settings2,
+  SlidersHorizontal,
+  Lock,
 } from 'lucide-react';
 import { EditTerminalModal } from '../modals/EditTerminalModal';
 import {
@@ -70,6 +72,20 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
   useEffect(() => {
     setTitle(node.content.title || '');
   }, [node.content.title]);
+
+  const handleSaveTitle = (newTitle: string) => {
+    setIsEditingTitle(false);
+    const trimmedTitle = newTitle.trim() || 'Terminal';
+    setTitle(trimmedTitle);
+    onUpdate({
+      ...nodeRef.current,
+      content: { ...nodeRef.current.content, title: trimmedTitle },
+    });
+    const terminalApi = window.mindAgentics?.terminal || window.api?.terminal;
+    if (terminalApi?.reconfigure) {
+      terminalApi.reconfigure(node.content.terminalId, { title: trimmedTitle, restart: false }).catch(() => {});
+    }
+  };
 
   useEffect(() => {
     if (!isMemoryMenuOpen) return;
@@ -156,8 +172,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         cyan: '#39c5cf',
         white: '#b1bac4',
       },
-      fontFamily: "Cascadia Mono, Consolas, 'Fira Code', monospace",
-      fontSize: 12,
+      fontFamily: node.content.fontFamily || "Cascadia Mono, Consolas, 'Fira Code', monospace",
+      fontSize: node.content.fontSize || 12,
       lineHeight: 1.25,
       cursorBlink: true,
       scrollback: 10000,
@@ -425,7 +441,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       } catch {}
       term.dispose();
     };
-  }, [node.content.terminalId, agentCommand, node.content.presetId]);
+  }, [node.content.terminalId]);
 
   // Synchronize XTerm canvas pixel density when canvas zoom changes for crisp vector-sharp typography
   useEffect(() => {
@@ -467,27 +483,6 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     });
   };
 
-  const toggleOrchestrator = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const nextOrchestrator = !isOrchestrator;
-    onUpdate({
-      ...nodeRef.current,
-      content: {
-        ...nodeRef.current.content,
-        orchestratorMode: nextOrchestrator,
-        maestroMode: nextOrchestrator,
-      },
-    });
-    const setOrchestratorFn =
-      window.mindAgentics?.terminal?.setOrchestratorMode ||
-      window.mindAgentics?.terminal?.setMaestroMode ||
-      (window.mindAgentics?.terminal || (window.api as any)?.terminal)?.setOrchestratorMode ||
-      (window.mindAgentics?.terminal || (window.api as any)?.terminal)?.setMaestroMode;
-    if (setOrchestratorFn) {
-      setOrchestratorFn(node.content.terminalId, nextOrchestrator).catch(() => {});
-    }
-  };
-
   const handleInsertReference = (targetNode: any) => {
     const term = xtermInstance.current;
     if (!term) return;
@@ -527,9 +522,10 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
       cmd = 'mindagentics recall ""';
     } else if (action === 'clear') {
       const isWin = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('windows');
+      const slug = (node.content.title || 'agent').toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'agent';
       cmd = isWin
-        ? 'if (Test-Path .mindagentics/memory) { Remove-Item -Recurse -Force .mindagentics/memory }; Write-Host "[mindAgentics] Memória limpa."'
-        : 'rm -rf .mindagentics/memory && echo "[mindAgentics] Memória limpa."';
+        ? `if (Test-Path ".mindagentics/memory/${slug}") { Remove-Item -Recurse -Force ".mindagentics/memory/${slug}" }; Write-Host "[mindAgentics] Memória do agente limpa."`
+        : `rm -rf ".mindagentics/memory/${slug}" && echo "[mindAgentics] Memória do agente limpa."`;
     } else if (action === 'resume') {
       cmd = 'mindagentics recall "último estado" --limit 5';
     }
@@ -602,20 +598,10 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
               onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => {
-                setIsEditingTitle(false);
-                onUpdate({
-                  ...nodeRef.current,
-                  content: { ...nodeRef.current.content, title },
-                });
-              }}
+              onBlur={() => handleSaveTitle(title)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  setIsEditingTitle(false);
-                  onUpdate({
-                    ...nodeRef.current,
-                    content: { ...nodeRef.current.content, title },
-                  });
+                  handleSaveTitle(title);
                 }
                 if (e.key === 'Escape') {
                   setTitle(node.content.title);
@@ -637,29 +623,47 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
             </span>
           )}
 
-          {/* Discreet Command / Agent Badge */}
-          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium tracking-wide rounded bg-white/[0.05] text-[#8A8F98] border border-white/[0.06] shrink-0">
-            {agentCommand ? agentCommand.split(' ')[0] : 'shell'}
-          </span>
-
-          {/* Orchestrator Compact Pill (when active) */}
-          {isOrchestrator && (
-            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 shrink-0">
-              <Wand2 className="w-2.5 h-2.5 text-amber-400" />
-              <span>Orquestrador</span>
-            </span>
-          )}
-        </div>
-
-        {/* Right Side: Clean Grouped Actions: Edit, Memory, Orchestrator Toggle, Close */}
-        <div className="relative flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity shrink-0">
-          {/* Edit Terminal Button */}
+          {/* Interactive Agent / Command Badge */}
           <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               setIsEditModalOpen(true);
             }}
-            className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.08] rounded-md transition-colors cursor-pointer"
+            className="group/badge px-2 py-0.5 text-[10px] font-mono font-medium tracking-wide rounded bg-white/[0.05] hover:bg-white/[0.12] text-[#8A8F98] hover:text-white border border-white/[0.06] hover:border-white/[0.2] transition-all flex items-center gap-1 shrink-0 cursor-pointer select-none"
+            title="Clique para editar ou trocar o agente"
+          >
+            <span>{agentCommand ? agentCommand.split(' ')[0] : 'shell'}</span>
+            <SlidersHorizontal className="w-2.5 h-2.5 opacity-50 group-hover/badge:opacity-100 transition-opacity" />
+          </button>
+
+          {/* Orchestrator Badge (when active) */}
+          {isOrchestrator && (
+            <span
+              className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 shrink-0 select-none"
+              title="Modo Orquestrador Ativo (Fixo e Permanente)"
+            >
+              <Wand2 className="w-2.5 h-2.5 text-amber-400" />
+              <span>Orquestrador</span>
+              <Lock className="w-2.5 h-2.5 text-amber-400/80" />
+            </span>
+          )}
+        </div>
+
+        {/* Right Side: Clean Grouped Actions: Edit, Memory, Close */}
+        <div className="relative flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity shrink-0">
+          {/* Edit Terminal Button */}
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsEditModalOpen(true);
+            }}
+            className="p-1.5 text-zinc-300 hover:text-white hover:bg-white/[0.1] rounded-md transition-colors cursor-pointer"
             title="Editar Terminal (Trocar Agente, Papel e Modos)"
           >
             <Settings2 className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -667,6 +671,9 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
 
           {/* Memory Button */}
           <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               setIsMemoryMenuOpen((prev) => !prev);
@@ -684,6 +691,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           {/* Memory Popover Dropdown */}
           {isMemoryMenuOpen && (
             <div
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
               className="absolute right-14 top-full mt-1.5 w-44 py-1 rounded-lg bg-[#14161A] border border-white/[0.1] shadow-2xl z-50 text-xs"
             >
@@ -691,6 +700,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
                 Memória do Agente
               </div>
               <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   setIsMemoryMenuOpen(false);
                   handleMemoryAction('summary');
@@ -701,6 +712,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
                 <span>Ver resumo</span>
               </button>
               <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   setIsMemoryMenuOpen(false);
                   handleMemoryAction('resume');
@@ -711,6 +724,8 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
                 <span>Retomar</span>
               </button>
               <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   setIsMemoryMenuOpen(false);
                   handleMemoryAction('clear');
@@ -723,25 +738,11 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
             </div>
           )}
 
-          {/* Orchestrator Toggle Button */}
-          <button
-            onClick={toggleOrchestrator}
-            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-              isOrchestrator
-                ? 'text-amber-400 bg-amber-500/20 hover:bg-amber-500/30'
-                : 'text-zinc-400 hover:text-amber-300 hover:bg-white/[0.08]'
-            }`}
-            title={
-              isOrchestrator
-                ? 'Modo Orquestrador Ativo (clique para alternar)'
-                : 'Alternar Modo Orquestrador'
-            }
-          >
-            <Wand2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-          </button>
-
           {/* Close Button */}
           <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               onDelete(node.id);

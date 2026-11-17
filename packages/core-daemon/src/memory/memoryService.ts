@@ -230,6 +230,64 @@ export class MemoryService {
     }
   }
 
+  /**
+   * Safely removes only the memory directory for a specific agent:
+   * `.mindagentics/memory/<agentSlug>`
+   * Enforces strict canonical boundaries so it can never delete `.mindagentics/memory` root,
+   * the workspace directory, or escape via path traversal.
+   */
+  public clearMemory(cwd: string, agent: string): { ok: boolean; path?: string; reason?: string } {
+    if (!cwd || !agent) {
+      return { ok: false, reason: 'cwd e agent são obrigatórios' };
+    }
+    // S6 / Path Safety: reject directory traversal patterns in agent name
+    if (typeof agent !== 'string' || agent.includes('/') || agent.includes('\\') || agent.includes('..') || agent.trim() === '.' || agent.trim() === '..') {
+      return { ok: false, reason: 'Path traversal detectado: nome do agente contém caracteres inválidos' };
+    }
+    const slug = agentSlug(agent);
+    if (!slug || slug === '.' || slug === '..') {
+      return { ok: false, reason: 'agentSlug inválido' };
+    }
+
+    const canonicalCwd = path.resolve(cwd);
+    const canonicalMemoryRoot = path.resolve(canonicalCwd, MEMORY_DIR_NAME);
+    const targetDir = path.resolve(canonicalMemoryRoot, slug);
+
+    // Enforce that targetDir is strictly a child directory of canonicalMemoryRoot
+    const rel = path.relative(canonicalMemoryRoot, targetDir);
+    if (rel.startsWith('..') || path.isAbsolute(rel) || rel === '' || rel === '.') {
+      return { ok: false, reason: 'Path traversal detectado: tentativa de apagar fora ou na raiz da memória' };
+    }
+
+    // Safety check: targetDir must not be the memory root or cwd
+    if (targetDir === canonicalMemoryRoot || targetDir === canonicalCwd) {
+      return { ok: false, reason: 'Operação proibida: não é permitido apagar a raiz da memória ou do workspace' };
+    }
+
+    try {
+      if (fs.existsSync(targetDir)) {
+        fs.rmSync(targetDir, { recursive: true, force: true });
+      }
+      return { ok: true, path: targetDir };
+    } catch (err: any) {
+      return { ok: false, reason: `Erro ao limpar memória do agente: ${err?.message || err}` };
+    }
+  }
+
+  public clear(terminalId: string): { ok: boolean; path?: string; reason?: string } {
+    const s = this.sessions.get(terminalId);
+    if (!s) return { ok: false, reason: 'Sessão não encontrada' };
+    if (s.timer) {
+      clearTimeout(s.timer);
+      s.timer = null;
+    }
+    s.outBuf = '';
+    s.lineBuf = '';
+    s.currentInput = '';
+    s.turnCount = 0;
+    return this.clearMemory(s.cwd, s.agent);
+  }
+
   // ---------------------------------------------------------------- internals
 
   private flushTurn(s: SessionMemory): void {
@@ -434,6 +492,5 @@ export class MemoryService {
     try { fs.chmodSync(tmp, 0o600); } catch {}
     fs.renameSync(tmp, path.join(dir, SUMMARY_FILE));
     return untrustedSummary;
-    return md;
   }
 }

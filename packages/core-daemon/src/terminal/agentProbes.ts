@@ -43,7 +43,7 @@ export function resolveProbeBinary(agentPath: string | undefined, fallbackName: 
 function probeEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const k of Object.keys(env)) {
-    if (k.startsWith('MINDAGENTICS_') || k === 'ELECTRON_RUN_AS_NODE') delete env[k];
+    if (k.startsWith('MINDAGENTICS_')) delete env[k];
   }
   return env;
 }
@@ -369,3 +369,121 @@ export async function probeCopilot(_agentPath?: string): Promise<Partial<AgentUs
   });
 }
 
+// ---------------------------------------------------------------------------
+// Agent Models List & Queries
+// ---------------------------------------------------------------------------
+
+export interface AgentModelOption {
+  id: string;
+  label: string;
+}
+
+export const FALLBACK_AGENT_MODELS: Record<string, AgentModelOption[]> = {
+  antigravity: [
+    { id: 'gemini-4-argon-high', label: 'Gemini 4 Argon (High)' },
+    { id: 'gemini-4-argon-medium', label: 'Gemini 4 Argon (Medium)' },
+    { id: 'gemini-4-hydrogen-high', label: 'Gemini 4 Hydrogen (High)' },
+    { id: 'gemini-4-hydrogen-xhigh', label: 'Gemini 4 Hydrogen (XHigh)' },
+    { id: 'gemini-3.8-flash-high', label: 'Gemini 3.8 Flash (High)' },
+    { id: 'claude-opus-5-5-high', label: 'Claude Opus 5.5 (High)' },
+    { id: 'claude-sonnet-5-5-high', label: 'Claude Sonnet 5.5 (High)' },
+    { id: 'claude-sonnet-5-5-medium', label: 'Claude Sonnet 5.5 (Medium)' },
+    { id: 'gpt-oss-120b-medium', label: 'GPT-OSS 120B (Medium)' },
+  ],
+  claude: [
+    { id: 'sonnet', label: 'Claude Sonnet' },
+    { id: 'opus', label: 'Claude Opus' },
+    { id: 'haiku', label: 'Claude Haiku' },
+  ],
+  codex: [
+    { id: 'gpt-5-codex', label: 'GPT-5 Codex' },
+    { id: 'gpt-5', label: 'GPT-5' },
+    { id: 'o3', label: 'o3' },
+    { id: 'o4-mini', label: 'o4-mini' },
+  ],
+  opencode: [
+    { id: 'anthropic/claude-sonnet-4-5', label: 'anthropic/claude-sonnet-4-5' },
+    { id: 'anthropic/claude-opus-4-5', label: 'anthropic/claude-opus-4-5' },
+    { id: 'openai/gpt-5', label: 'openai/gpt-5' },
+    { id: 'google/gemini-2.5-pro', label: 'google/gemini-2.5-pro' },
+  ],
+  ollama: [
+    { id: 'llama3', label: 'Llama 3' },
+    { id: 'qwen2.5-coder', label: 'Qwen 2.5 Coder' },
+    { id: 'deepseek-r1', label: 'DeepSeek R1' },
+  ],
+};
+
+export async function queryAntigravityModels(agentPath?: string): Promise<AgentModelOption[]> {
+  const agyBin = resolveProbeBinary(agentPath, 'agy');
+  if (!agyBin) {
+    return FALLBACK_AGENT_MODELS.antigravity;
+  }
+  return new Promise((resolve) => {
+    execFile(
+      agyBin,
+      ['models'],
+      { timeout: 4000, windowsHide: true, maxBuffer: PROBE_MAX_OUTPUT_BYTES, killSignal: 'SIGKILL', env: probeEnv(), shell: false },
+      (err, stdout) => {
+        if (err || !stdout) {
+          return resolve(FALLBACK_AGENT_MODELS.antigravity);
+        }
+        try {
+          const lines = stdout.split(/\r?\n/);
+          const models: AgentModelOption[] = [];
+          for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line || line.startsWith('Fetching')) continue;
+            if (line.includes('\t')) {
+              const parts = line.split('\t');
+              const id = parts[0]?.trim();
+              const label = parts[1]?.trim() || id;
+              if (id) {
+                models.push({ id, label });
+              }
+            }
+          }
+          if (models.length > 0) {
+            return resolve(models);
+          }
+        } catch {}
+        resolve(FALLBACK_AGENT_MODELS.antigravity);
+      }
+    );
+  });
+}
+
+export async function queryOllamaModels(agentPath?: string): Promise<AgentModelOption[]> {
+  const ollamaBin = resolveProbeBinary(agentPath, 'ollama');
+  if (!ollamaBin) {
+    return FALLBACK_AGENT_MODELS.ollama;
+  }
+  return new Promise((resolve) => {
+    execFile(
+      ollamaBin,
+      ['list'],
+      { timeout: 4000, windowsHide: true, maxBuffer: PROBE_MAX_OUTPUT_BYTES, killSignal: 'SIGKILL', env: probeEnv(), shell: false },
+      (err, stdout) => {
+        if (err || !stdout) {
+          return resolve(FALLBACK_AGENT_MODELS.ollama);
+        }
+        try {
+          const lines = stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          const models: AgentModelOption[] = [];
+          // Skip header line (NAME ID SIZE MODIFIED)
+          for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(/\s+/);
+            const name = parts[0];
+            if (name) {
+              models.push({ id: name, label: name });
+            }
+          }
+          if (models.length > 0) {
+            return resolve(models);
+          }
+        } catch {}
+        resolve(FALLBACK_AGENT_MODELS.ollama);
+      }
+    );
+  });
+}

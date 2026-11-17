@@ -64,7 +64,7 @@ impl StorageEngine {
         self.data_dir.clone()
     }
 
-    /// Resolve storage directory hierarchy identically to Electron's `DataService::resolveDataDir()`:
+    /// Resolve storage directory hierarchy for mindAgentics (`DataService::resolveDataDir()`):
     /// 1. `MINDAGENTICS_DATA_DIR` env variable (if non-empty)
     /// 2. Pointer file (`%APPDATA%/mindAgentics/storage-location.json` on Windows, or OS equivalent)
     ///    checking `customDataDir` (or `path`)
@@ -1386,7 +1386,7 @@ impl StorageEngine {
             return Ok(def);
         };
 
-        // Check daily streak identically to Electron's DataService::getProfileInternal()
+        // Check daily streak identically to DataService::getProfileInternal()
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
         if profile.last_active_date != today {
             if let (Ok(last_date), Ok(curr_date)) = (
@@ -1403,21 +1403,8 @@ impl StorageEngine {
                 profile.streak_days = 1;
             }
             profile.last_active_date = today;
-
-            // Update "Em Chamas" badge progress
-            if let Some(em_chamas) = profile
-                .badges
-                .iter_mut()
-                .find(|b| b.id == "badge-em-chamas")
-            {
-                let progress = profile.streak_days as u64;
-                em_chamas.progress = Some(progress);
-                if em_chamas.unlocked_at.is_none()
-                    && progress >= em_chamas.max_progress.unwrap_or(3)
-                {
-                    em_chamas.unlocked_at = Some(chrono::Utc::now().to_rfc3339());
-                }
-            }
+            let longest = profile.longest_streak_days.unwrap_or(1).max(profile.streak_days);
+            profile.longest_streak_days = Some(longest);
 
             self.save_profile_internal(&profile).await?;
         }
@@ -1470,102 +1457,46 @@ impl StorageEngine {
         Ok(updated)
     }
 
-    pub async fn award_xp(&self, xp: u64, stat_key: Option<&str>) -> Result<AwardXpResult> {
+    pub async fn award_xp(&self, _xp: u64, stat_key: Option<&str>) -> Result<AwardXpResult> {
         let _guard = self.profile_lock.lock().await;
         let mut profile = self.get_profile_internal().await?;
-        let previous_level = profile.level;
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
 
-        profile.total_xp = profile.total_xp.saturating_add(xp);
-        let (lvl, curr_xp, next_xp, title) = calculate_level_and_xp(profile.total_xp);
-        let leveled_up = lvl > previous_level;
-        profile.level = lvl;
-        profile.current_xp = curr_xp;
-        profile.xp_to_next_level = next_xp;
-        profile.title = title;
+        let mut history = profile.activity_history.take().unwrap_or_default();
+        let count = history.entry(today.clone()).or_insert(0);
+        *count = count.saturating_add(1);
+        profile.activity_history = Some(history);
+
+        if profile.last_active_date != today {
+            if let (Ok(last_date), Ok(curr_date)) = (
+                chrono::NaiveDate::parse_from_str(&profile.last_active_date, "%Y-%m-%d"),
+                chrono::NaiveDate::parse_from_str(&today, "%Y-%m-%d"),
+            ) {
+                let diff_days = (curr_date - last_date).num_days();
+                if diff_days == 1 {
+                    profile.streak_days = profile.streak_days.saturating_add(1);
+                } else if diff_days > 1 {
+                    profile.streak_days = 1;
+                }
+            } else {
+                profile.streak_days = 1;
+            }
+            profile.last_active_date = today;
+        }
+        let longest = profile.longest_streak_days.unwrap_or(1).max(profile.streak_days);
+        profile.longest_streak_days = Some(longest);
 
         if let Some(key) = stat_key.map(str::trim).filter(|s| !s.is_empty()) {
             profile.stats.increment_stat(key);
         }
 
-        if profile.badges.is_empty() {
-            profile.badges = initial_badges();
-        }
-
-        let mut unlocked_badges: Vec<UserBadge> = Vec::new();
-        let now_iso = chrono::Utc::now().to_rfc3339();
-
-        let recruits = profile
-            .stats
-            .recruits_count
-            .max(profile.stats.agents_recruited)
-            .max(profile.stats.terminals_spawned);
-        let delegated = profile
-            .stats
-            .tasks_delegated
-            .max(profile.stats.asks_sent);
-        let graphs = profile.stats.knowledge_graphs_built;
-        let portals = profile.stats.portals_opened;
-        let routines = profile.stats.routines_executed;
-        let streak = profile.streak_days as u64;
-
-        for badge in &mut profile.badges {
-            if badge.unlocked_at.is_some() {
-                continue;
-            }
-
-            let mut should_unlock = false;
-            match badge.id.as_str() {
-                "badge-primeira-sinfonia" => {
-                    if recruits >= 1 || delegated >= 1 {
-                        badge.progress = Some(1);
-                        should_unlock = true;
-                    }
-                }
-                "badge-delegacao-cirurgica" => {
-                    badge.progress = Some(delegated);
-                    if delegated >= badge.max_progress.unwrap_or(10) {
-                        should_unlock = true;
-                    }
-                }
-                "badge-mapeador-neural" => {
-                    badge.progress = Some(graphs);
-                    if graphs >= badge.max_progress.unwrap_or(1) {
-                        should_unlock = true;
-                    }
-                }
-                "badge-ponte-conhecimento" => {
-                    badge.progress = Some(portals);
-                    if portals >= badge.max_progress.unwrap_or(5) {
-                        should_unlock = true;
-                    }
-                }
-                "badge-sentinela-autonomo" => {
-                    badge.progress = Some(routines);
-                    if routines >= badge.max_progress.unwrap_or(1) {
-                        should_unlock = true;
-                    }
-                }
-                "badge-em-chamas" => {
-                    badge.progress = Some(streak);
-                    if streak >= badge.max_progress.unwrap_or(3) {
-                        should_unlock = true;
-                    }
-                }
-                _ => {}
-            }
-
-            if should_unlock && badge.unlocked_at.is_none() {
-                badge.unlocked_at = Some(now_iso.clone());
-                unlocked_badges.push(badge.clone());
-            }
-        }
-
+        profile.badges.clear();
         self.save_profile_internal(&profile).await?;
 
         Ok(AwardXpResult {
             profile,
-            leveled_up,
-            unlocked_badges,
+            leveled_up: false,
+            unlocked_badges: Vec::new(),
         })
     }
 

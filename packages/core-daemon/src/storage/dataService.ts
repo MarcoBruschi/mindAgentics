@@ -998,6 +998,9 @@ export class DataService {
     try {
       const raw = await fsp.readFile(profilePath, 'utf8');
       const profile: UserProfile = JSON.parse(raw);
+      profile.activityHistory = profile.activityHistory || {};
+      profile.longestStreakDays = Math.max(profile.longestStreakDays || 1, profile.streakDays || 1);
+      if (!Array.isArray(profile.badges)) profile.badges = [];
 
       // Check daily streak
       const today = new Date().toISOString().split('T')[0];
@@ -1013,15 +1016,7 @@ export class DataService {
           profile.streakDays = 1;
         }
         profile.lastActiveDate = today;
-
-        // Check "Em Chamas" badge progress
-        const emChamas = profile.badges.find((b) => b.id === 'badge-em-chamas');
-        if (emChamas) {
-          emChamas.progress = profile.streakDays;
-          if (!emChamas.unlockedAt && emChamas.progress >= (emChamas.maxProgress || 3)) {
-            emChamas.unlockedAt = new Date().toISOString();
-          }
-        }
+        profile.longestStreakDays = Math.max(profile.longestStreakDays || 1, profile.streakDays);
         await this.replaceFileAtomically(profilePath, JSON.stringify(profile, null, 2));
       }
 
@@ -1069,78 +1064,46 @@ export class DataService {
   }
 
   public async awardXp(
-    xp: number,
+    _xp: number,
     statKey?: keyof OrchestratorStats
   ): Promise<{ profile: UserProfile; leveledUp: boolean; unlockedBadges: UserBadge[] }> {
     return this.fileMutex.acquire('profile.json', async () => {
       const profile = await this.getProfileInternal();
-      const previousLevel = profile.level;
-      profile.totalXp = Math.max(0, profile.totalXp + xp);
+      const today = new Date().toISOString().split('T')[0];
 
-      const lvlInfo = calculateLevelAndXp(profile.totalXp);
-      const leveledUp = lvlInfo.level > previousLevel;
-      profile.level = lvlInfo.level;
-      profile.currentXp = lvlInfo.currentXp;
-      profile.xpToNextLevel = lvlInfo.xpToNextLevel;
-      profile.title = lvlInfo.title;
+      // Registrar atividade diária (GitHub Contributions Grid)
+      profile.activityHistory = profile.activityHistory || {};
+      profile.activityHistory[today] = (profile.activityHistory[today] || 0) + 1;
+
+      // Calcular streakDays e longestStreakDays
+      if (profile.lastActiveDate !== today) {
+        const lastDate = new Date(profile.lastActiveDate);
+        const currDate = new Date(today);
+        const diffTime = currDate.getTime() - lastDate.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+
+        if (diffDays === 1) {
+          profile.streakDays = (profile.streakDays || 0) + 1;
+        } else if (diffDays > 1) {
+          profile.streakDays = 1;
+        }
+        profile.lastActiveDate = today;
+      }
+      profile.longestStreakDays = Math.max(profile.longestStreakDays || 1, profile.streakDays || 1);
 
       if (statKey && profile.stats[statKey] !== undefined) {
         profile.stats[statKey] = (profile.stats[statKey] || 0) + 1;
       }
 
-      const unlockedBadges: UserBadge[] = [];
-      const nowIso = new Date().toISOString();
-
-      // Evaluate badge progress based on stats
-      for (const badge of profile.badges) {
-        if (badge.unlockedAt) continue;
-
-        let shouldUnlock = false;
-        if (badge.id === 'badge-primeira-sinfonia') {
-          if (profile.stats.recruitsCount >= 1 || profile.stats.tasksDelegated >= 1) {
-            badge.progress = 1;
-            shouldUnlock = true;
-          }
-        } else if (badge.id === 'badge-delegacao-cirurgica') {
-          badge.progress = profile.stats.tasksDelegated;
-          if (badge.progress >= (badge.maxProgress || 10)) {
-            shouldUnlock = true;
-          }
-        } else if (badge.id === 'badge-mapeador-neural') {
-          badge.progress = profile.stats.knowledgeGraphsBuilt;
-          if (badge.progress >= (badge.maxProgress || 1)) {
-            shouldUnlock = true;
-          }
-        } else if (badge.id === 'badge-ponte-conhecimento') {
-          badge.progress = profile.stats.portalsOpened;
-          if (badge.progress >= (badge.maxProgress || 5)) {
-            shouldUnlock = true;
-          }
-        } else if (badge.id === 'badge-sentinela-autonomo') {
-          badge.progress = profile.stats.routinesExecuted;
-          if (badge.progress >= (badge.maxProgress || 1)) {
-            shouldUnlock = true;
-          }
-        } else if (badge.id === 'badge-em-chamas') {
-          badge.progress = profile.streakDays;
-          if (badge.progress >= (badge.maxProgress || 3)) {
-            shouldUnlock = true;
-          }
-        }
-
-        if (shouldUnlock && !badge.unlockedAt) {
-          badge.unlockedAt = nowIso;
-          unlockedBadges.push(badge);
-        }
-      }
-
+      // Remover badges/conquistas e desabilitar level up
+      profile.badges = [];
       const profilePath = path.join(this.dataDir, 'profile.json');
       await this.replaceFileAtomically(profilePath, JSON.stringify(profile, null, 2));
 
       return {
         profile,
-        leveledUp,
-        unlockedBadges,
+        leveledUp: false,
+        unlockedBadges: [],
       };
     });
   }

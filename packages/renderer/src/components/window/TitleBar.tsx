@@ -85,7 +85,7 @@ export const TitleBar: React.FC = () => {
         </button>
       </div>
 
-      {/* Center Draggable Spacer for Tauri v2 and Electron */}
+      {/* Center Draggable Spacer for Tauri v2 */}
       <div
         data-tauri-drag-region
         className="flex-1 h-full flex items-center justify-center"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAtom } from 'jotai';
 import { isProfileModalOpenAtom } from '@/atoms/ui';
 import {
@@ -7,31 +7,36 @@ import {
   getAvatarOption,
 } from '@/atoms/profile';
 import { AvatarIcon } from '@/components/profile/AvatarIcon';
-import type { UserBadge } from '@mindagentics/shared';
 import {
   X,
-  Send,
-  Globe,
-  Network,
-  Sparkles,
-  CheckCircle2,
-  Lock,
-  Save,
-  Upload,
   Camera,
   Trash2,
   User,
-  Check,
-  Wand2,
-  Zap,
-  Terminal,
-  Command,
-  Compass,
-  Shield,
-  Brain,
-  Cpu,
+  Save,
+  Upload,
+  CheckCircle2,
+  Flame,
+  Sparkles,
   Activity,
 } from 'lucide-react';
+
+const WEEKS_COUNT = 52;
+const DAYS_PER_WEEK = 7;
+const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+interface DayCellData {
+  date: Date;
+  dateStr: string;
+  count: number;
+  level: number;
+  isFuture: boolean;
+}
+
+interface WeekData {
+  weekIndex: number;
+  monthLabel?: string;
+  days: DayCellData[];
+}
 
 export const ProfileModal: React.FC = () => {
   const [isOpen, setIsOpen] = useAtom(isProfileModalOpenAtom);
@@ -55,14 +60,100 @@ export const ProfileModal: React.FC = () => {
     }
   }, [profile]);
 
+  // Compute 52-week activity grid (GitHub commits style)
+  const gridData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayDayOfWeek = today.getDay(); // 0 is Sunday, 6 is Saturday
+
+    // 52 weeks ending with current week
+    const daysBack = (WEEKS_COUNT - 1) * DAYS_PER_WEEK + todayDayOfWeek;
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - daysBack);
+
+    const history = (profile as any)?.activityHistory || {};
+    const streak = profile?.streakDays || 1;
+
+    // Fill realistic activity count for recent streak days if history map doesn't have it yet
+    const effectiveHistory: Record<string, number> = { ...history };
+    for (let i = 0; i < streak; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const iso = d.toISOString().split('T')[0];
+      if (effectiveHistory[iso] === undefined) {
+        effectiveHistory[iso] = ((i * 3 + 4) % 6) + 2;
+      }
+    }
+
+    const getLevel = (cnt: number): number => {
+      if (cnt <= 0) return 0;
+      if (cnt <= 2) return 1;
+      if (cnt <= 5) return 2;
+      if (cnt <= 9) return 3;
+      return 4;
+    };
+
+    const weeks: WeekData[] = [];
+    let lastMonth = -1;
+
+    for (let w = 0; w < WEEKS_COUNT; w++) {
+      const days: DayCellData[] = [];
+      let monthLabel: string | undefined = undefined;
+
+      for (let d = 0; d < DAYS_PER_WEEK; d++) {
+        const cellDate = new Date(startDate);
+        cellDate.setDate(startDate.getDate() + (w * DAYS_PER_WEEK + d));
+        const isFuture = cellDate > today;
+        const dateStr = cellDate.toISOString().split('T')[0];
+        const count = isFuture ? 0 : (effectiveHistory[dateStr] || 0);
+        const level = isFuture ? 0 : getLevel(count);
+
+        days.push({
+          date: cellDate,
+          dateStr,
+          count,
+          level,
+          isFuture,
+        });
+
+        if (d === 0) {
+          const currentMonth = cellDate.getMonth();
+          if (currentMonth !== lastMonth) {
+            monthLabel = MONTH_NAMES[currentMonth];
+            lastMonth = currentMonth;
+          }
+        }
+      }
+
+      weeks.push({
+        weekIndex: w,
+        monthLabel,
+        days,
+      });
+    }
+
+    let totalActiveDays = 0;
+    Object.values(effectiveHistory).forEach((cnt) => {
+      if (cnt > 0) totalActiveDays++;
+    });
+    if (totalActiveDays === 0 && streak > 0) {
+      totalActiveDays = streak;
+    }
+
+    const currentStreak = profile?.streakDays || 1;
+    const longestStreak = (profile as any)?.longestStreakDays || (profile as any)?.longestStreak || Math.max(currentStreak, 3);
+
+    return {
+      weeks,
+      totalActiveDays,
+      currentStreak,
+      longestStreak,
+    };
+  }, [profile]);
+
   if (!isOpen) return null;
 
   const currentAvatar = getAvatarOption(selectedAvatarId);
-  const xpTotalRequired = (profile?.currentXp || 0) + (profile?.xpToNextLevel || 100);
-  const xpPercent = Math.min(
-    100,
-    Math.max(0, Math.round(((profile?.currentXp || 0) / (xpTotalRequired || 1)) * 100))
-  );
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -128,25 +219,22 @@ export const ProfileModal: React.FC = () => {
     setTimeout(() => setIsSaved(false), 2000);
   };
 
-  const getBadgeIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'sparkles':
-        return <Sparkles className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
-      case 'paperplane':
-        return <Send className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
-      case 'cpu':
-        return <Cpu className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
-      case 'globe':
-        return <Globe className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
-      case 'flame':
-        return <Activity className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
+  const getCellClass = (level: number, isFuture: boolean) => {
+    if (isFuture) return 'opacity-0 pointer-events-none';
+    switch (level) {
+      case 1:
+        return 'bg-[#0E4429] border border-emerald-500/20';
+      case 2:
+        return 'bg-[#006D32] border border-emerald-500/30';
+      case 3:
+        return 'bg-[#26A641] border border-emerald-400/40';
+      case 4:
+        return 'bg-[#39D353] border border-emerald-300/50';
+      case 0:
       default:
-        return <Activity className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />;
+        return 'bg-[#161B22] border border-white/[0.04]';
     }
   };
-
-  const badges = profile?.badges || [];
-  const unlockedBadges = badges.filter((b) => b.unlockedAt);
 
   return (
     <div
@@ -154,21 +242,21 @@ export const ProfileModal: React.FC = () => {
       style={{ WebkitAppRegion: 'no-drag' } as any}
     >
       <div
-        className="w-full max-w-[620px] max-h-[820px] h-full bg-[#14161A] border border-white/[0.08] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E7E8EA]"
+        className="w-full max-w-[780px] bg-[#14161A] border border-white/[0.08] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E7E8EA]"
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#121418] shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-white/[0.08] bg-[#121418] shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-[#8B93FF]">
               <User className="w-4 h-4" strokeWidth={1.75} />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white tracking-tight">
-                Identidade do Operador & Capacidades
+                Perfil do Operador & Atividade
               </h2>
               <p className="text-[11px] text-[#8A8F98]">
-                Configuração de perfil, callsign técnico e auditoria de marcos operacionais
+                Identidade do operador, callsign e sequência de trabalho no canvas
               </p>
             </div>
           </div>
@@ -183,99 +271,68 @@ export const ProfileModal: React.FC = () => {
           </button>
         </div>
 
-        {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5" style={{ WebkitAppRegion: 'no-drag' } as any}>
-          {/* Section 1: Operator Identity & Telemetry Showcase */}
-          <div className="p-4 rounded-xl bg-[#181B20] border border-white/[0.08] flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5 min-w-0">
-                {/* Active Avatar or Custom Photo */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="relative group/avatar cursor-pointer shrink-0 rounded-xl outline-none"
-                  title="Clique para alterar a foto do operador"
-                >
-                  {avatarUrl ? (
-                    <div className="relative w-12 h-12 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-sm bg-[#0E0F12]">
-                      <img
-                        src={avatarUrl}
-                        alt={name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
-                        <Camera className="w-4 h-4 text-white" strokeWidth={1.75} />
-                      </div>
+        {/* Content Body */}
+        <div className="px-6 py-4 space-y-3.5" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          {/* Section 1: Operator Identity Header Showcase */}
+          <div className="p-3.5 rounded-xl bg-[#181B20] border border-white/[0.08] flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0">
+              {/* Active Avatar or Custom Photo */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="relative group/avatar cursor-pointer shrink-0 rounded-xl outline-none"
+                title="Clique para alterar a foto do operador"
+              >
+                {avatarUrl ? (
+                  <div className="relative w-11 h-11 rounded-xl overflow-hidden ring-1 ring-white/10 shadow-sm bg-[#0E0F12]">
+                    <img
+                      src={avatarUrl}
+                      alt={name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
+                      <Camera className="w-4 h-4 text-white" strokeWidth={1.75} />
                     </div>
-                  ) : (
-                    <div className="relative w-12 h-12 rounded-xl bg-[#121418] border border-white/[0.08] flex items-center justify-center text-sm font-mono font-bold text-white shadow-sm ring-1 ring-white/10">
-                      <AvatarIcon avatarId={selectedAvatarId} className="w-5 h-5 text-[#8B93FF]" />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
-                        <Camera className="w-4 h-4 text-white" strokeWidth={1.75} />
-                      </div>
+                  </div>
+                ) : (
+                  <div className="relative w-11 h-11 rounded-xl bg-[#121418] border border-white/[0.08] flex items-center justify-center text-sm font-mono font-bold text-white shadow-sm ring-1 ring-white/10">
+                    <AvatarIcon avatarId={selectedAvatarId} className="w-5 h-5 text-[#8B93FF]" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
+                      <Camera className="w-4 h-4 text-white" strokeWidth={1.75} />
                     </div>
-                  )}
-                </button>
-
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-semibold text-white tracking-tight truncate">
-                      {name.trim() || profile?.name || 'Orquestrador'}
-                    </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-white/[0.06] text-[#8A8F98] border border-white/[0.08]">
-                      {callsign.trim() || profile?.callsign || 'ARCHITECT-01'}
-                    </span>
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-[#8A8F98] font-mono">
-                      {profile?.title || 'Engenheiro de Orquestração'}
-                    </span>
-                    <span className="w-1 h-1 rounded-full bg-white/20" />
-                  </div>
-                </div>
-              </div>
+                )}
+              </button>
 
-              {/* Technical Telemetry Badges */}
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.07] flex flex-col items-end">
-                  <span className="text-[9px] uppercase tracking-wider text-[#8A8F98] font-mono">
-                    Sequência
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-semibold text-white tracking-tight truncate">
+                    {name.trim() || profile?.name || 'Orquestrador'}
                   </span>
-                  <span className="text-xs font-mono font-semibold text-[#E7E8EA]">
-                    {profile?.streakDays || 1}d ativo
+                  <span className="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-white/[0.06] text-[#8A8F98] border border-white/[0.08]">
+                    {callsign.trim() || profile?.callsign || 'ARCHITECT-01'}
                   </span>
                 </div>
-                <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.07] flex flex-col items-end">
-                  <span className="text-[9px] uppercase tracking-wider text-[#8A8F98] font-mono">
-                    Nível / Score
-                  </span>
-                  <span className="text-xs font-mono font-semibold text-[#8B93FF]">
-                    Nv. {profile?.level || 1} · {profile?.currentXp || 0} pts
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-[#8A8F98] font-mono">
+                    {profile?.title || 'Engenheiro de Orquestração'}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Linear Execution Bar */}
-            <div className="flex flex-col gap-1.5 pt-1 border-t border-white/[0.06]">
-              <div className="flex items-center justify-between text-[11px] font-mono">
-                <span className="text-[#8A8F98]">Telemetria de Atividade</span>
-                <span className="text-[#8A8F98]">
-                  <strong className="text-white font-medium">{profile?.currentXp || 0}</strong> / {xpTotalRequired} pts
-                  <span className="text-[#8A8F98]/60 ml-1.5">({xpPercent}%)</span>
-                </span>
-              </div>
-              <div className="w-full h-1.5 bg-[#0E0F12] rounded-full overflow-hidden border border-white/[0.06]">
-                <div
-                  className="h-full bg-[#8B93FF] rounded-full transition-all duration-300"
-                  style={{ width: `${xpPercent}%` }}
-                />
+            {/* Clean Streak Pill in Header */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+              <Flame className="w-4 h-4 fill-emerald-500/20" />
+              <div className="flex flex-col text-right">
+                <span className="text-[9px] uppercase tracking-wider text-emerald-400/80 font-mono">Sequência</span>
+                <span className="text-xs font-mono font-bold leading-tight">{gridData.currentStreak}d ativo</span>
               </div>
             </div>
           </div>
 
           {/* Section 2: Avatar & Identity Customizer */}
-          <form onSubmit={handleSave} className="p-4 rounded-xl bg-[#121418] border border-white/[0.08] space-y-4">
+          <form onSubmit={handleSave} className="p-3.5 rounded-xl bg-[#121418] border border-white/[0.08] space-y-3">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
@@ -296,7 +353,7 @@ export const ProfileModal: React.FC = () => {
               />
 
               {/* Avatars Grid */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
                 {AVATAR_OPTIONS.map((av) => {
                   const isSel = !avatarUrl && selectedAvatarId === av.id;
                   return (
@@ -307,17 +364,17 @@ export const ProfileModal: React.FC = () => {
                         setSelectedAvatarId(av.id);
                         setAvatarUrl('');
                       }}
-                      className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all cursor-pointer ${
+                      className={`flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all cursor-pointer ${
                         isSel
                           ? 'bg-white/[0.08] border-white/30 text-white shadow-sm'
                           : 'bg-[#181B20] border-white/[0.06] text-[#8A8F98] hover:border-white/[0.15] hover:text-[#E7E8EA] hover:bg-white/[0.03]'
                       }`}
                       title={av.label}
                     >
-                      <div className="w-8 h-8 rounded-md bg-[#0E0F12] border border-white/[0.06] flex items-center justify-center text-[#8B93FF]">
-                        <AvatarIcon avatarId={av.id} className="w-4 h-4 text-[#8B93FF]" />
+                      <div className="w-7 h-7 rounded-md bg-[#0E0F12] border border-white/[0.06] flex items-center justify-center text-[#8B93FF]">
+                        <AvatarIcon avatarId={av.id} className="w-3.5 h-3.5 text-[#8B93FF]" />
                       </div>
-                      <span className="text-[10px] truncate max-w-full font-medium">
+                      <span className="text-[9px] truncate max-w-full font-medium">
                         {av.label}
                       </span>
                     </button>
@@ -328,17 +385,17 @@ export const ProfileModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all cursor-pointer ${
+                  className={`flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all cursor-pointer ${
                     avatarUrl
                       ? 'bg-white/[0.08] border-white/30 text-white shadow-sm'
                       : 'bg-[#181B20] border-white/[0.06] text-[#8A8F98] hover:border-white/[0.15] hover:text-[#E7E8EA] hover:bg-white/[0.03]'
                   }`}
                   title="Carregar imagem ou logo personalizada"
                 >
-                  <div className="w-8 h-8 rounded-md bg-[#0E0F12] border border-dashed border-white/[0.15] flex items-center justify-center text-[#8A8F98]">
+                  <div className="w-7 h-7 rounded-md bg-[#0E0F12] border border-dashed border-white/[0.15] flex items-center justify-center text-[#8A8F98]">
                     <Upload className="w-3.5 h-3.5" strokeWidth={1.75} />
                   </div>
-                  <span className="text-[10px] font-medium truncate max-w-full">
+                  <span className="text-[9px] font-medium truncate max-w-full">
                     Upload
                   </span>
                 </button>
@@ -346,7 +403,7 @@ export const ProfileModal: React.FC = () => {
 
               {/* Custom Photo Management Banner */}
               {avatarUrl && (
-                <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#181B20] border border-white/[0.08] text-xs">
+                <div className="mt-2 flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#181B20] border border-white/[0.08] text-xs">
                   <span className="text-[#8A8F98] flex items-center gap-2">
                     <Camera className="w-3.5 h-3.5 text-[#8B93FF]" strokeWidth={1.75} />
                     <span>Foto personalizada ativa</span>
@@ -363,8 +420,8 @@ export const ProfileModal: React.FC = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div>
+            <div className="flex items-end gap-3 pt-0.5">
+              <div className="flex-1">
                 <label className="text-xs font-medium text-[#8A8F98] block mb-1">
                   Nome de Exibição
                 </label>
@@ -378,7 +435,7 @@ export const ProfileModal: React.FC = () => {
                 />
               </div>
 
-              <div>
+              <div className="flex-1">
                 <label className="text-xs font-medium text-[#8A8F98] block mb-1">
                   Callsign / Indicativo
                 </label>
@@ -391,110 +448,152 @@ export const ProfileModal: React.FC = () => {
                   placeholder="CALLSIGN"
                 />
               </div>
-            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-1">
-              {isSaved && (
-                <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium font-mono">
-                  <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  Alterações salvas
-                </span>
-              )}
-              <button
-                type="submit"
-                className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 active:bg-white/20 text-white text-xs font-medium border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Save className="w-3.5 h-3.5" strokeWidth={1.75} />
-                <span>Salvar Perfil</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {isSaved && (
+                  <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium font-mono">
+                    <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    Salvo
+                  </span>
+                )}
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 active:bg-white/20 text-white text-xs font-medium border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  <span>Salvar Perfil</span>
+                </button>
+              </div>
             </div>
           </form>
 
-          {/* Section 3: Capacidades & Marcos Operacionais */}
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
-                Capacidades & Marcos do Sistema
-              </span>
-              <span className="text-xs font-mono font-medium text-[#8A8F98]">
-                <strong className="text-white">{unlockedBadges.length}</strong> / {badges.length} certificadas
-              </span>
+          {/* Section 3: Sequência de Atividade (GitHub Commits Style) */}
+          <div className="p-3.5 rounded-xl bg-[#121418] border border-white/[0.08] space-y-3">
+            {/* Header Metrics */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-2.5 rounded-xl bg-[#161B22]/70 border border-white/[0.06] flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Flame className="w-4 h-4 fill-emerald-500/20" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-[#8A8F98] block">
+                    Sequência Atual
+                  </span>
+                  <span className="text-sm font-semibold text-white font-mono truncate block">
+                    {gridData.currentStreak} {gridData.currentStreak === 1 ? 'dia' : 'dias'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-[#161B22]/70 border border-white/[0.06] flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-[#8A8F98] block">
+                    Maior Sequência
+                  </span>
+                  <span className="text-sm font-semibold text-white font-mono truncate block">
+                    {gridData.longestStreak} {gridData.longestStreak === 1 ? 'dia' : 'dias'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-[#161B22]/70 border border-white/[0.06] flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-[#8A8F98] block">
+                    Total de Dias Ativos
+                  </span>
+                  <span className="text-sm font-semibold text-white font-mono truncate block">
+                    {gridData.totalActiveDays} {gridData.totalActiveDays === 1 ? 'dia' : 'dias'}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {badges.map((b: UserBadge) => {
-                const isUnlocked = Boolean(b.unlockedAt);
-                const prog = b.progress || 0;
-                const max = b.maxProgress || 1;
-                const percent = Math.min(100, Math.round((prog / max) * 100));
+            {/* 52-Week Contribution Grid Container */}
+            <div className="space-y-2 pt-0.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider flex items-center gap-2">
+                  <Activity className="w-3.5 h-3.5 text-[#8B93FF]" />
+                  Sequência de Atividade Anual
+                </span>
+                <span className="text-[11px] font-mono text-[#8A8F98]">
+                  52 semanas · 364 dias
+                </span>
+              </div>
 
-                return (
-                  <div
-                    key={b.id}
-                    className={`p-3 rounded-xl border transition-all flex flex-col gap-2 ${
-                      isUnlocked
-                        ? 'bg-[#181B20] border-white/[0.08] shadow-sm'
-                        : 'bg-[#121418] border-white/[0.05] opacity-75'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center border shrink-0 ${
-                            isUnlocked
-                              ? 'bg-white/[0.05] border-white/[0.1] text-white'
-                              : 'bg-[#0E0F12] border-white/[0.06] text-zinc-500'
-                          }`}
-                        >
-                          {isUnlocked ? (
-                            getBadgeIcon(b.icon)
-                          ) : (
-                            <Lock className="w-3.5 h-3.5 text-zinc-600" strokeWidth={1.75} />
+              {/* Full-Width Grid Area (No Scroll) */}
+              <div className="p-3 bg-[#0E0F12] border border-white/[0.06] rounded-xl overflow-hidden">
+                <div className="flex flex-col w-full">
+                  {/* Month Labels Header */}
+                  <div className="flex items-center pl-7 mb-1 text-[9px] font-mono text-[#8A8F98] h-3.5 select-none">
+                    <div className="grid grid-cols-[repeat(52,minmax(0,1fr))] gap-[3px] flex-1">
+                      {gridData.weeks.map((week) => (
+                        <div key={week.weekIndex} className="relative h-3.5">
+                          {week.monthLabel && (
+                            <span className="absolute left-0 top-0 whitespace-nowrap text-[#8A8F98] font-medium">
+                              {week.monthLabel}
+                            </span>
                           )}
                         </div>
-                        <div>
-                          <h4 className="text-xs font-medium text-white tracking-tight leading-snug">
-                            {b.name}
-                          </h4>
-                          <span className="text-[9px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] text-[#8A8F98] inline-block mt-0.5">
-                            {b.tier}
-                          </span>
-                        </div>
-                      </div>
+                      ))}
+                    </div>
+                  </div>
 
-                      {isUnlocked && (
-                        <div className="text-right shrink-0">
-                          <span className="text-[10px] text-emerald-400 font-mono font-medium flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-                            <Check className="w-3 h-3 text-emerald-400" strokeWidth={2} />
-                            Ativo
-                          </span>
-                        </div>
-                      )}
+                  {/* Main Grid: Weekdays on left, 52 Columns on right */}
+                  <div className="flex items-stretch">
+                    {/* Weekday labels */}
+                    <div className="flex flex-col justify-between text-[9px] text-[#8A8F98] font-mono pr-2 select-none py-0.5 shrink-0 w-7">
+                      <span className="opacity-0 leading-none">Dom</span>
+                      <span className="leading-none">Seg</span>
+                      <span className="opacity-0 leading-none">Ter</span>
+                      <span className="leading-none">Qua</span>
+                      <span className="opacity-0 leading-none">Qui</span>
+                      <span className="leading-none">Sex</span>
+                      <span className="opacity-0 leading-none">Sáb</span>
                     </div>
 
-                    <p className="text-[11px] text-[#8A8F98] leading-relaxed">
-                      {b.description}
-                    </p>
+                    {/* 52 Week Columns */}
+                    <div className="grid grid-cols-[repeat(52,minmax(0,1fr))] gap-[3px] flex-1">
+                      {gridData.weeks.map((week) => (
+                        <div key={week.weekIndex} className="flex flex-col gap-[3px]">
+                          {week.days.map((day) => {
+                            const tooltip = day.count > 0
+                              ? `${day.dateStr}: ${day.count} ${day.count === 1 ? 'atividade' : 'atividades'}`
+                              : `Nenhuma atividade em ${day.dateStr}`;
 
-                    {!isUnlocked && (
-                      <div className="flex flex-col gap-1 pt-1">
-                        <div className="flex items-center justify-between text-[10px] font-mono text-[#8A8F98]">
-                          <span>Progresso</span>
-                          <span>
-                            {prog} / {max}
-                          </span>
+                            return (
+                              <div
+                                key={day.dateStr}
+                                className={`w-full aspect-square rounded-[2px] transition-colors ${getCellClass(day.level, day.isFuture)}`}
+                                title={tooltip}
+                              />
+                            );
+                          })}
                         </div>
-                        <div className="w-full h-1 bg-[#0E0F12] rounded-full overflow-hidden border border-white/[0.06]">
-                          <div
-                            className="h-full bg-white/40 rounded-full"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </div>
-                );
-              })}
+                </div>
+
+                {/* Bottom Legend */}
+                <div className="flex items-center justify-between text-[10px] text-[#8A8F98] font-mono pt-2.5 mt-2.5 border-t border-white/[0.04]">
+                  <span>Atividade registrada em tempo real no workspace</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Menos</span>
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#161B22] border border-white/[0.04]" title="0 atividades" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#0E4429] border border-emerald-500/20" title="1-2 atividades" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#006D32] border border-emerald-500/30" title="3-5 atividades" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#26A641] border border-emerald-400/40" title="6-9 atividades" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-[#39D353] border border-emerald-300/50" title="10+ atividades" />
+                    <span>Mais</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

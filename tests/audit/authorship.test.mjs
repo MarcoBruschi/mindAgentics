@@ -3,9 +3,9 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const TARGET_DIRECTORIES = ['packages', 'scripts', 'skills', 'tests'];
-const ROOT_FILES = ['package.json', 'electron-builder.json', 'AGENTS.md', 'README.md'];
-const IGNORED_DIRS = new Set(['node_modules', 'dist', 'dist-electron', 'dist-package', '.git', 'out', 'build', '.cache']);
+const TARGET_DIRECTORIES = ['packages', 'scripts', 'skills', 'tests', 'src-tauri', 'docs'];
+const ROOT_FILES = ['package.json', 'AGENTS.md', 'README.md', '.gitignore'];
+const IGNORED_DIRS = new Set(['node_modules', 'dist', 'dist-package', '.git', 'out', 'build', '.cache', 'target']);
 const IGNORED_FILES = new Set([
   'tests/audit/authorship.test.mjs',
   'REMOVAL_PLAN.md'
@@ -71,7 +71,8 @@ describe('Authorship & Identity Governance Audit Suite', () => {
     // Build patterns without literal tokens triggering search
     const legacyBrandToken = ['m', 'a', 'e', 's', 't', 'r', 'i'].join('');
     const legacySpecToken = ['c', 'l', 'o', 'n', 'e', '[_\\s-]*', 's', 'p', 'e', 'c'].join('');
-    const forbiddenPattern = new RegExp(`(${legacyBrandToken}|${legacySpecToken})`, 'i');
+    const legacyRuntimeToken = ['e', 'l', 'e', 'c', 't', 'r', 'o', 'n'].join('');
+    const forbiddenPattern = new RegExp(`(${legacyBrandToken}|${legacySpecToken}|${legacyRuntimeToken})`, 'i');
 
     for (const filePath of filesToAudit) {
       const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');

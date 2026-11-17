@@ -931,19 +931,24 @@ impl PtyManager {
     }
 
     pub async fn set_orchestrator_mode(&self, terminal_id: &str, enabled: bool) -> Result<()> {
-        let (cwd, title, role, instructions) = {
+        let (cwd, title, role, instructions, current_orch) = {
             let sessions = self.sessions.read().await;
             let session_arc = sessions.get(terminal_id).context("Session not found")?;
-            let mut session = session_arc.lock().await;
-            session.orchestrator_mode = enabled;
+            let session = session_arc.lock().await;
+            // Imutabilidade Pós-Criação: orchestratorMode não pode ser alterado após o spawn
+            if session.orchestrator_mode != enabled {
+                eprintln!("[Security/PTY] Tentativa de alterar orchestratorMode no terminal {} de {} para {} rejeitada. Imutabilidade pós-criação.", terminal_id, session.orchestrator_mode, enabled);
+                return Ok(());
+            }
             (
                 session.cwd.clone(),
                 session.title.clone(),
                 session.agent_role.clone(),
                 session.instructions.clone(),
+                session.orchestrator_mode,
             )
         };
-        self.ensure_skills(&cwd, &title, &role, &instructions, terminal_id, enabled)
+        self.ensure_skills(&cwd, &title, &role, &instructions, terminal_id, current_orch)
             .await;
         Ok(())
     }
@@ -1051,8 +1056,11 @@ impl PtyManager {
             if let Some(i) = options.instructions {
                 session.instructions = sanitize_markdown_block(&i, 4000);
             }
+            // Imutabilidade Pós-Criação: proibir qualquer alteração (nem promoção, nem downgrade)
             if let Some(o) = options.orchestrator_mode.or(options.maestro_mode) {
-                session.orchestrator_mode = o;
+                if session.orchestrator_mode != o {
+                    eprintln!("[Security/PTY] Tentativa de alterar orchestratorMode no terminal {} de {} para {} rejeitada. Imutabilidade pós-criação.", terminal_id, session.orchestrator_mode, o);
+                }
             }
             if let Some(auto) = options.is_autonomous {
                 session.is_autonomous = auto;
@@ -1094,6 +1102,7 @@ impl PtyManager {
             let log_path = self.log_file_path(&terminal_id);
             let _ = tokio::fs::remove_file(&log_path).await;
             let _ = output_tx.send((terminal_id.clone(), b"\x1b[2J\x1b[H".to_vec()));
+            tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
 
             self.spawn(
                 TerminalSpawnOptions {

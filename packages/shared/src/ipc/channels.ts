@@ -177,6 +177,7 @@ export const IPC_CHANNELS = {
   "drawingUngroup": "mindagentics:drawing:ungroup",
   "terminalSpawn": "mindagentics:terminal:spawn",
   "terminalGetAgentLimits": "mindagentics:terminal:getAgentLimits",
+  "terminalGetAgentModels": "mindagentics:terminal:getAgentModels",
   "terminalDetectAgents": "mindagentics:terminal:detectAgents",
   "terminalWrite": "mindagentics:terminal:write",
   "terminalDeliverPrompt": "mindagentics:terminal:deliverPrompt",
