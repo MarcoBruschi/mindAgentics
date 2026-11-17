@@ -28,7 +28,8 @@
     "setup:graphify": "python -m pip install graphifyy",
     "graphify": "python -m graphify",
     "graphify:build": "python -m graphify packages/public-api --code-only",
-    "graphify:open": "node packages/core-daemon/bin/mindagentics.js graphify open"
+    "graphify:open": "node packages/core-daemon/bin/mindagentics.js graphify open",
+    "screenshots:capture": "python scripts/capture-all.py"
   },
   "dependencies": {
     "fflate": "^0.8.3",
