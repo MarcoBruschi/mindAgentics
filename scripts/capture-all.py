@@ -137,103 +137,120 @@ sample_workspace = {
 }
 
 mock_api_script = """
-window.__TAURI_INTERNALS__ = {};
 const sampleWs = """ + json.dumps(sample_workspace) + """;
 
-const mockApi = {
-  workspace: {
-    list: () => Promise.resolve([sampleWs]),
-    getActiveId: () => Promise.resolve('ws-mindagentics'),
-    patch: () => Promise.resolve(),
-    switch: () => Promise.resolve(),
-    delete: () => Promise.resolve(),
+const cachedProfile = {
+  id: 'user-default',
+  name: 'Orchestrator',
+  callsign: 'ARCHITECT-01',
+  avatarId: 'avatar-conductor',
+  avatarUrl: '',
+  title: 'Aprendiz de Orquestrador',
+  level: 4,
+  currentXp: 250,
+  xpToNextLevel: 500,
+  totalXp: 2850,
+  streakDays: 7,
+  lastActiveDate: new Date().toISOString().split('T')[0],
+  hasCompletedOnboarding: true,
+  badges: [],
+  stats: {
+    recruitsCount: 5,
+    tasksDelegated: 18,
+    portalsOpened: 3,
+    knowledgeGraphsBuilt: 2,
+    routinesExecuted: 4,
+    totalCanvasTimeMinutes: 120
+  }
+};
+
+const mockLimits = [
+  {
+    id: 'antigravity',
+    name: 'Antigravity',
+    subtitle: 'Google Gemini 2.5 Pro & Flash',
+    command: 'antigravity',
+    installed: true,
+    primaryUsedFraction: 0.18,
+    quotaPercent: 18,
+    label: 'Diário',
+    primaryResetText: '23h restantes',
+    secondaryFraction: 0.28,
+    secondaryPercent: 28,
+    secondaryLabel: 'Semanal',
+    secondaryResetText: '5d restantes',
+    colorHex: '#8B93FF',
+    windows: [
+      { id: 'daily', title: 'Limite Diário (Gemini 2.5 Pro)', usedFraction: 0.18, formattedReset: '23h' },
+      { id: 'weekly', title: 'Limite Semanal', usedFraction: 0.28, formattedReset: '5d' }
+    ]
   },
-  app: {
-    info: () => Promise.resolve({ windowMaterial: false, windowSeeThrough: false }),
-    getAppVersion: () => Promise.resolve('0.1.0'),
+  {
+    id: 'codex',
+    name: 'Codex',
+    subtitle: 'OpenAI GPT-4.5 & o3',
+    command: 'codex',
+    installed: true,
+    primaryUsedFraction: 0.35,
+    quotaPercent: 35,
+    label: 'Diário',
+    primaryResetText: '18h restantes',
+    colorHex: '#10B981',
+    windows: [
+      { id: 'daily', title: 'Quota Diária', usedFraction: 0.35, formattedReset: '18h' }
+    ]
   },
-  windowControls: {
-    onChanged: () => (() => {}),
-    isMaximized: () => Promise.resolve(false),
-  },
-  terminal: {
-    getAgentLimits: () => Promise.resolve([
-      {
-        id: 'antigravity',
-        name: 'Antigravity',
-        subtitle: 'Google Gemini 2.5 Pro & Flash',
-        command: 'antigravity',
-        installed: true,
-        primaryUsedFraction: 0.18,
-        quotaPercent: 18,
-        label: 'Diário',
-        primaryResetText: '23h restantes',
-        secondaryFraction: 0.28,
-        secondaryPercent: 28,
-        secondaryLabel: 'Semanal',
-        secondaryResetText: '5d restantes',
-        colorHex: '#8B93FF',
-        windows: [
-          { id: 'daily', title: 'Limite Diário (Gemini 2.5 Pro)', usedFraction: 0.18, formattedReset: '23h' },
-          { id: 'weekly', title: 'Limite Semanal', usedFraction: 0.28, formattedReset: '5d' }
-        ]
-      },
-      {
-        id: 'codex',
-        name: 'Codex',
-        subtitle: 'OpenAI GPT-4.5 & o3',
-        command: 'codex',
-        installed: true,
-        primaryUsedFraction: 0.35,
-        quotaPercent: 35,
-        label: 'Diário',
-        primaryResetText: '18h restantes',
-        colorHex: '#10B981',
-        windows: [
-          { id: 'daily', title: 'Quota Diária', usedFraction: 0.35, formattedReset: '18h' }
-        ]
-      },
-      {
-        id: 'claude',
-        name: 'Claude Code',
-        subtitle: 'Anthropic Claude 3.7 Sonnet',
-        command: 'claude',
-        installed: true,
-        primaryUsedFraction: 0.42,
-        quotaPercent: 42,
-        label: 'Diário',
-        primaryResetText: '12h restantes',
-        colorHex: '#F59E0B',
-        windows: [
-          { id: 'daily', title: 'Token Bucket', usedFraction: 0.42, formattedReset: '12h' }
-        ]
-      }
-    ]),
-    getPresets: () => Promise.resolve([
-      { id: 'antigravity', name: 'Antigravity', command: 'antigravity' },
-      { id: 'codex', name: 'Codex', command: 'codex' },
-      { id: 'claude', name: 'Claude Code', command: 'claude' },
-      { id: 'opencode', name: 'OpenCode', command: 'opencode' },
-      { id: 'shell', name: 'Shell', command: 'powershell' }
-    ]),
-    detectAgents: () => Promise.resolve([
-      { id: 'antigravity', name: 'Antigravity', command: 'antigravity', installed: true, colorHex: '#8B93FF' },
-      { id: 'codex', name: 'Codex', command: 'codex', installed: true, colorHex: '#10B981' },
-      { id: 'claude', name: 'Claude Code', command: 'claude', installed: true, colorHex: '#F59E0B' }
-    ]),
-    onData: () => (() => {}),
-    onStatus: () => (() => {}),
-    write: () => Promise.resolve(),
-    spawn: () => Promise.resolve({ pid: 1000 }),
-    kill: () => Promise.resolve(),
-    resize: () => Promise.resolve(),
-    getScrollback: (id) => {
+  {
+    id: 'claude',
+    name: 'Claude Code',
+    subtitle: 'Anthropic Claude 3.7 Sonnet',
+    command: 'claude',
+    installed: true,
+    primaryUsedFraction: 0.42,
+    quotaPercent: 42,
+    label: 'Diário',
+    primaryResetText: '12h restantes',
+    colorHex: '#F59E0B',
+    windows: [
+      { id: 'daily', title: 'Token Bucket', usedFraction: 0.42, formattedReset: '12h' }
+    ]
+  }
+];
+
+const mockDetect = [
+  { id: 'antigravity', name: 'Antigravity', command: 'antigravity', installed: true, colorHex: '#8B93FF' },
+  { id: 'codex', name: 'Codex', command: 'codex', installed: true, colorHex: '#10B981' },
+  { id: 'claude', name: 'Claude Code', command: 'claude', installed: true, colorHex: '#F59E0B' }
+];
+
+const mockPresets = [
+  { id: 'antigravity', name: 'Antigravity', command: 'antigravity' },
+  { id: 'codex', name: 'Codex', command: 'codex' },
+  { id: 'claude', name: 'Claude Code', command: 'claude' },
+  { id: 'opencode', name: 'OpenCode', command: 'opencode' },
+  { id: 'shell', name: 'Shell', command: 'powershell' }
+];
+
+window.__TAURI_INTERNALS__ = {
+  transformCallback: (fn) => fn,
+  invoke: (cmd, payload) => {
+    if (cmd === 'workspace_list') return Promise.resolve([sampleWs]);
+    if (cmd === 'workspace_get_active_id') return Promise.resolve('ws-mindagentics');
+    if (cmd === 'profile_load') return Promise.resolve(cachedProfile);
+    if (cmd === 'get_agent_limits') return Promise.resolve(mockLimits);
+    if (cmd === 'detect_agents') return Promise.resolve(mockDetect);
+    if (cmd === 'get_presets' || cmd === 'terminal_get_presets') return Promise.resolve(mockPresets);
+    if (cmd === 'window_state') return Promise.resolve({ isMaximized: false, isFullScreen: false });
+    if (cmd === 'app_info') return Promise.resolve({ windowMaterial: false, windowSeeThrough: false });
+    if (cmd === 'plugin:event|listen') return Promise.resolve(1);
+    if (cmd === 'terminal_get_scrollback') {
+      const id = payload?.terminalId || payload?.id;
       if (id === 'term-orchestrator-1') {
         return Promise.resolve(
           '\\x1b[38;2;139;147;255m[Central Orchestrator]\\x1b[0m Canvas Engine initialized.\\r\\n' +
           '\\x1b[32m●\\x1b[0m Connected to IPC: \\\\\\\\.\\\\pipe\\\\mindagentics_ipc\\r\\n' +
-          '\\x1b[38;2;160;160;160mmindagentics ask \"Codex Backend Dev\" \"Implement Named Pipe IPC\"\\x1b[0m\\r\\n' +
-          '\\x1b[36mℹ AST Knowledge Graph synchronized (1950 nodes)\\x1b[0m\\r\\n' +
+          '\\x1b[38;2;160;160;160mmindagentics ask "Codex Backend Dev" "Implement Named Pipe IPC"\\x1b[0m\\r\\n' +
+          '\\x1b[36mℹ AST Knowledge Graph synchronized (1971 nodes)\\x1b[0m\\r\\n' +
           '\\x1b[32m✔ Autonomous multi-agent coordination active\\x1b[0m\\r\\n'
         );
       }
@@ -247,31 +264,13 @@ const mockApi = {
       }
       return Promise.resolve('');
     }
-  },
-  profile: {
-    get: () => Promise.resolve({
-      username: 'Tech Lead Operator',
-      xp: 2850,
-      level: 4,
-      streakDays: 7,
-      unlockedBadges: ['pioneer', 'orchestrator'],
-      avatarId: 'bot'
-    }),
-    update: () => Promise.resolve(),
-    awardXp: () => Promise.resolve({
-      profile: { username: 'Tech Lead Operator', xp: 2850, level: 4, streakDays: 7, unlockedBadges: [], avatarId: 'bot' },
-      leveledUp: false,
-      unlockedBadges: []
-    })
-  },
-  onNodePlace: () => (() => {}),
-  onCableTie: () => (() => {}),
-  onOrchestratorLock: () => (() => {}),
+    return Promise.resolve(null);
+  }
 };
 
-window.api = mockApi;
-window.mindAgentics = mockApi;
 localStorage.setItem('mindagentics_active_ws', 'ws-mindagentics');
+localStorage.setItem('mindagentics_onboarded', 'true');
+localStorage.setItem('mindagentics_cached_profile', JSON.stringify(cachedProfile));
 """
 
 def capture_all():
@@ -299,6 +298,22 @@ def capture_all():
         driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {'source': mock_api_script})
         driver.get(f'http://127.0.0.1:{PORT}/index.html')
         time.sleep(3)
+
+        # Ensure onboarding and any intro modals are permanently dismissed
+        driver.execute_script("""
+          localStorage.setItem('mindagentics_onboarded', 'true');
+          const allButtons = Array.from(document.querySelectorAll('button'));
+          const finishBtn = allButtons.find(b =>
+            b.textContent.includes('Concluir') ||
+            b.textContent.includes('Salvar') ||
+            b.textContent.includes('Pular') ||
+            b.textContent.includes('Começar') ||
+            b.textContent.includes('Entrar')
+          );
+          if (finishBtn) finishBtn.click();
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        """)
+        time.sleep(1)
 
         def save_and_log(filename, desc):
             path = os.path.join(OUT_DIR, filename)
@@ -383,23 +398,31 @@ def capture_all():
         # -------------------------------------------------------------
         # 5. Notes and Binders view
         # -------------------------------------------------------------
-        print("\n[5/6] Creating sticky note and capturing notes-and-binders.png...")
+        print("\n[5/6] Capturing notes-and-binders.png...")
         driver.execute_script("""
-          const noteBtn = document.querySelector('button[title*="Nota"]');
-          if (noteBtn) noteBtn.click();
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+          const cancelBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Cancelar'));
+          if (cancelBtn) cancelBtn.click();
+          const noteNode = document.querySelector('[data-node-id="node-note-1"]');
+          if (noteNode) {
+            noteNode.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+          }
         """)
-        time.sleep(1.2)
+        time.sleep(1)
         save_and_log('notes-and-binders.png', 'Bloco de notas adesivas e documentação no canvas')
 
         # -------------------------------------------------------------
         # 6. Browser Portal view
         # -------------------------------------------------------------
-        print("\n[6/6] Creating browser portal and capturing browser-portal.png...")
+        print("\n[6/6] Capturing browser-portal.png...")
         driver.execute_script("""
-          const portalBtn = document.querySelector('button[title*="Portal"]');
-          if (portalBtn) portalBtn.click();
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+          const portalNode = document.querySelector('[data-node-id="node-portal-1"]');
+          if (portalNode) {
+            portalNode.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+          }
         """)
-        time.sleep(1.2)
+        time.sleep(1)
         save_and_log('browser-portal.png', 'Portal web interativo integrado ao canvas espacial')
 
     finally:
