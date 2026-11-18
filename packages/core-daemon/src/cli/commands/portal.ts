@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import os from 'node:os';
+import path from 'node:path';
 import type { CommandHandler } from '../../daemon/pipeServer.js';
 import type { PortalNode, PortalContent } from '@mindagentics/shared';
 import { placeNode } from '../../daemon/spatial.js';
@@ -453,7 +455,7 @@ export const portalCommand: CommandHandler = async (req, state, router, schedule
 
     case 'screenshot': {
       const portalName = restArgs[0];
-      const tempPath = `C:\\Users\\mabru\\AppData\\Local\\Temp\\mindagentics-screenshot-${randomUUID().slice(0, 8)}.png`;
+      const tempPath = path.join(os.tmpdir(), `mindagentics-screenshot-${randomUUID().slice(0, 8)}.png`);
       return {
         output: tempPath,
         exitCode: 0,

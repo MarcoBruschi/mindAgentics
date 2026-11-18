@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const TARGET_DIRECTORIES = ['packages', 'scripts', 'skills', 'tests', 'src-tauri', 'docs'];
-const ROOT_FILES = ['package.json', 'AGENTS.md', 'README.md', '.gitignore'];
+const ROOT_FILES = ['package.json', 'AGENTS.md', 'README.md', '.gitignore', 'LICENSE', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md'];
 const IGNORED_DIRS = new Set(['node_modules', 'dist', 'dist-package', '.git', 'out', 'build', '.cache', 'target']);
 const IGNORED_FILES = new Set([
   'tests/audit/authorship.test.mjs',

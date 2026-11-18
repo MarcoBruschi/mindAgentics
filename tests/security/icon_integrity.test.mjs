@@ -16,7 +16,7 @@ import { installIcon } from '../../scripts/install-icon.mjs';
 
 describe('S3: Icon Integrity Validation & Path Safety Suite', () => {
   let tempDir;
-  const canonicalSourceIcon = 'C:\\Users\\mabru\\Downloads\\mindAgentics_icon_1024.png';
+  const canonicalSourceIcon = path.join(os.homedir(), 'Downloads', 'mindAgentics_icon_1024.png');
 
   before(() => {
     tempDir = path.join(os.tmpdir(), `mindagentics-icon-sec-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`);

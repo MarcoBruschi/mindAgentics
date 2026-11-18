@@ -4,6 +4,26 @@
   "private": true,
   "description": "Spatial AI Development Workspace & Infinite Agent Canvas",
   "author": "mindAgentics Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MarcoBruschi/mindAgentics.git"
+  },
+  "homepage": "https://github.com/MarcoBruschi/mindAgentics#readme",
+  "bugs": {
+    "url": "https://github.com/MarcoBruschi/mindAgentics/issues"
+  },
+  "keywords": [
+    "spatial-canvas",
+    "multi-agent",
+    "ai-workspace",
+    "tauri",
+    "react-19",
+    "developer-tools",
+    "graphify",
+    "agentic-ai",
+    "infinite-canvas"
+  ],
   "workspaces": [
     "packages/*"
   ],

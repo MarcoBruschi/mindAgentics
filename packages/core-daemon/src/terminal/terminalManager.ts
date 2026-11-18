@@ -1269,7 +1269,8 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
         } else if (c.id === 'github-copilot') {
           foundPath = this.which('gh');
         } else if (c.id === 'ollama') {
-          const defaultOllama = 'C:\\Users\\mabru\\AppData\\Local\\Programs\\Ollama\\ollama.exe';
+          const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+          const defaultOllama = path.join(localAppData, 'Programs', 'Ollama', 'ollama.exe');
           if (fs.existsSync(defaultOllama)) {
             foundPath = defaultOllama;
           }
@@ -1688,12 +1689,13 @@ Trabalhe de forma colaborativa, determinística e segura com os outros agentes c
     if (isWin) {
       const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
       const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+      const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
       pathDirs.unshift(
         path.join(appData, 'npm'),
         path.join(localAppData, 'agy', 'bin'),
         path.join(localAppData, 'Programs', 'OpenAI', 'Codex', 'bin'),
         path.join(localAppData, 'Programs', 'Ollama'),
-        'C:\\Program Files\\GitHub CLI'
+        path.join(programFiles, 'GitHub CLI')
       );
     }
 

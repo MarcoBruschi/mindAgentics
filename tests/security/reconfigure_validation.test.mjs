@@ -193,7 +193,7 @@ describe('S2: Terminal Reconfigure Validation & Command Injection Defense (CWE-7
     it('should reject commands pointing to OS temporary directories with Error: Comando inválido', async () => {
       const termId = setupMockSession('term-cmd-temp');
       const tempPathPayloads = [
-        'C:\\Users\\mabru\\AppData\\Local\\Temp\\malware.exe',
+        'C:\\Users\\TestUser\\AppData\\Local\\Temp\\malware.exe',
         'C:\\Users\\User\\AppData\\Local\\Temp\\dropper.exe --run',
         '/tmp/evil.sh',
         '/tmp/dropper',

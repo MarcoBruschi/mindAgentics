@@ -5,14 +5,14 @@ import { Workspace, Floor, CanvasNode, CableTie, Band, DrawingStroke } from '@mi
 export const initialWorkspace: Workspace = {
   id: 'workspace-main',
   name: 'Main Workspace',
-  workingDirectory: 'C:\\Users\\mabru\\Documents\\mindAgentics',
+  workingDirectory: '',
   preferredIde: 'vscode',
   floors: [
     {
       id: 'floor-main',
       name: 'Canvas',
       isGround: true,
-      workingDirectory: 'C:\\Users\\mabru\\Documents\\mindAgentics',
+      workingDirectory: '',
       gitBranch: 'main',
       status: null,
       nodes: [],
@@ -34,7 +34,7 @@ export function normalizeWorkspace(raw: any): Workspace {
 
   const id = raw.id || `workspace-${Date.now()}`;
   const name = raw.name || 'Workspace';
-  const workingDirectory = raw.workingDirectory || 'C:\\Users\\mabru\\Documents\\mindAgentics';
+  const workingDirectory = raw.workingDirectory || '';
   const preferredIde = raw.preferredIde || 'vscode';
 
   // Extract saved canvasOffset or convert from legacy canvasOrigin

@@ -42,13 +42,13 @@ def start_server():
 sample_workspace = {
     "id": "ws-mindagentics",
     "name": "mindAgentics Core",
-    "workingDirectory": "C:\\prog\\mindAgentics",
+    "workingDirectory": ROOT_DIR,
     "floors": [
       {
         "id": "floor-ground",
         "name": "Ground Floor",
         "isGround": True,
-        "workingDirectory": "C:\\prog\\mindAgentics",
+        "workingDirectory": ROOT_DIR,
         "gitBranch": "main",
         "status": {"text": "Running Agents", "state": "working", "progress": "85%"},
         "nodes": [
@@ -64,7 +64,7 @@ sample_workspace = {
               "terminalId": "term-orchestrator-1",
               "title": "Central Orchestrator",
               "command": "antigravity",
-              "workingDirectory": "C:\\prog\\mindAgentics",
+              "workingDirectory": ROOT_DIR,
               "isAutonomous": True,
               "agentRole": "Central Orchestrator",
               "orchestratorMode": True,
@@ -100,7 +100,7 @@ sample_workspace = {
               "terminalId": "term-agent-2",
               "title": "Codex Backend Dev",
               "command": "codex",
-              "workingDirectory": "C:\\prog\\mindAgentics",
+              "workingDirectory": ROOT_DIR,
               "isAutonomous": True,
               "agentRole": "API Specialist",
               "maestroMode": False,

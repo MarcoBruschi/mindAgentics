@@ -11,10 +11,14 @@ lerna-debug.log*
 *.dmp
 *.dump
 
-# Dependencies
+# Dependencies & Package Caches
 node_modules
 .pnp
 .pnp.js
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
 
 # Build Outputs & Generated Assets
 dist
@@ -25,6 +29,11 @@ target/
 src-tauri/target/
 *.tsbuildinfo
 .vite
+.turbo
+.eslintcache
+.parcel-cache
+coverage/
+.nyc_output/
 graphify-out/
 .graphify/
 *.graph.json
@@ -40,15 +49,26 @@ graphify-out/
 .env.development.local
 .env.test.local
 .env.production.local
+.env*.local
 *.pem
 *.key
 *.cert
 *.crt
 *.pfx
 *.p12
+*.keystore
+*.jks
+*.kdbx
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
 *token*
 *secret*
 *credential*
+credentials.json
+client_secret*.json
+.secrets
 storage-location.json
 license.json
 app-state.json
@@ -69,7 +89,7 @@ auth.json
 *.asar
 *.scrollback
 
-# Local data & backups
+# Local data, temps & backups
 backups
 /storage
 !packages/core-daemon/src/storage/
@@ -77,6 +97,10 @@ workspaces
 .cache
 tmp
 temp
+*.tmp
+*.temp
+*.bak
+*.swp
 .gemini
 .agent/
 .agents/

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 
 export const PNG_MAGIC_BYTES = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 export const MAX_ICON_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -101,7 +102,7 @@ export function installIcon(sourcePath, destinations = []) {
 
 // CLI execution
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename || 'scripts/install-icon.mjs')) {
-  const defaultSource = 'C:\\Users\\mabru\\Downloads\\mindAgentics_icon_1024.png';
+  const defaultSource = path.join(os.homedir(), 'Downloads', 'mindAgentics_icon_1024.png');
   const targetSource = process.argv[2] ? path.resolve(process.argv[2]) : defaultSource;
 
   console.log(`[install-icon] Validando arquivo: "${targetSource}"...`);

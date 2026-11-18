@@ -155,7 +155,7 @@ export const CreateAgentModal: React.FC = () => {
   const handleCreate = async () => {
     const finalName = terminalName.trim() || 'Terminal';
     const finalCmd = command.trim();
-    const finalDir = workingDirectory.trim() || activeWorkspace?.workingDirectory || 'C:\\Users\\mabru\\Documents\\mindAgentics';
+    const finalDir = workingDirectory.trim() || activeWorkspace?.workingDirectory || '';
 
     const viewportCenterX = -offset.x / offset.zoom + 200;
     const viewportCenterY = -offset.y / offset.zoom + 120;
@@ -422,7 +422,7 @@ export const CreateAgentModal: React.FC = () => {
                     type="text"
                     value={workingDirectory}
                     onChange={(e) => setWorkingDirectory(e.target.value)}
-                    placeholder="ex.: C:\Users\mabru\meu-projeto"
+                    placeholder="ex.: C:\Projetos\meu-projeto"
                     className="flex-1 h-9 px-3 bg-[#181B20] border border-[#23262C] rounded-xl text-xs font-mono text-[#E7E8EA] placeholder-[#8A8F98]/40 outline-none focus:border-indigo-500 transition-colors"
                   />
                   <button
