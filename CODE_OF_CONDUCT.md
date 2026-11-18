@@ -37,7 +37,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at community@mindagentics.dev. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainers privately via [GitHub Security Advisories](https://github.com/MarcoBruschi/mindAgentics/security/advisories/new) or directly to the project maintainer via their GitHub profile ([@MarcoBruschi](https://github.com/MarcoBruschi)). All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 

@@ -8,7 +8,7 @@ This guide outlines our development workflow, architectural conventions, coding 
 
 ## Code of Conduct
 
-All contributors and participants are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md). Please report unacceptable behavior to `community@mindagentics.dev`.
+All contributors and participants are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md). Please report unacceptable behavior privately via [GitHub Security Advisories](https://github.com/MarcoBruschi/mindAgentics/security/advisories/new).
 
 ---
 
@@ -168,6 +168,6 @@ When submitting a Pull Request, please ensure:
 
 Have questions, ideas, or feedback?
 - Open an issue or discussion on GitHub: [mindAgentics Issues](https://github.com/MarcoBruschi/mindAgentics/issues)
-- Reach out to our maintainers: `community@mindagentics.dev`
+- Reach out to our maintainers: [GitHub Issues](https://github.com/MarcoBruschi/mindAgentics/issues) or [GitHub Discussions](https://github.com/MarcoBruschi/mindAgentics/discussions)
 
 Thank you for helping make mindAgentics an exceptional tool for developers and autonomous agents!
