@@ -7,8 +7,7 @@ const TARGET_DIRECTORIES = ['packages', 'scripts', 'skills', 'tests', 'src-tauri
 const ROOT_FILES = ['package.json', 'AGENTS.md', 'README.md', '.gitignore', 'LICENSE', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md'];
 const IGNORED_DIRS = new Set(['node_modules', 'dist', 'dist-package', '.git', 'out', 'build', '.cache', 'target']);
 const IGNORED_FILES = new Set([
-  'tests/audit/authorship.test.mjs',
-  'REMOVAL_PLAN.md'
+  'tests/audit/authorship.test.mjs'
 ]);
 const BINARY_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.woff', '.woff2', '.ttf', '.eot',
