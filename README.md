@@ -235,11 +235,6 @@ npm start
 npm run tauri:build
 ```
 
-*To regenerate high-resolution documentation screenshots automatically (Edge Headless + Selenium):*
-```bash
-npm run screenshots:capture
-```
-
 ---
 
 ## ⌨️ Keyboard Shortcuts

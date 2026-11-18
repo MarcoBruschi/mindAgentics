@@ -235,11 +235,6 @@ npm start
 npm run tauri:build
 ```
 
-*Para atualizar automaticamente as capturas de tela oficiais da documentação (Edge Headless + Selenium):*
-```bash
-npm run screenshots:capture
-```
-
 ---
 
 ## ⌨️ Atalhos de Teclado
