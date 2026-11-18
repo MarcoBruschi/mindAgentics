@@ -68,6 +68,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
+
       - name: Build frontend & core artifacts
         run: npm run build
 

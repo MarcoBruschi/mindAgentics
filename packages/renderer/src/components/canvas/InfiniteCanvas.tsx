@@ -388,7 +388,7 @@ export const InfiniteCanvas: React.FC = () => {
           for (const id of selectedIds) {
             const target = nodes.find((n) => n.id === id);
             if (target && target.kind === 'terminal') {
-              const termId = (target as any).content?.terminalId;
+              const termId = target.content?.terminalId;
               if (termId) {
                 (window.mindAgentics?.terminal || window.api?.terminal)?.kill?.(termId)?.catch?.(() => {});
               }
@@ -818,7 +818,7 @@ export const InfiniteCanvas: React.FC = () => {
     setNodes((prev) => {
       const target = prev.find((n) => n.id === id);
       if (target && target.kind === 'terminal') {
-        const termId = (target as any).content?.terminalId;
+        const termId = target.content?.terminalId;
         if (termId) {
           (window.mindAgentics?.terminal || window.api?.terminal)?.kill?.(termId)?.catch?.(() => {});
         }
@@ -870,8 +870,8 @@ export const InfiniteCanvas: React.FC = () => {
     const map = new Map<string, CanvasNode>();
     for (const n of nodes) {
       map.set(n.id, n);
-      if (n.kind === 'terminal' && (n.content as any)?.terminalId) {
-        map.set((n.content as any).terminalId, n);
+      if (n.kind === 'terminal' && n.content?.terminalId) {
+        map.set(n.content.terminalId, n);
       }
     }
     return map;
@@ -968,43 +968,43 @@ export const InfiniteCanvas: React.FC = () => {
           >
             {node.kind === 'terminal' && (
               <TerminalNode
-                node={node as any}
-                onUpdate={handleUpdateNode as any}
+                node={node}
+                onUpdate={handleUpdateNode}
                 onDelete={handleDeleteNode}
               />
             )}
             {node.kind === 'note' && (
               <StickyNoteNode
-                node={node as any}
-                onUpdate={handleUpdateNode as any}
+                node={node}
+                onUpdate={handleUpdateNode}
                 onDelete={handleDeleteNode}
               />
             )}
             {node.kind === 'noteStack' && (
               <NoteStackNode
-                node={node as any}
-                onUpdate={handleUpdateNode as any}
+                node={node}
+                onUpdate={handleUpdateNode}
                 onDelete={handleDeleteNode}
               />
             )}
             {node.kind === 'portal' && (
               <PortalNode
-                node={node as any}
-                onUpdate={handleUpdateNode as any}
+                node={node}
+                onUpdate={handleUpdateNode}
                 onDelete={handleDeleteNode}
               />
             )}
             {node.kind === 'textBlock' && (
               <TextBlockNode
-                node={node as any}
-                onUpdate={handleUpdateNode as any}
+                node={node}
+                onUpdate={handleUpdateNode}
                 onDelete={handleDeleteNode}
               />
             )}
             {node.kind === 'fileRef' && (
               <FileRefNode
-                node={node as any}
-                onUpdate={handleUpdateNode as any}
+                node={node}
+                onUpdate={handleUpdateNode}
                 onDelete={handleDeleteNode}
               />
             )}

@@ -1,3 +1,5 @@
+mod cmd_canvas_ops;
+mod cmd_notes_refs;
 pub mod named_pipe;
 pub mod protocol;
 
