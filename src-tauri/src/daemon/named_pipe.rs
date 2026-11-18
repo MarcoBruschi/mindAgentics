@@ -1460,7 +1460,7 @@ impl DaemonServer {
                         .trim_start_matches('#')
                         .trim();
                     if first.is_empty() {
-                        let short = &uuid::Uuid::new_v4().to_string()[..6];
+                        let short = short_id(&uuid::Uuid::new_v4().to_string(), 6);
                         format!("Note-{short}")
                     } else {
                         first.to_string()
@@ -1474,7 +1474,7 @@ impl DaemonServer {
                 let stack = opt_str(&req.options, "stack");
                 let color = opt_str(&req.options, "color").unwrap_or_else(|| "yellow".to_string());
                 let note_id = uuid::Uuid::new_v4().to_string();
-                let node_id = format!("node-note-{}", &note_id[..8]);
+                let node_id = format!("node-note-{}", short_id(&note_id, 8));
 
                 let caller_node_id = self.resolve_caller_node_id(ws_id, &req.terminal_id).await;
                 let (existing_nodes, _) = self.get_workspace_nodes_and_ties(ws_id).await;
@@ -1504,7 +1504,7 @@ impl DaemonServer {
                 self.persist_node_to_workspace(ws_id, &note_node).await;
 
                 if !caller_node_id.is_empty() {
-                    let tie_id = format!("tie-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+                    let tie_id = format!("tie-{}", short_id(&uuid::Uuid::new_v4().to_string(), 8));
                     let tie = json!({
                         "id": tie_id,
                         "fromNodeId": caller_node_id,
@@ -1534,7 +1534,7 @@ impl DaemonServer {
                     format!(
                         "Created note \"{}\" (ID: {}) [color: {}]{}. Placed and connected on canvas.",
                         final_title,
-                        &note_id[..8],
+                        short_id(&note_id, 8),
                         color,
                         stack
                             .as_ref()
@@ -1994,9 +1994,9 @@ impl DaemonServer {
             st
         } else {
             let (sx, sy) = place_node(380.0, 340.0, &existing_nodes, Some(caller_node_id), "right");
-            let stack_id = format!("stack-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+            let stack_id = format!("stack-{}", short_id(&uuid::Uuid::new_v4().to_string(), 8));
             json!({
-                "id": format!("node-stack-{}", &stack_id[..8]),
+                "id": format!("node-stack-{}", short_id(&stack_id, 8)),
                 "kind": "noteStack",
                 "x": sx,
                 "y": sy,
@@ -2090,7 +2090,7 @@ impl DaemonServer {
         let (preset_name, command) = self.resolve_preset_command(&raw_preset).await;
 
         let terminal_id = uuid::Uuid::new_v4().to_string();
-        let node_id = format!("node-term-{}", &terminal_id[..8]);
+        let node_id = format!("node-term-{}", short_id(&terminal_id, 8));
         let caller_node_id = self.resolve_caller_node_id(&target_ws, &req.terminal_id).await;
         let (existing_nodes, _) = self.get_workspace_nodes_and_ties(&target_ws).await;
         let (x, y) = place_node(640.0, 480.0, &existing_nodes, Some(&caller_node_id), "right");
@@ -2121,7 +2121,7 @@ impl DaemonServer {
         self.persist_node_to_workspace(&target_ws, &term_node).await;
 
         if !caller_node_id.is_empty() {
-            let tie_id = format!("tie-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+            let tie_id = format!("tie-{}", short_id(&uuid::Uuid::new_v4().to_string(), 8));
             let tie = json!({
                 "id": tie_id,
                 "fromNodeId": caller_node_id,
@@ -2154,7 +2154,7 @@ impl DaemonServer {
             &req.id,
             format!(
                 "Recruited teammate \"{name}\" [preset: {preset_name}]{role_suffix} (ID: {}). Auto-connected.",
-                &terminal_id[..8]
+                short_id(&terminal_id, 8)
             ),
             json!({
                 "terminalId": terminal_id,
@@ -2206,7 +2206,44 @@ impl DaemonServer {
         (raw_preset.to_string(), fallback_cmd)
     }
 
+    async fn is_caller_orchestrator(&self, req: &CliRequestEnvelope, ws_id: &str) -> bool {
+        let sessions = self.pty().list_sessions_info().await;
+        if let Some(caller) = sessions.iter().find(|s| s.id == req.terminal_id) {
+            return caller.orchestrator_mode;
+        }
+        if !req.terminal_id.is_empty() {
+            let (nodes, _) = self.get_workspace_nodes_and_ties(ws_id).await;
+            for n in &nodes {
+                if n.get("kind").and_then(|v| v.as_str()) == Some("terminal") {
+                    let nid = n.get("id").and_then(|v| v.as_str()).unwrap_or_default();
+                    let tid = n
+                        .get("content")
+                        .and_then(|c| c.get("terminalId"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default();
+                    if nid == req.terminal_id || tid == req.terminal_id {
+                        if let Some(orch) = n
+                            .get("content")
+                            .and_then(|c| c.get("orchestratorMode").or_else(|| c.get("maestroMode")))
+                            .and_then(|v| v.as_bool())
+                        {
+                            return orch;
+                        }
+                    }
+                }
+            }
+        }
+        opt_bool(&req.options, "orchestratorMode") || opt_bool(&req.options, "maestroMode")
+    }
+
     async fn cmd_dismiss(&self, req: &CliRequestEnvelope, ws_id: &str) -> CliResponseEnvelope {
+        if !self.is_caller_orchestrator(req, ws_id).await {
+            return CliResponseEnvelope::err(
+                &req.id,
+                "Permission denied: \"dismiss\" is an orchestrator-only command (orchestratorMode=false).",
+            );
+        }
+
         let name = match req.args.first() {
             Some(n) if !n.trim().is_empty() => n.trim(),
             _ => {
@@ -2404,7 +2441,7 @@ impl DaemonServer {
             }
         });
 
-        let tie_id = format!("tie-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+        let tie_id = format!("tie-{}", short_id(&uuid::Uuid::new_v4().to_string(), 8));
         let tie = json!({
             "id": tie_id,
             "fromNodeId": from_id,
@@ -2493,7 +2530,7 @@ impl DaemonServer {
                 let (existing_nodes, _) = self.get_workspace_nodes_and_ties(ws_id).await;
                 let anchor = self.resolve_caller_node_id(ws_id, &req.terminal_id).await;
                 let (x, y) = place_node(140.0, 128.0, &existing_nodes, Some(&anchor), "right");
-                let node_id = format!("node-ref-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+                let node_id = format!("node-ref-{}", short_id(&uuid::Uuid::new_v4().to_string(), 8));
 
                 let ref_node = json!({
                     "id": node_id,
@@ -2535,7 +2572,7 @@ impl DaemonServer {
 
                     if !target_tid.is_empty() {
                         let term_node = self.resolve_caller_node_id(ws_id, &target_tid).await;
-                        let tie_id = format!("tie-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+                        let tie_id = format!("tie-{}", short_id(&uuid::Uuid::new_v4().to_string(), 8));
                         let tie = json!({
                             "id": tie_id,
                             "fromNodeId": node_id,
@@ -2676,7 +2713,7 @@ impl DaemonServer {
                 };
 
                 let portal_id = uuid::Uuid::new_v4().to_string();
-                let node_id = format!("node-portal-{}", &portal_id[..8]);
+                let node_id = format!("node-portal-{}", short_id(&portal_id, 8));
                 let caller_node_id = self.resolve_caller_node_id(ws_id, &req.terminal_id).await;
                 let (existing_nodes, _) = self.get_workspace_nodes_and_ties(ws_id).await;
                 let (x, y) = place_node(width, height, &existing_nodes, Some(&caller_node_id), "right");
@@ -2701,7 +2738,7 @@ impl DaemonServer {
                 self.persist_node_to_workspace(ws_id, &portal_node).await;
 
                 if !caller_node_id.is_empty() {
-                    let tie_id = format!("tie-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+                    let tie_id = format!("tie-{}", short_id(&uuid::Uuid::new_v4().to_string(), 8));
                     let label = if action == "open" { "Reference" } else { "Driver" };
                     let tie = json!({
                         "id": tie_id,
@@ -2830,7 +2867,7 @@ impl DaemonServer {
                 }
 
                 let band_id = uuid::Uuid::new_v4().to_string();
-                let node_id = format!("node-band-{}", &band_id[..8]);
+                let node_id = format!("node-band-{}", short_id(&band_id, 8));
                 let color = opt_str(&req.options, "color")
                     .unwrap_or_else(|| "rgba(59, 130, 246, 0.15)".to_string());
                 let icon = opt_str(&req.options, "icon");
@@ -3125,7 +3162,7 @@ impl DaemonServer {
                         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
                         .collect()
                 });
-                let floor_id = format!("floor-{}", &uuid::Uuid::new_v4().to_string()[..8]);
+                let floor_id = format!("floor-{}", short_id(&uuid::Uuid::new_v4().to_string(), 8));
                 let no_git = opt_bool(&req.options, "no-git");
                 if !no_git && git.is_git_repo(&ws_root).await {
                     let wt_dir = self
@@ -3237,7 +3274,7 @@ impl DaemonServer {
                     let name = r.get("name").and_then(|v| v.as_str()).unwrap_or_default();
                     let disabled = r.get("disabled").and_then(|v| v.as_bool()).unwrap_or(false);
                     let status = if disabled { "[disabled]" } else { "[active]" };
-                    lines.push(format!("  * [{}] \"{name}\" {status}", &id[..id.len().min(8)]));
+                    lines.push(format!("  * [{}] \"{name}\" {status}", short_id(id, 8)));
                 }
                 CliResponseEnvelope::ok(&req.id, lines.join("\n"))
             }
@@ -3263,7 +3300,7 @@ impl DaemonServer {
                 self.routines.write().await.insert(rid.clone(), routine.clone());
                 CliResponseEnvelope::ok_with_data(
                     &req.id,
-                    format!("Scheduled routine \"{name}\" [ID: {}].", &rid[..8]),
+                    format!("Scheduled routine \"{name}\" [ID: {}].", short_id(&rid, 8)),
                     routine,
                 )
             }
@@ -3975,6 +4012,10 @@ fn futures_ws_root_sync(storage: &StorageEngine, ws_id: &str) -> Option<String> 
         .map(|s| s.to_string())
 }
 
+fn short_id(s: &str, max: usize) -> String {
+    s.chars().take(max).collect()
+}
+
 fn default_presets() -> HashMap<String, Value> {
     let mut map = HashMap::new();
     let items = [
@@ -3997,4 +4038,323 @@ fn default_presets() -> HashMap<String, Value> {
         );
     }
     map
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    struct TempDaemonDir {
+        path: PathBuf,
+    }
+
+    impl TempDaemonDir {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "mindagentics-pipe-test-{label}-{}",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::create_dir_all(&path).expect("create temp daemon dir");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempDaemonDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn build_test_server(data_dir: &Path) -> Arc<DaemonServer> {
+        let storage = StorageEngine::with_data_dir(data_dir.to_path_buf());
+        let memory = MemoryService::new();
+        let pty = PtyManager::new(memory.clone());
+        pty.set_data_dir(data_dir.to_path_buf());
+        Arc::new(DaemonServer::new(
+            "test-token-123456".to_string(),
+            storage,
+            pty,
+            memory,
+        ))
+    }
+
+    async fn send_duplex_request(
+        writer: &mut tokio::io::WriteHalf<tokio::io::DuplexStream>,
+        reader: &mut BufReader<tokio::io::ReadHalf<tokio::io::DuplexStream>>,
+        req: Value,
+    ) -> CliResponseEnvelope {
+        let mut line = serde_json::to_string(&req).expect("serialize request");
+        line.push('\n');
+        writer
+            .write_all(line.as_bytes())
+            .await
+            .expect("write request to duplex");
+        writer.flush().await.expect("flush request");
+
+        let mut resp_line = String::new();
+        reader
+            .read_line(&mut resp_line)
+            .await
+            .expect("read response line");
+        serde_json::from_str::<CliResponseEnvelope>(resp_line.trim())
+            .expect("deserialize CliResponseEnvelope")
+    }
+
+    #[test]
+    fn short_id_handles_short_empty_and_multibyte_ids() {
+        assert_eq!(short_id("", 8), "");
+        assert_eq!(short_id("t1", 8), "t1");
+        assert_eq!(short_id("note-1", 8), "note-1");
+        assert_eq!(short_id("1234567890", 8), "12345678");
+        assert_eq!(short_id("ação🪄xyz123", 8), "ação🪄xyz");
+    }
+
+    #[tokio::test]
+    async fn handle_client_status_and_list_return_ok_over_duplex() {
+        let temp = TempDaemonDir::new("status-list");
+        let server = build_test_server(temp.path());
+
+        let (client_stream, server_stream) = tokio::io::duplex(64 * 1024);
+        let (srv_r, srv_w) = tokio::io::split(server_stream);
+        let srv_handle = tokio::spawn({
+            let srv = server.clone();
+            async move { srv.handle_client(srv_r, srv_w).await }
+        });
+
+        let (cli_r, mut cli_w) = tokio::io::split(client_stream);
+        let mut cli_reader = BufReader::new(cli_r);
+
+        let status_resp = send_duplex_request(
+            &mut cli_w,
+            &mut cli_reader,
+            json!({
+                "id": "req-1",
+                "terminalId": "t1",
+                "command": "status",
+                "args": [],
+                "options": {}
+            }),
+        )
+        .await;
+        assert!(status_resp.ok, "status failed: {:?}", status_resp.error);
+        assert_eq!(status_resp.exit_code, 0);
+        assert!(status_resp
+            .output
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Daemon Health:     OK"));
+
+        let list_resp = send_duplex_request(
+            &mut cli_w,
+            &mut cli_reader,
+            json!({
+                "id": "req-2",
+                "terminalId": "t1",
+                "command": "list",
+                "args": [],
+                "options": {}
+            }),
+        )
+        .await;
+        assert!(list_resp.ok, "list failed: {:?}", list_resp.error);
+        assert_eq!(list_resp.exit_code, 0);
+        assert!(list_resp
+            .output
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Connected Agents:"));
+
+        drop(cli_w);
+        drop(cli_reader);
+        srv_handle.await.expect("server task").expect("handle_client ok");
+    }
+
+    #[tokio::test]
+    async fn handle_client_note_create_read_edit_end_to_end_over_duplex() {
+        let temp = TempDaemonDir::new("note-e2e");
+        let server = build_test_server(temp.path());
+
+        // Seed a workspace and register a short-ID terminal node in server.nodes
+        server
+            .storage_engine()
+            .create_workspace(json!({
+                "id": "ws-e2e",
+                "name": "E2E Workspace",
+                "workingDirectory": temp.path().to_string_lossy().to_string()
+            }))
+            .await
+            .expect("create workspace");
+
+        server.nodes.write().await.insert(
+            "node-t1".to_string(),
+            json!({
+                "id": "node-t1",
+                "kind": "terminal",
+                "x": 100,
+                "y": 100,
+                "width": 640,
+                "height": 480,
+                "content": {
+                    "terminalId": "t1",
+                    "title": "Worker-1",
+                    "orchestratorMode": false
+                }
+            }),
+        );
+
+        let (client_stream, server_stream) = tokio::io::duplex(64 * 1024);
+        let (srv_r, srv_w) = tokio::io::split(server_stream);
+        let srv_handle = tokio::spawn({
+            let srv = server.clone();
+            async move { srv.handle_client(srv_r, srv_w).await }
+        });
+
+        let (cli_r, mut cli_w) = tokio::io::split(client_stream);
+        let mut cli_reader = BufReader::new(cli_r);
+
+        let create_resp = send_duplex_request(
+            &mut cli_w,
+            &mut cli_reader,
+            json!({
+                "id": "req-create",
+                "terminalId": "t1",
+                "workspaceId": "ws-e2e",
+                "command": "note",
+                "args": ["create", "Spec", "Line 1: alpha\nLine 2: beta"],
+                "options": { "color": "blue" }
+            }),
+        )
+        .await;
+        assert!(create_resp.ok, "note create failed: {:?}", create_resp.error);
+
+        let read_resp = send_duplex_request(
+            &mut cli_w,
+            &mut cli_reader,
+            json!({
+                "id": "req-read",
+                "terminalId": "t1",
+                "workspaceId": "ws-e2e",
+                "command": "note",
+                "args": ["read", "Spec"],
+                "options": {}
+            }),
+        )
+        .await;
+        assert!(read_resp.ok, "note read failed: {:?}", read_resp.error);
+        let read_out = read_resp.output.unwrap_or_default();
+        assert!(read_out.contains("Line 1: alpha"));
+        assert!(read_out.contains("Line 2: beta"));
+
+        let edit_resp = send_duplex_request(
+            &mut cli_w,
+            &mut cli_reader,
+            json!({
+                "id": "req-edit",
+                "terminalId": "t1",
+                "workspaceId": "ws-e2e",
+                "command": "note",
+                "args": ["edit", "Spec", "beta", "gamma"],
+                "options": {}
+            }),
+        )
+        .await;
+        assert!(edit_resp.ok, "note edit failed: {:?}", edit_resp.error);
+
+        let read_after = send_duplex_request(
+            &mut cli_w,
+            &mut cli_reader,
+            json!({
+                "id": "req-read-2",
+                "terminalId": "t1",
+                "workspaceId": "ws-e2e",
+                "command": "note",
+                "args": ["read", "Spec"],
+                "options": {}
+            }),
+        )
+        .await;
+        assert!(read_after.ok);
+        let after_out = read_after.output.unwrap_or_default();
+        assert!(after_out.contains("Line 2: gamma"));
+        assert!(!after_out.contains("Line 2: beta"));
+
+        drop(cli_w);
+        drop(cli_reader);
+        srv_handle.await.expect("server task").expect("handle_client ok");
+    }
+
+    #[tokio::test]
+    async fn handle_client_blocks_dismiss_when_orchestrator_mode_is_false() {
+        let temp = TempDaemonDir::new("dismiss-guard");
+        let server = build_test_server(temp.path());
+
+        server.nodes.write().await.insert(
+            "node-worker".to_string(),
+            json!({
+                "id": "node-worker",
+                "kind": "terminal",
+                "content": {
+                    "terminalId": "worker-1",
+                    "title": "Worker",
+                    "orchestratorMode": false
+                }
+            }),
+        );
+
+        let (client_stream, server_stream) = tokio::io::duplex(64 * 1024);
+        let (srv_r, srv_w) = tokio::io::split(server_stream);
+        let srv_handle = tokio::spawn({
+            let srv = server.clone();
+            async move { srv.handle_client(srv_r, srv_w).await }
+        });
+
+        let (cli_r, mut cli_w) = tokio::io::split(client_stream);
+        let mut cli_reader = BufReader::new(cli_r);
+
+        let resp = send_duplex_request(
+            &mut cli_w,
+            &mut cli_reader,
+            json!({
+                "id": "req-dismiss-denied",
+                "terminalId": "worker-1",
+                "command": "dismiss",
+                "args": ["OtherAgent"],
+                "options": { "orchestratorMode": false, "maestroMode": false }
+            }),
+        )
+        .await;
+
+        assert!(!resp.ok, "dismiss must be blocked when orchestratorMode is false");
+        assert_eq!(resp.exit_code, 1);
+        assert!(resp
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("orchestrator-only"));
+
+        // Even if options attempt to spoof orchestratorMode=true, node metadata with orchestratorMode=false blocks it
+        let spoof_resp = send_duplex_request(
+            &mut cli_w,
+            &mut cli_reader,
+            json!({
+                "id": "req-dismiss-spoof",
+                "terminalId": "worker-1",
+                "command": "dismiss",
+                "args": ["OtherAgent"],
+                "options": { "orchestratorMode": true, "maestroMode": true }
+            }),
+        )
+        .await;
+        assert!(!spoof_resp.ok);
+        assert_eq!(spoof_resp.exit_code, 1);
+
+        drop(cli_w);
+        drop(cli_reader);
+        srv_handle.await.expect("server task").expect("handle_client ok");
+    }
 }

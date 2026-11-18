@@ -108,18 +108,20 @@ impl MemoryService {
 
         for l in tail {
             if let Ok(entry) = serde_json::from_str::<MemoryLogEntry>(l) {
-                let snippet = if entry.content.len() > 160 {
-                    format!("{}...", &entry.content[..157])
+                let snippet = if entry.content.chars().count() > 160 {
+                    format!("{}...", entry.content.chars().take(157).collect::<String>())
                 } else {
                     entry.content
                 };
-                summary_lines.push(format!("- [{}] {}: {}", &entry.timestamp[11..16], entry.source, snippet));
+                let time_part = entry.timestamp.get(11..16).unwrap_or(&entry.timestamp);
+                summary_lines.push(format!("- [{}] {}: {}", time_part, entry.source, snippet));
             }
         }
 
         let full_text = summary_lines.join("\n");
-        let bounded = if full_text.len() > SUMMARY_MAX_CHARS {
-            format!("{}...\n\n[Resumo truncado localmente]", &full_text[..SUMMARY_MAX_CHARS - 40])
+        let bounded = if full_text.chars().count() > SUMMARY_MAX_CHARS {
+            let prefix: String = full_text.chars().take(SUMMARY_MAX_CHARS - 40).collect();
+            format!("{prefix}...\n\n[Resumo truncado localmente]")
         } else {
             full_text
         };
@@ -169,4 +171,139 @@ fn sanitize_agent_folder(name: &str) -> String {
     name.chars()
         .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TempMemoryDir {
+        path: PathBuf,
+    }
+
+    impl TempMemoryDir {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "mindagentics-mem-test-{label}-{}",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::create_dir_all(&path).expect("create temp memory dir");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempMemoryDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[tokio::test]
+    async fn append_turn_and_search_roundtrip_strips_ansi_and_handles_utf8() {
+        let temp = TempMemoryDir::new("append-search");
+        let service = MemoryService::new();
+
+        // Whitespace-only input must be ignored
+        service
+            .append_turn(temp.path(), "Agente/QA", "pty", "   \n\t  ")
+            .await
+            .expect("empty turn should succeed");
+        assert!(!service.has_memory(temp.path(), "Agente/QA"));
+
+        service
+            .append_turn(
+                temp.path(),
+                "Agente/QA",
+                "pty",
+                "\x1b[32mDecisão arquitetural\x1b[0m: revisão concluída — café & ação 🪄",
+            )
+            .await
+            .expect("append_turn should succeed");
+        assert!(service.has_memory(temp.path(), "Agente/QA"));
+
+        let hits = service
+            .search(temp.path(), "REVISÃO", 5)
+            .await
+            .expect("search should succeed");
+        assert_eq!(hits.len(), 1);
+        assert!(hits[0].contains("Decisão arquitetural: revisão concluída — café & ação 🪄"));
+        assert!(!hits[0].contains("\x1b[32m"));
+
+        let miss = service
+            .search(temp.path(), "inexistente", 5)
+            .await
+            .expect("search miss should succeed");
+        assert!(miss.is_empty());
+    }
+
+    #[tokio::test]
+    async fn generate_summary_handles_multibyte_utf8_boundaries_over_200_and_2500_chars() {
+        let temp = TempMemoryDir::new("summary-utf8");
+        let service = MemoryService::new();
+        let agent = "Orquestrador 🪄";
+
+        // 220+ chars with multi-byte Portuguese accents, em-dash, and 4-byte emoji straddling byte 157
+        let snippet_pattern = "ação — café, coração, edição 🪄 ";
+        let long_snippet: String = snippet_pattern.repeat(8);
+        assert!(long_snippet.chars().count() > 200);
+
+        service
+            .append_turn(temp.path(), agent, "ask", &long_snippet)
+            .await
+            .expect("append long snippet");
+
+        let summary_200 = service
+            .generate_summary(temp.path(), agent)
+            .await
+            .expect("generate_summary >200 chars must not panic on UTF-8 boundary");
+        assert!(summary_200.contains("..."));
+        assert!(service.has_summary(temp.path(), agent));
+
+        // Append 14 more entries (~220 chars each) so total exceeds 2,500 chars and triggers SUMMARY_MAX_CHARS truncation
+        for i in 0..14 {
+            let turn = format!("Turno {i}: {}", "ãéç—🪄".repeat(45));
+            assert!(turn.chars().count() > 200);
+            service
+                .append_turn(temp.path(), agent, "turn", &turn)
+                .await
+                .expect("append multibyte turn");
+        }
+
+        let summary_2500 = service
+            .generate_summary(temp.path(), agent)
+            .await
+            .expect("generate_summary >2500 chars must not panic on UTF-8 boundary");
+        assert!(summary_2500.contains("[Resumo truncado localmente]"));
+        assert!(summary_2500.chars().count() <= SUMMARY_MAX_CHARS);
+    }
+
+    #[tokio::test]
+    async fn generate_summary_handles_short_or_malformed_timestamp_without_panic() {
+        let temp = TempMemoryDir::new("short-ts");
+        let service = MemoryService::new();
+        let dir = MemoryService::memory_dir(temp.path(), "worker");
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .expect("create memory dir");
+
+        let entry = MemoryLogEntry {
+            timestamp: "12:34".to_string(),
+            source: "pty".to_string(),
+            content: "Execução concluída com êxito — 🪄".to_string(),
+        };
+        let line = format!("{}\n", serde_json::to_string(&entry).unwrap());
+        tokio::fs::write(dir.join("log.jsonl"), line)
+            .await
+            .expect("write log.jsonl");
+
+        let summary = service
+            .generate_summary(temp.path(), "worker")
+            .await
+            .expect("short timestamp must not panic");
+        assert!(summary.contains("- [12:34] pty: Execução concluída com êxito — 🪄"));
+    }
 }

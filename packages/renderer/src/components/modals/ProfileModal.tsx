@@ -23,6 +23,9 @@ import {
 const WEEKS_COUNT = 52;
 const DAYS_PER_WEEK = 7;
 const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const NO_DRAG_STYLE: React.CSSProperties & { WebkitAppRegion: 'no-drag' } = {
+  WebkitAppRegion: 'no-drag',
+};
 
 interface DayCellData {
   date: Date;
@@ -71,7 +74,7 @@ export const ProfileModal: React.FC = () => {
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - daysBack);
 
-    const history = (profile as any)?.activityHistory || {};
+    const history = profile?.activityHistory || {};
     const streak = profile?.streakDays || 1;
 
     // Fill realistic activity count for recent streak days if history map doesn't have it yet
@@ -141,7 +144,10 @@ export const ProfileModal: React.FC = () => {
     }
 
     const currentStreak = profile?.streakDays || 1;
-    const longestStreak = (profile as any)?.longestStreakDays || (profile as any)?.longestStreak || Math.max(currentStreak, 3);
+    const longestStreak =
+      profile?.longestStreakDays ||
+      (profile as { longestStreak?: number } | null)?.longestStreak ||
+      Math.max(currentStreak, 3);
 
     return {
       weeks,
@@ -239,14 +245,14 @@ export const ProfileModal: React.FC = () => {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none"
-      style={{ WebkitAppRegion: 'no-drag' } as any}
+      style={NO_DRAG_STYLE}
     >
       <div
         className="w-full max-w-[780px] bg-[#14161A] border border-white/[0.08] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E7E8EA]"
-        style={{ WebkitAppRegion: 'no-drag' } as any}
+        style={NO_DRAG_STYLE}
       >
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-b border-white/[0.08] bg-[#121418] shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-white/[0.08] bg-[#121418] shrink-0" style={NO_DRAG_STYLE}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-[#8B93FF]">
               <User className="w-4 h-4" strokeWidth={1.75} />
@@ -264,7 +270,7 @@ export const ProfileModal: React.FC = () => {
             type="button"
             onClick={() => setIsOpen(false)}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-[#8A8F98] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
-            style={{ WebkitAppRegion: 'no-drag' } as any}
+            style={NO_DRAG_STYLE}
             title="Fechar (Esc)"
           >
             <X className="w-4 h-4" strokeWidth={1.75} />
@@ -272,7 +278,7 @@ export const ProfileModal: React.FC = () => {
         </div>
 
         {/* Content Body */}
-        <div className="px-6 py-4 space-y-3.5" style={{ WebkitAppRegion: 'no-drag' } as any}>
+        <div className="px-6 py-4 space-y-3.5" style={NO_DRAG_STYLE}>
           {/* Section 1: Operator Identity Header Showcase */}
           <div className="p-3.5 rounded-xl bg-[#181B20] border border-white/[0.08] flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0">

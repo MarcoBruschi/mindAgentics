@@ -33,6 +33,7 @@
     "build:core": "npm run build --workspace=@mindagentics/core-daemon",
     "build:renderer": "npm run build --workspace=@mindagentics/renderer",
     "build": "npm run build:shared && npm run build:public && npm run build:core && npm run build:renderer",
+    "typecheck": "npm run build:shared && npm run build:public && npm run build:core && npx tsc -b packages/renderer",
     "dev:renderer": "npm run dev --workspace=@mindagentics/renderer",
     "tauri": "node scripts/tauri.mjs",
     "doctor": "node scripts/doctor.mjs",

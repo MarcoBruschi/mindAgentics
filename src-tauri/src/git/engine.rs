@@ -160,3 +160,54 @@ impl GitEngine {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TempGitDir {
+        path: PathBuf,
+    }
+
+    impl TempGitDir {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "mindagentics-git-test-{label}-{}",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::create_dir_all(&path).expect("create temp git dir");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempGitDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[tokio::test]
+    async fn is_git_repo_returns_true_for_current_repo_and_false_for_empty_temp_dir() {
+        let engine = GitEngine::new();
+        let repo_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        assert!(
+            engine.is_git_repo(repo_dir).await,
+            "expected CARGO_MANIFEST_DIR ({}) to be detected as a git repo",
+            repo_dir.display()
+        );
+
+        let empty_dir = TempGitDir::new("non-git");
+        assert!(
+            !engine.is_git_repo(empty_dir.path()).await,
+            "expected empty temp dir ({}) not to be detected as a git repo",
+            empty_dir.path().display()
+        );
+
+        let missing_dir = empty_dir.path().join("does-not-exist");
+        assert!(!engine.is_git_repo(&missing_dir).await);
+    }
+}

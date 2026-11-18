@@ -23,7 +23,20 @@ import {
   Terminal,
   Flame,
 } from 'lucide-react';
-import { Workspace } from '@mindagentics/shared';
+import { Floor, Workspace } from '@mindagentics/shared';
+
+const NO_DRAG_STYLE: React.CSSProperties & { WebkitAppRegion: 'no-drag' } = {
+  WebkitAppRegion: 'no-drag',
+};
+
+const SIDEBAR_STYLE: React.CSSProperties & { WebkitAppRegion: 'no-drag' } = {
+  backgroundColor: 'var(--sidebar-bg, #121418)',
+  backdropFilter: 'blur(24px) saturate(140%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(140%)',
+  transform: 'translateZ(0)',
+  willChange: 'transform',
+  WebkitAppRegion: 'no-drag',
+};
 
 export const Sidebar: React.FC = () => {
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom);
@@ -79,18 +92,11 @@ export const Sidebar: React.FC = () => {
           ? 'w-0 border-r-0 opacity-0 pointer-events-none'
           : 'w-[248px] opacity-100 pointer-events-auto'
       }`}
-      style={{
-        backgroundColor: 'var(--sidebar-bg, #121418)',
-        backdropFilter: 'blur(24px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(140%)',
-        transform: 'translateZ(0)',
-        willChange: 'transform',
-        WebkitAppRegion: 'no-drag',
-      } as any}
+      style={SIDEBAR_STYLE}
     >
-      <div className="w-[248px] h-full flex flex-col shrink-0 pt-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
+      <div className="w-[248px] h-full flex flex-col shrink-0 pt-2" style={NO_DRAG_STYLE}>
         {/* Minimalist Operator / Runtime Badge (Anti-AI-Slop) */}
-        <div className="px-2 pb-2 shrink-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
+        <div className="px-2 pb-2 shrink-0" style={NO_DRAG_STYLE}>
           <div
             role="button"
             tabIndex={0}
@@ -104,7 +110,7 @@ export const Sidebar: React.FC = () => {
             data-streak={profile?.streakDays || 1}
             data-activity="activityHistory"
             className="group flex items-center justify-between p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.12] cursor-pointer transition-all select-none"
-            style={{ WebkitAppRegion: 'no-drag' } as any}
+            style={NO_DRAG_STYLE}
             title="Perfil do Operador & Configurações"
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -171,8 +177,8 @@ export const Sidebar: React.FC = () => {
               {workspaces.map((ws: Workspace) => {
                 const isActive = ws.id === activeWorkspaceId;
                 const nodeCount = isActive
-                  ? (allNodes?.length ?? (ws.floors || []).reduce((acc: number, f: any) => acc + (f?.nodes?.length || 0), 0))
-                  : (ws.floors || []).reduce((acc: number, f: any) => acc + (f?.nodes?.length || 0), 0) || ((ws as any).nodes?.length || 0);
+                  ? (allNodes?.length ?? (ws.floors || []).reduce((acc: number, f: Floor) => acc + (f?.nodes?.length || 0), 0))
+                  : (ws.floors || []).reduce((acc: number, f: Floor) => acc + (f?.nodes?.length || 0), 0) || ((ws as Workspace & { nodes?: unknown[] }).nodes?.length || 0);
 
                 return (
                   <div

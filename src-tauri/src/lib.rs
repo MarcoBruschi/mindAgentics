@@ -1,3 +1,7 @@
+#[cfg(all(test, windows))]
+#[link(name = "resource", kind = "static", modifiers = "+whole-archive")]
+extern "C" {}
+
 pub mod commands;
 pub mod daemon;
 pub mod git;

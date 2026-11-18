@@ -4,7 +4,9 @@ import { FitAddon } from '@xterm/addon-fit';
 import { CanvasAddon } from '@xterm/addon-canvas';
 import { WebglAddon } from '@xterm/addon-webgl';
 import {
+  CanvasNode,
   TerminalNode as TerminalNodeType,
+  TerminalStatus,
   sanitizeForPtyLine,
 } from '@mindagentics/shared';
 import {
@@ -38,6 +40,26 @@ import { useAtom, useAtomValue } from 'jotai';
 import { agentPresetsAtom } from '@/atoms/presets';
 import { cableTiesAtom, nodesAtom, activeWorkspaceAtom } from '@/atoms/workspace';
 import { canvasOffsetAtom } from '@/atoms/canvas';
+
+interface XtermInternalCore {
+  _coreBrowserService?: {
+    dpr?: number;
+    _onDprChange?: { fire?: (dpr: number) => void };
+  };
+  _renderService?: {
+    _renderer?: {
+      value?: {
+        _observerDisposable?: { dispose?: () => void };
+      };
+    };
+    handleDevicePixelRatioChange?: () => void;
+    handleResize?: (cols: number, rows: number) => void;
+  };
+}
+
+interface XtermWithInternals extends Terminal {
+  _core?: XtermInternalCore;
+}
 
 interface TerminalNodeProps {
   node: TerminalNodeType;
@@ -131,7 +153,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
           (n) => n.id === otherId || (n.kind === 'terminal' && n.content?.terminalId === otherId)
         );
       })
-      .filter(Boolean) as any[];
+      .filter((n): n is CanvasNode => Boolean(n));
   }, [cableTies, allNodes, node.id, node.content.terminalId]);
 
   const getAgentIcon = (presetId?: string, presetName?: string) => {
@@ -271,7 +293,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     }
 
     try {
-      const core = (term as any)._core;
+      const core = (term as XtermWithInternals)._core;
       if (core?._coreBrowserService) {
         Object.defineProperty(core._coreBrowserService, 'dpr', {
           get: () => (window.devicePixelRatio || 1) * Math.max(1, zoomRef.current),
@@ -306,7 +328,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
         }
       });
 
-      unsubscribeStatus = termBridge.onStatus?.((receivedId: string, st: any) => {
+      unsubscribeStatus = termBridge.onStatus?.((receivedId: string, st: TerminalStatus) => {
         if (receivedId === termId) {
           onUpdate({
             ...nodeRef.current,
@@ -332,7 +354,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
               term.write(sb);
             }
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.warn('[terminal.getScrollback error]', err);
         } finally {
           if (isDisposed) return;
@@ -360,7 +382,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
               orchestratorMode: isOrchestrator,
               maestroMode: isOrchestrator,
             });
-          } catch (err: any) {
+          } catch (err: unknown) {
             console.warn('[terminal.spawn error]', err);
           }
         }
@@ -445,7 +467,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
 
   // Synchronize XTerm canvas pixel density when canvas zoom changes for crisp vector-sharp typography
   useEffect(() => {
-    const term = xtermInstance.current as any;
+    const term = xtermInstance.current as XtermWithInternals | null;
     const fitAddon = fitAddonRef.current;
     if (!term || !term._core) return;
 
@@ -483,7 +505,7 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
     });
   };
 
-  const handleInsertReference = (targetNode: any) => {
+  const handleInsertReference = (targetNode: CanvasNode) => {
     const term = xtermInstance.current;
     if (!term) return;
 
@@ -772,7 +794,9 @@ export const TerminalNode: React.FC<TerminalNodeProps> = ({
                 ? lNode.content?.title || 'Binder'
                 : lNode.kind === 'fileRef'
                 ? lNode.content?.label || lNode.content?.path || 'Ref'
-                : lNode.content?.title || 'Agent';
+                : lNode.kind === 'terminal' || lNode.kind === 'band' || lNode.kind === 'group'
+                ? lNode.content?.title || 'Agent'
+                : 'Agent';
 
             return (
               <button

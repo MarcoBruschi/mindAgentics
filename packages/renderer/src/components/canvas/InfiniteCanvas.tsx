@@ -390,9 +390,7 @@ export const InfiniteCanvas: React.FC = () => {
             if (target && target.kind === 'terminal') {
               const termId = (target as any).content?.terminalId;
               if (termId) {
-                window.api?.terminal?.kill?.(termId)?.catch?.(() => {});
-                window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
-                (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.kill?.(termId)?.catch?.(() => {});
+                (window.mindAgentics?.terminal || window.api?.terminal)?.kill?.(termId)?.catch?.(() => {});
               }
             }
           }
@@ -775,7 +773,7 @@ export const InfiniteCanvas: React.FC = () => {
   // Synchronize canvas nodes and cable ties to core-daemon supervisor for CLI inter-agent access
   useEffect(() => {
     const timer = setTimeout(() => {
-      const syncFn = window.mindAgentics?.canvas?.sync || (window.mindAgentics?.canvas?.sync || window.api?.canvas?.sync ?.canvas?.sync);
+      const syncFn = window.mindAgentics?.canvas?.sync || window.api?.canvas?.sync;
       if (syncFn) {
         syncFn({
           nodes,
@@ -822,9 +820,7 @@ export const InfiniteCanvas: React.FC = () => {
       if (target && target.kind === 'terminal') {
         const termId = (target as any).content?.terminalId;
         if (termId) {
-          window.api?.terminal?.kill?.(termId)?.catch?.(() => {});
-          window.mindAgentics?.terminal?.kill?.(termId)?.catch?.(() => {});
-          (window.mindAgentics?.terminal || window.api?.terminal ?.terminal)?.kill?.(termId)?.catch?.(() => {});
+          (window.mindAgentics?.terminal || window.api?.terminal)?.kill?.(termId)?.catch?.(() => {});
         }
       }
       return prev.filter((n) => n.id !== id);

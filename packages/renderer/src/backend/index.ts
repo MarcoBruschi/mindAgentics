@@ -8,7 +8,7 @@ let activeBackend: BackendAdapter | null = null;
  */
 export function isTauriEnvironment(): boolean {
   if (import.meta.env.VITE_BACKEND === 'tauri') return true;
-  if (typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__)) return true;
+  if (typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__)) return true;
   return false;
 }
 
@@ -22,8 +22,8 @@ export function initBackend(): BackendAdapter {
   activeBackend = createTauriBackend();
 
   if (typeof window !== 'undefined') {
-    (window as any).api = activeBackend;
-    (window as any).mindAgentics = activeBackend;
+    window.api = activeBackend;
+    window.mindAgentics = activeBackend;
   }
 
   return activeBackend;

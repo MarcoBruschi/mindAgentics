@@ -993,3 +993,116 @@ pub async fn get_agent_models(preset_id: Option<&str>) -> Value {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TempProbeDir {
+        path: PathBuf,
+    }
+
+    impl TempProbeDir {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "mindagentics-probe-test-{label}-{}",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::create_dir_all(&path).expect("create temp probe dir");
+            Self { path }
+        }
+
+        fn touch(&self, filename: &str) -> PathBuf {
+            let file_path = self.path.join(filename);
+            std::fs::write(&file_path, b"stub").expect("write temp probe stub");
+            file_path
+        }
+    }
+
+    impl Drop for TempProbeDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn is_runnable_probe_binary_rejects_scripts_and_non_files() {
+        let dir = TempProbeDir::new("bin-check");
+
+        // Directories and non-existent paths are never runnable binaries
+        assert!(!is_runnable_probe_binary(&dir.path));
+        assert!(!is_runnable_probe_binary(&dir.path.join("missing.exe")));
+
+        let exe_file = dir.touch("agent.exe");
+        let bare_file = dir.touch("agent");
+        assert!(is_runnable_probe_binary(&exe_file));
+        assert!(is_runnable_probe_binary(&bare_file));
+
+        #[cfg(windows)]
+        {
+            for script in ["shim.cmd", "shim.CMD", "shim.bat", "shim.ps1", "shim.vbs", "shim.js"] {
+                let script_path = dir.touch(script);
+                assert!(
+                    !is_runnable_probe_binary(&script_path),
+                    "expected {script} to be rejected on Windows"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn format_reset_countdown_handles_null_past_and_future_values() {
+        assert_eq!(format_reset_countdown(None), "Janela contínua");
+        assert_eq!(format_reset_countdown(Some(&Value::Null)), "Janela contínua");
+        assert_eq!(
+            format_reset_countdown(Some(&Value::String("not-a-date".to_string()))),
+            "Janela contínua"
+        );
+
+        let now_secs = chrono::Utc::now().timestamp();
+        let past_val = serde_json::json!(now_secs - 120);
+        assert_eq!(format_reset_countdown(Some(&past_val)), "Redefinido recentemente");
+
+        let past_rfc = (chrono::Utc::now() - chrono::Duration::minutes(5)).to_rfc3339();
+        assert_eq!(
+            format_reset_countdown(Some(&Value::String(past_rfc))),
+            "Redefinido recentemente"
+        );
+
+        let mins_future = serde_json::json!(now_secs + 15 * 60 + 30);
+        let mins_text = format_reset_countdown(Some(&mins_future));
+        assert!(mins_text.starts_with("Redefine em ") && mins_text.ends_with('m'));
+
+        let hours_future = serde_json::json!(now_secs + 2 * 3600 + 25 * 60);
+        let hours_text = format_reset_countdown(Some(&hours_future));
+        assert!(hours_text.starts_with("Redefine em 2h "));
+
+        let days_future = serde_json::json!(now_secs + 3 * 86_400 + 3600);
+        assert_eq!(format_reset_countdown(Some(&days_future)), "Renova em 3 dias");
+    }
+
+    #[test]
+    fn build_usage_windows_populates_defaults_and_custom_resets() {
+        let empty = build_usage_windows(None, None, None, None);
+        assert_eq!(empty.len(), 2);
+        assert_eq!(empty[0].id, "session");
+        assert_eq!(empty[0].formatted_reset, "Sem dados de cota");
+        assert_eq!(empty[1].id, "weekly");
+        assert_eq!(empty[1].formatted_reset, "Sem dados de cota");
+
+        let with_fractions = build_usage_windows(Some(0.42), Some(0.15), None, None);
+        assert_eq!(with_fractions[0].used_fraction, Some(0.42));
+        assert_eq!(with_fractions[0].formatted_reset, "Janela contínua");
+        assert_eq!(with_fractions[1].used_fraction, Some(0.15));
+        assert_eq!(with_fractions[1].formatted_reset, "Renovação semanal");
+
+        let custom = build_usage_windows(
+            Some(0.8),
+            Some(0.5),
+            Some("Redefine em 1h 10m"),
+            Some("Renova em 4 dias"),
+        );
+        assert_eq!(custom[0].reset_text, "Redefine em 1h 10m");
+        assert_eq!(custom[1].reset_text, "Renova em 4 dias");
+    }
+}
