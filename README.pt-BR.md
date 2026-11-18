@@ -42,7 +42,7 @@
 Ao contrário dos ambientes de desenvolvimento tradicionais baseados em abas isoladas, o **mindAgentics** unifica a esteira de desenvolvimento em uma topologia espacial dinâmica:
 
 - **Orquestração Multimodal de Agentes**: Execute agentes como Claude Code, Codex, Antigravity (`agy`), OpenCode e shells genéricos simultaneamente lado a lado.
-- **Comunicação Inter-Agentes via Named Pipes**: Conecte nós através de cabos de rede com simulação gravitacional de física catenária de 21 pontos (`\\.\pipe\mindagentics_ipc`).
+- **Comunicação Inter-Agentes via Named Pipes**: Conecte nós através de cabos de rede com simulação gravitacional de física catenária de 21 pontos (`\\.\pipe\mindagentics-<token>`, configurado via `MINDAGENTICS_PIPE`).
 - **Navegação Web com Browser Portals**: Instâncias embutidas de Chromium permitindo que agentes naveguem, inspecionem elementos da árvore de acessibilidade (`@e1`, `@e2`) e executem testes ponta a ponta.
 - **Knowledge Graph Determinístico (Graphify)**: Extração de AST de repositórios completos em grafos interativos de força direcionada navegáveis diretamente no canvas.
 - **Isolamento de Workspaces & Floors**: Separação de branches e tarefas paralelas utilizando Git Worktrees nativos.

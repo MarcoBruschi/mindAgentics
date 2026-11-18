@@ -55,7 +55,7 @@ export const App: React.FC = () => {
     };
     syncTranslucency();
 
-    const controls = window.api?.windowControls || (window as any).mindAgentics?.windowControls ?.windowControls;
+    const controls = window.api?.windowControls || (window as any).mindAgentics?.windowControls;
     let unsubControls: (() => void) | undefined;
     if (controls?.onChanged) {
       unsubControls = controls.onChanged(() => {

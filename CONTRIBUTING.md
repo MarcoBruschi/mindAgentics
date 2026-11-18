@@ -23,7 +23,7 @@ mindAgentics is built as a high-performance spatial development workspace integr
 - **Frontend Canvas (`packages/renderer/`)**: Powered by **React 19**, **Tailwind CSS**, and **Jotai**. Implements an infinite pan/zoom canvas (10% to 300%), smooth marquee multi-selection, 21-point catenary physical cable simulation between nodes, and native-feeling interactive agent terminals.
 
 ### 3. Core Daemon & IPC
-- **Daemon (`packages/core-daemon/`)**: Autonomous process orchestrator managing multi-agent lifecycles, execution sandboxes, floor worktrees, and IPC communication over high-speed Named Pipes (`\\.\pipe\mindagentics_ipc`).
+- **Daemon (`packages/core-daemon/`)**: Autonomous process orchestrator managing multi-agent lifecycles, execution sandboxes, floor worktrees, and IPC communication over high-speed Named Pipes (`\\.\pipe\mindagentics-<token>`, configured via `MINDAGENTICS_PIPE`).
 
 ### 4. Shared Libraries & Public API
 - **Shared (`packages/shared/`)**: Domain models, geometry algorithms, catenary physics math, and protocol schemas.

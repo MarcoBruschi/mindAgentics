@@ -1997,7 +1997,7 @@ async fn resolve_git_dir(
 }
 
 // ============================================================================
-// Routines, License, Data Backup & File Helpers (Atomic via StorageEngine)
+// Routines, Data Backup & File Helpers (Atomic via StorageEngine)
 // ============================================================================
 
 async fn read_json_array_file(path: &Path) -> Vec<Value> {
@@ -3008,31 +3008,6 @@ pub async fn ipc_dispatch(
                 .await
                 .map_err(|e| e.to_string())?;
             serde_json::to_value(res).map_err(|e| e.to_string())
-        }
-
-        // --------------------------------------------------------------------
-        // License
-        // --------------------------------------------------------------------
-        "mindagentics:license:get" => {
-            let lic = storage.get_license().await.map_err(|e| e.to_string())?;
-            serde_json::to_value(lic).map_err(|e| e.to_string())
-        }
-        "mindagentics:license:activate" => {
-            let key = arg_str(&args, 0).unwrap_or_default();
-            let lic = storage
-                .activate_license(&key)
-                .await
-                .map_err(|e| e.to_string())?;
-            let _ = app.emit("mindagentics:license:onChanged", &lic);
-            Ok(json!({ "ok": true, "license": lic }))
-        }
-        "mindagentics:license:deactivate" => {
-            let lic = storage
-                .deactivate_license()
-                .await
-                .map_err(|e| e.to_string())?;
-            let _ = app.emit("mindagentics:license:onChanged", &lic);
-            Ok(json!({ "ok": true, "license": lic }))
         }
 
         // --------------------------------------------------------------------

@@ -92,15 +92,6 @@ export class RpcHandler {
         break;
       }
 
-      case 'licenseState': {
-        if (payload?.licenseKey !== undefined) {
-          this.state.license.licenseKey = payload.licenseKey;
-          this.state.license.state = payload.state || 'active';
-        }
-        this.sendResult(id, 'licenseResult', this.state.license);
-        break;
-      }
-
       case 'syncRoutines':
       case 'loadRoutines': {
         if (Array.isArray(payload?.routines)) {

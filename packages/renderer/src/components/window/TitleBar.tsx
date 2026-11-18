@@ -10,10 +10,7 @@ export const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
-    const controls =
-      window.api?.windowControls ||
-      window.mindAgentics?.windowControls ||
-      (window.mindAgentics?.windowControls || window.api?.windowControls?.windowControls);
+    const controls = window.api?.windowControls || (window as any).mindAgentics?.windowControls;
     if (!controls) return;
 
     if (controls.state) {
@@ -46,10 +43,7 @@ export const TitleBar: React.FC = () => {
     if ((e.target as HTMLElement).closest('button, [data-toolbar-trigger="true"], .canvas-toolbar')) {
       return;
     }
-    const controls =
-      window.api?.windowControls ||
-      window.mindAgentics?.windowControls ||
-      (window.mindAgentics?.windowControls || window.api?.windowControls?.windowControls);
+    const controls = window.api?.windowControls || (window as any).mindAgentics?.windowControls;
     controls?.toggleMaximize?.();
   };
 

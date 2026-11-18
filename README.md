@@ -42,7 +42,7 @@
 Unlike traditional IDEs confined to rigid tab layouts and isolated terminal windows, **mindAgentics** unifies the software development lifecycle into an intuitive, high-performance spatial workspace:
 
 - **Multimodal Agent Orchestration**: Run coding agents—such as Claude Code, Codex, Antigravity (`agy`), OpenCode, and custom shells—side by side in dedicated terminal nodes.
-- **Inter-Agent Communication via Named Pipes**: Link nodes using network connection cables with 21-point catenary gravitational physics simulation over Windows Named Pipes (`\\.\pipe\mindagentics_ipc`).
+- **Inter-Agent Communication via Named Pipes**: Link nodes using network connection cables with 21-point catenary gravitational physics simulation over Windows Named Pipes (`\\.\pipe\mindagentics-<token>`, configured via `MINDAGENTICS_PIPE`).
 - **In-Canvas Browser Portals**: Embed lightweight Chromium instances directly into nodes, enabling agents to browse documentation, inspect accessibility trees (`@e1`, `@e2`), and execute end-to-end tests without context switching.
 - **Deterministic Knowledge Graph (Graphify)**: Extract complete codebase Abstract Syntax Trees (AST) into interactive force-directed graphs directly navigable on the canvas.
 - **Workspace & Floor Isolation**: Manage parallel feature branches and independent tasks safely using native Git Worktrees.

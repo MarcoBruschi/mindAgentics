@@ -1147,28 +1147,14 @@ impl PtyManager {
         Ok(())
     }
 
-    fn resolve_cli_bin_dir() -> Option<PathBuf> {
-        let mut roots = Vec::new();
-        if let Ok(cwd) = std::env::current_dir() {
-            roots.push(cwd);
-        }
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(parent) = exe.parent() {
-                roots.push(parent.to_path_buf());
-            }
-        }
+    pub fn resolve_cli_bin_dir_from_exe(exe: &Path) -> Option<PathBuf> {
+        resolve_cli_bin_dir_from_exe(exe)
+    }
 
-        for root in roots {
-            for ancestor in root.ancestors() {
-                let candidate = ancestor.join("packages").join("core-daemon").join("bin");
-                if candidate.join("mindagentics.js").exists()
-                    || candidate.join("mindagentics.cmd").exists()
-                {
-                    return Some(candidate);
-                }
-            }
-        }
-        None
+    fn resolve_cli_bin_dir() -> Option<PathBuf> {
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| Self::resolve_cli_bin_dir_from_exe(&p))
     }
 
     fn claude_has_session(cwd: &Path) -> bool {
@@ -1394,4 +1380,100 @@ fn strip_flag_with_value(cmd: &str, flag: &str) -> String {
         out.push(tok);
     }
     out.join(" ")
+}
+
+pub fn resolve_cli_bin_dir_from_exe(exe: &Path) -> Option<PathBuf> {
+    let exe_dir = exe.parent()?;
+
+    // 1. Bundled CLI resources next to the executable
+    let bundled_bin = exe_dir.join("resources").join("cli").join("bin");
+    if bundled_bin.join("mindagentics.js").exists()
+        || bundled_bin.join("mindagentics.cmd").exists()
+    {
+        return Some(bundled_bin);
+    }
+
+    // 2. Development/Node workspace ancestors relative to the executable (never cwd)
+    for ancestor in exe_dir.ancestors() {
+        let candidate = ancestor.join("packages").join("core-daemon").join("bin");
+        if candidate.join("mindagentics.js").exists()
+            || candidate.join("mindagentics.cmd").exists()
+        {
+            return Some(candidate);
+        }
+    }
+
+    // 3. Native CLI binary placed alongside the application executable
+    if exe_dir.join("mindagentics.exe").exists() || exe_dir.join("mindagentics").exists() {
+        return Some(exe_dir.to_path_buf());
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct CwdGuard(PathBuf);
+    impl Drop for CwdGuard {
+        fn drop(&mut self) {
+            let _ = std::env::set_current_dir(&self.0);
+        }
+    }
+
+    #[test]
+    fn resolve_cli_bin_dir_ignores_malicious_cwd_and_resolves_from_exe() {
+        let base = std::env::temp_dir().join(format!(
+            "mindagentics_c2_test_{}",
+            uuid::Uuid::new_v4()
+        ));
+        let malicious_cwd = base.join("malicious_cwd");
+        let planted_bin = malicious_cwd.join("packages").join("core-daemon").join("bin");
+        std::fs::create_dir_all(&planted_bin).unwrap();
+        std::fs::write(planted_bin.join("mindagentics.cmd"), "@echo evil").unwrap();
+
+        let original_cwd = std::env::current_dir().unwrap();
+        let _cwd_guard = CwdGuard(original_cwd);
+        std::env::set_current_dir(&malicious_cwd).unwrap();
+
+        // Isolated exe without any CLI nearby must NOT fall back to malicious cwd
+        let isolated_exe = base.join("isolated").join("mindagentics-tauri.exe");
+        std::fs::create_dir_all(isolated_exe.parent().unwrap()).unwrap();
+        assert_eq!(resolve_cli_bin_dir_from_exe(&isolated_exe), None);
+
+        // Bundled resources/cli/bin next to exe
+        let bundled_exe_dir = base.join("bundled_app");
+        let bundled_bin = bundled_exe_dir.join("resources").join("cli").join("bin");
+        std::fs::create_dir_all(&bundled_bin).unwrap();
+        std::fs::write(bundled_bin.join("mindagentics.cmd"), "@echo ok").unwrap();
+        let bundled_exe = bundled_exe_dir.join("mindagentics-tauri.exe");
+        assert_eq!(
+            resolve_cli_bin_dir_from_exe(&bundled_exe),
+            Some(bundled_bin)
+        );
+
+        // Dev ancestor packages/core-daemon/bin relative to exe
+        let dev_root = base.join("dev_repo");
+        let dev_bin = dev_root.join("packages").join("core-daemon").join("bin");
+        let dev_exe_dir = dev_root.join("src-tauri").join("target").join("debug");
+        std::fs::create_dir_all(&dev_bin).unwrap();
+        std::fs::create_dir_all(&dev_exe_dir).unwrap();
+        std::fs::write(dev_bin.join("mindagentics.js"), "// dev cli").unwrap();
+        let dev_exe = dev_exe_dir.join("mindagentics-tauri.exe");
+        assert_eq!(resolve_cli_bin_dir_from_exe(&dev_exe), Some(dev_bin));
+
+        // Native binary next to exe
+        let native_exe_dir = base.join("native_app");
+        std::fs::create_dir_all(&native_exe_dir).unwrap();
+        std::fs::write(native_exe_dir.join("mindagentics.exe"), "").unwrap();
+        let native_exe = native_exe_dir.join("mindagentics-tauri.exe");
+        assert_eq!(
+            resolve_cli_bin_dir_from_exe(&native_exe),
+            Some(native_exe_dir)
+        );
+
+        drop(_cwd_guard);
+        let _ = std::fs::remove_dir_all(&base);
+    }
 }

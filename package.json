@@ -43,6 +43,7 @@
     "test:authorship": "node --test tests/audit/*.test.mjs",
     "test:security": "node --test tests/security/*.test.mjs",
     "test:functional": "node --test packages/core-daemon/test/*.test.mjs tests/functional/*.test.mjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test": "npm run test:authorship && npm run test:security && npm run test:functional",
     "pack": "node scripts/tauri.mjs build",
     "dist": "node scripts/tauri.mjs build",

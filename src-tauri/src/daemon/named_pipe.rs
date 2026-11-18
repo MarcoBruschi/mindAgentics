@@ -120,7 +120,11 @@ impl DaemonServer {
         #[cfg(windows)]
         let pipe_address = format!(r"\\.\pipe\mindagentics-{}", token);
         #[cfg(not(windows))]
-        let pipe_address = format!("/tmp/mindagentics-{}.sock", token);
+        let pipe_address = {
+            let runtime_dir =
+                std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_string());
+            format!("{}/mindagentics-{}.sock", runtime_dir, token)
+        };
 
         Self {
             token,
@@ -165,11 +169,17 @@ impl DaemonServer {
     }
 
     fn pty(&self) -> Arc<PtyManager> {
-        self.pty_manager.read().unwrap().clone()
+        self.pty_manager
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     fn storage_engine(&self) -> Arc<StorageEngine> {
-        self.storage.read().unwrap().clone()
+        self.storage
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     fn emit_event<S: Serialize + Clone>(&self, event: &str, payload: S) {
@@ -205,9 +215,14 @@ impl DaemonServer {
 
         #[cfg(not(windows))]
         {
+            use std::os::unix::fs::PermissionsExt;
             use tokio::net::UnixListener;
             let _ = std::fs::remove_file(&self.pipe_address);
             let listener = UnixListener::bind(&self.pipe_address)?;
+            let _ = std::fs::set_permissions(
+                &self.pipe_address,
+                std::fs::Permissions::from_mode(0o600),
+            );
 
             loop {
                 let (stream, _) = listener.accept().await?;
@@ -1688,7 +1703,9 @@ impl DaemonServer {
                         "mindagentics note edit: required args missing. Usage: mindagentics note edit \"Note Name\" \"old text\" \"new text\"",
                     );
                 }
-                let old_text = old_text.unwrap();
+                let Some(old_text) = old_text else {
+                    return CliResponseEnvelope::err(&req.id, "mindagentics note edit: missing old text");
+                };
 
                 let mut node = match self.find_note_node(ws_id, note_name).await {
                     Some(n) => n,
@@ -2449,7 +2466,9 @@ impl DaemonServer {
                         format!("mindagentics ref add: {}", check.message.unwrap_or_default()),
                     );
                 }
-                let abs_path = check.path.unwrap();
+                let Some(abs_path) = check.path else {
+                    return CliResponseEnvelope::err(&req.id, "mindagentics ref add: invalid path");
+                };
                 let meta = match std::fs::metadata(&abs_path) {
                     Ok(m) => m,
                     Err(_) => {

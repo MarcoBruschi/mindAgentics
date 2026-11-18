@@ -1,11 +1,9 @@
-// @ts-nocheck
 /**
  * mindAgentics - Tauri v2 Backend Adapter
- * Full 1:1 API Parity with preload/src/index.ts
  */
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { IPC_CHANNELS as C, assertPayloadWithinLimit, sanitizeForPtyLine } from '@mindagentics/shared';
+import { IPC_CHANNELS as C, assertPayloadWithinLimit } from '@mindagentics/shared';
 import type { UserProfile, OrchestratorStats, UserBadge } from '@mindagentics/shared';
 
 // Safe Tauri invocation wrapper
@@ -19,6 +17,9 @@ export async function tauriInvoke<T = any>(command: string, ...args: any[]): Pro
     }
   }
   if (!isTauri()) {
+    if ((import.meta as any).env?.DEV) {
+      console.warn('[tauriBackend] Non-Tauri environment: skipped invoke for', command);
+    }
     return Promise.resolve(null as any);
   }
   if (command.includes(':')) {
@@ -55,15 +56,6 @@ export function tauriListen<T = any>(event: string, handler: (payload: T) => voi
   };
 }
 
-const LICENSE_EXPIRED = "licenseExpired";
-function licenseFailureKind(error: any): string | null {
-  if (typeof error === "object" && error !== null && Reflect.get(error, "kind") === LICENSE_EXPIRED) {
-    return LICENSE_EXPIRED;
-  }
-  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
-  return message.includes(LICENSE_EXPIRED) ? LICENSE_EXPIRED : null;
-}
-
 function subscribe(channel: string, handler: (...args: any[]) => void) {
   return tauriListen(channel, handler);
 }
@@ -87,21 +79,6 @@ function subscribePreferences(handler: (payload: any) => void) {
   };
 }
 
-function invokeLicenseCommand(channel: string, ...args: any[]) {
-  return tauriInvoke(channel, ...args).then((result: any) => {
-    if (!result || !result.ok) return Promise.reject(result?.error);
-    return result;
-  });
-}
-
-function invokeWithLicenseFailure(channel: string, ...args: any[]) {
-  return tauriInvoke(channel, ...args).catch((error: any) => {
-    const kind = licenseFailureKind(error);
-    if (!kind) throw error;
-    return Promise.reject({ kind });
-  });
-}
-
 export const tauriBackend = {
 app: {
     info() {
@@ -113,16 +90,16 @@ app: {
     saveDiagnosticReport() {
       return tauriInvoke(C.appSaveDiagnosticReport);
     },
-    setLocale(locale) {
+    setLocale(locale: string) {
       return tauriInvoke(C.appSetLocale, locale);
     },
-    localDirectorySuggestions(partialPath, limit) {
+    localDirectorySuggestions(partialPath: string, limit?: number) {
       return tauriInvoke(C.appLocalDirectorySuggestions, partialPath, limit);
     },
-    directoryState(workspaceId, environment, path) {
+    directoryState(workspaceId: string, environment: any, path: string) {
       return tauriInvoke(C.appDirectoryState, workspaceId, environment, path);
     },
-    createDirectory(workspaceId, environment, path) {
+    createDirectory(workspaceId: string, environment: any, path: string) {
       return tauriInvoke(C.appCreateDirectory, workspaceId, environment, path);
     },
     pickDirectory() {
@@ -140,13 +117,13 @@ app: {
     listIdes() {
       return tauriInvoke(C.appListIdes);
     },
-    openInIde(workspaceId, ideId) {
+    openInIde(workspaceId: string, ideId: string) {
       return tauriInvoke(C.appOpenInIde, workspaceId, ideId);
     },
-    openExternal(url) {
+    openExternal(url: string) {
       return tauriInvoke(C.appOpenExternal, url);
     },
-    openPath(path) {
+    openPath(path: string) {
       return tauriInvoke(C.appOpenPath, path);
     },
     showEmojiPanel() {
@@ -158,10 +135,10 @@ app: {
     rendererBooted() {
       tauriInvoke(C.appRendererBooted);
     },
-    reportRendererFault(fault) {
+    reportRendererFault(fault: any) {
       tauriInvoke(C.appRendererFault, fault);
     },
-    onShutdown(handler) {
+    onShutdown(handler: (...args: any[]) => void) {
       return subscribe(C.appShutdown, handler);
     },
     // `send`, not `invoke`: this runs from a paint callback during teardown and
@@ -183,7 +160,7 @@ app: {
     close() {
       return tauriInvoke(C.windowControlsClose);
     },
-    onChanged(handler) {
+    onChanged(handler: (payload: any) => void) {
       return subscribe(C.windowControlsOnChanged, handler);
     }
   },
@@ -191,10 +168,10 @@ app: {
     get() {
       return tauriInvoke(C.appStateGet);
     },
-    setOnboardingCompleted(completed) {
+    setOnboardingCompleted(completed: boolean) {
       return tauriInvoke(C.appStateSetOnboardingCompleted, completed);
     },
-    setHasSeenFloorOnboarding(seen) {
+    setHasSeenFloorOnboarding(seen: boolean) {
       return tauriInvoke(C.appStateSetHasSeenFloorOnboarding, seen);
     }
   },
@@ -222,7 +199,7 @@ app: {
     check() {
       return tauriInvoke(C.updatesCheck);
     },
-    onProgress(handler) {
+    onProgress(handler: (payload: any) => void) {
       return subscribe(C.updatesOnProgress, handler);
     },
     restartAndInstall() {
@@ -233,10 +210,10 @@ app: {
     get() {
       return tauriInvoke(C.preferencesGet);
     },
-    set(patch) {
+    set(patch: any) {
       return tauriInvoke(C.preferencesSet, patch);
     },
-    onChanged(handler) {
+    onChanged(handler: (payload: any) => void) {
       return subscribePreferences(handler);
     }
   },
@@ -244,15 +221,15 @@ app: {
     list() {
       return tauriInvoke(C.partituraList);
     },
-    async save(partitura) {
+    async save(partitura: any) {
       const result = await tauriInvoke(C.partituraSave, partitura);
       if (!result.ok) return Promise.reject(result.failure);
       return result.partitura;
     },
-    delete(id) {
+    delete(id: string) {
       return tauriInvoke(C.partituraDelete, id);
     },
-    async exportOne(id) {
+    async exportOne(id: string) {
       const result = await tauriInvoke(C.partituraExportOne, id);
       if (!result.ok) return Promise.reject(result.failure);
       return result.exported;
@@ -265,9 +242,9 @@ app: {
     pickFiles() {
       return tauriInvoke(C.partituraPickFiles);
     },
-    readFiles(files) {
+    readFiles(files: Array<File | { path?: string; name?: string }>) {
       const paths = files.map((file) => (file as any)?.path || file?.name || '');
-      if (paths.some((path) => path === "")) {
+      if (paths.some((path: string) => path === "")) {
         return Promise.resolve({ ok: false, failure: { kind: "unreadableFile" } });
       }
       return tauriInvoke(C.partituraReadFiles, paths);
@@ -275,10 +252,10 @@ app: {
     readOpenedFiles() {
       return tauriInvoke(C.partituraReadOpenedFiles);
     },
-    onChanged(handler) {
+    onChanged(handler: () => void) {
       return subscribeSignal(C.partituraChanged, handler);
     },
-    onOpenRequested(handler) {
+    onOpenRequested(handler: () => void) {
       return subscribeSignal(C.partituraOpenRequested, handler);
     }
   },
@@ -286,22 +263,22 @@ app: {
     list() {
       return tauriInvoke(C.workspaceList);
     },
-    create(input) {
-      return invokeWithLicenseFailure(C.workspaceCreate, input);
+    create(input: any) {
+      return tauriInvoke(C.workspaceCreate, input);
     },
-    patch(id, patch) {
+    patch(id: string, patch: any) {
       return tauriInvoke(C.workspacePatch, id, patch);
     },
-    delete(id) {
+    delete(id: string) {
       return tauriInvoke(C.workspaceDelete, id);
     },
-    duplicate(id) {
+    duplicate(id: string) {
       return tauriInvoke(C.workspaceDuplicate, id);
     },
-    export(id) {
+    export(id: string) {
       return tauriInvoke(C.workspaceExport, id);
     },
-    prepareImport(file) {
+    prepareImport(file?: File | { path?: string; name?: string }) {
       if (file === void 0) return tauriInvoke(C.workspaceImport);
       const path = (file as any)?.path || file?.name || '';
       if (path === "") return Promise.resolve(null);
@@ -310,40 +287,40 @@ app: {
     prepareOpenedImport() {
       return tauriInvoke(C.workspaceImportOpened);
     },
-    completeImport(sourcePath, destination) {
+    completeImport(sourcePath: string, destination: string) {
       return tauriInvoke(C.workspaceImportComplete, sourcePath, destination);
     },
-    onOpenRequested(handler) {
+    onOpenRequested(handler: () => void) {
       return subscribeSignal(C.workspaceOpenRequested, handler);
     },
-    unload(id, scope) {
+    unload(id: string, scope: any) {
       return tauriInvoke(C.workspaceUnload, id, scope);
     },
     getActiveId() {
       return tauriInvoke(C.workspaceGetActiveId);
     },
-    setFloorStatus(workspaceId, floorId, status) {
+    setFloorStatus(workspaceId: string, floorId: string, status: any) {
       return tauriInvoke(C.workspaceSetFloorStatus, workspaceId, floorId, status);
     },
-    reorderFloor(workspaceId, floorId, topDownIndex) {
+    reorderFloor(workspaceId: string, floorId: string, topDownIndex: number) {
       return tauriInvoke(C.workspaceReorderFloor, workspaceId, floorId, topDownIndex);
     },
-    reveal(id) {
+    reveal(id: string) {
       return tauriInvoke(C.workspaceReveal, id);
     },
-    switch(id) {
+    switch(id: string) {
       return tauriInvoke(C.workspaceSwitch, id);
     },
-    setPreferredIde(id, ideId) {
+    setPreferredIde(id: string, ideId: string) {
       return tauriInvoke(C.workspaceSetPreferredIde, id, ideId);
     },
-    onChanged(handler) {
+    onChanged(handler: (payload: any) => void) {
       return subscribe(C.workspaceOnChanged, handler);
     },
-    onDeleted(handler) {
+    onDeleted(handler: (payload: any) => void) {
       return subscribe(C.workspaceOnDeleted, handler);
     },
-    undo(id) {
+    undo(id: string) {
       return tauriInvoke(C.workspaceUndo, id);
     },
     beginUndoGroup() {
@@ -352,60 +329,60 @@ app: {
     endUndoGroup() {
       return tauriInvoke(C.workspaceEndUndoGroup);
     },
-    onLevelsUnloaded(handler) {
+    onLevelsUnloaded(handler: (payload: any) => void) {
       return subscribe(C.workspaceOnLevelsUnloaded, handler);
     },
-    redo(id) {
+    redo(id: string) {
       return tauriInvoke(C.workspaceRedo, id);
     },
     configFiles: {
-      status(id) {
+      status(id: string) {
         return tauriInvoke(C.workspaceConfigFilesStatus, id);
       },
-      read(id, kind) {
+      read(id: string, kind: any) {
         return tauriInvoke(C.workspaceConfigFilesRead, id, kind);
       },
-      write(id, kind, text) {
+      write(id: string, kind: any, text: string) {
         return tauriInvoke(C.workspaceConfigFilesWrite, id, kind, text);
       },
-      remove(id, kind) {
+      remove(id: string, kind: any) {
         return tauriInvoke(C.workspaceConfigFilesRemove, id, kind);
       },
-      sync(id, winner, expect) {
+      sync(id: string, winner: any, expect: any) {
         return tauriInvoke(C.workspaceConfigFilesSync, id, winner, expect);
       }
     }
   },
   floor: {
-    createKind: (workspaceId, input) => tauriInvoke(C.floorCreateKind, workspaceId, input),
-    canCopyIndependently: (workspaceId) => tauriInvoke(C.floorCanCopy, workspaceId),
+    createKind: (workspaceId: string, input: any) => tauriInvoke(C.floorCreateKind, workspaceId, input),
+    canCopyIndependently: (workspaceId: string) => tauriInvoke(C.floorCanCopy, workspaceId),
     isolationAvailable() {
       return tauriInvoke(C.floorIsolationAvailable);
     },
-    create(workspaceId, input) {
+    create(workspaceId: string, input: any) {
       return tauriInvoke(C.floorCreate, workspaceId, input);
     },
-    reviewSource: (workspaceId) => tauriInvoke(C.floorReviewSource, workspaceId),
-    reviewNumber: (workspaceId, text) => tauriInvoke(C.floorReviewNumber, workspaceId, text),
-    reviewList: (workspaceId, query) => tauriInvoke(C.floorReviewList, workspaceId, query),
-    reviewFloorName: (workspaceId, number, title) => tauriInvoke(C.floorReviewName, workspaceId, number, title),
-    createReview: (workspaceId, input, requestId) => tauriInvoke(C.floorReviewCreate, workspaceId, input, requestId),
-    createIsolated(workspaceId, input, requestId) {
+    reviewSource: (workspaceId: string) => tauriInvoke(C.floorReviewSource, workspaceId),
+    reviewNumber: (workspaceId: string, text: string) => tauriInvoke(C.floorReviewNumber, workspaceId, text),
+    reviewList: (workspaceId: string, query: string) => tauriInvoke(C.floorReviewList, workspaceId, query),
+    reviewFloorName: (workspaceId: string, number: number | string, title: string) => tauriInvoke(C.floorReviewName, workspaceId, number, title),
+    createReview: (workspaceId: string, input: any, requestId?: string) => tauriInvoke(C.floorReviewCreate, workspaceId, input, requestId),
+    createIsolated(workspaceId: string, input: any, requestId?: string) {
       return tauriInvoke(C.floorCreateIsolated, workspaceId, input, requestId);
     },
-    listBranches(workspaceId) {
+    listBranches(workspaceId: string) {
       return tauriInvoke(C.floorListBranches, workspaceId);
     },
-    cancelIsolated(requestId) {
+    cancelIsolated(requestId: string) {
       return tauriInvoke(C.floorCancelIsolated, requestId);
     },
-    onSeedProgress(handler) {
+    onSeedProgress(handler: (payload: any) => void) {
       return subscribe(C.floorSeedProgress, handler);
     },
-    rename(workspaceId, floorId, name) {
+    rename(workspaceId: string, floorId: string, name: string) {
       return tauriInvoke(C.floorRename, workspaceId, floorId, name);
     },
-    switch(workspaceId, floorId, outgoingCamera, outgoingDock) {
+    switch(workspaceId: string, floorId: string, outgoingCamera?: any, outgoingDock?: any) {
       return tauriInvoke(
         C.floorSwitch,
         workspaceId,
@@ -414,7 +391,7 @@ app: {
         outgoingDock
       );
     },
-    delete(workspaceId, floorId, removeBranch, options) {
+    delete(workspaceId: string, floorId: string, removeBranch?: boolean, options?: any) {
       return tauriInvoke(
         C.floorDelete,
         workspaceId,
@@ -423,16 +400,16 @@ app: {
         options ?? null
       );
     },
-    removeBranch(workspaceId, branch, force) {
+    removeBranch(workspaceId: string, branch: string, force?: boolean) {
       return tauriInvoke(C.floorRemoveBranch, workspaceId, branch, force);
     },
-    landingPreflight(workspaceId, floorId) {
+    landingPreflight(workspaceId: string, floorId: string) {
       return tauriInvoke(C.floorLandingPreflight, workspaceId, floorId);
     },
-    landingPreview(workspaceId, floorId, target) {
+    landingPreview(workspaceId: string, floorId: string, target: any) {
       return tauriInvoke(C.floorLandingPreview, workspaceId, floorId, target);
     },
-    landingFileDiff(workspaceId, floorId, target, path, oldPath, conflict) {
+    landingFileDiff(workspaceId: string, floorId: string, target: any, path: string, oldPath?: string | null, conflict?: any) {
       return tauriInvoke(
         C.floorLandingFileDiff,
         workspaceId,
@@ -443,105 +420,105 @@ app: {
         conflict
       );
     },
-    land(workspaceId, floorId, target) {
+    land(workspaceId: string, floorId: string, target: any) {
       return tauriInvoke(C.floorLand, workspaceId, floorId, target);
     },
-    landingRemoveBranch(workspaceId, branch, target) {
+    landingRemoveBranch(workspaceId: string, branch: string, target: any) {
       return tauriInvoke(C.floorLandingRemoveBranch, workspaceId, branch, target);
     },
-    onLanding(handler) {
+    onLanding(handler: (payload: any) => void) {
       return subscribe(C.floorOnLanding, handler);
     },
-    onRemovingChanged(handler) {
+    onRemovingChanged(handler: (payload: any) => void) {
       return subscribe(C.floorOnRemovingChanged, handler);
     },
     removing() {
       return tauriInvoke(C.floorRemoving);
     },
-    testLanding(workspaceId, floorId) {
+    testLanding(workspaceId: string, floorId: string) {
       return tauriInvoke(C.floorTestLanding, workspaceId, floorId);
     }
   },
   floorSnapshot: {
-    capture(workspaceId, rect, maxWidth) {
+    capture(workspaceId: string, rect: any, maxWidth?: number) {
       return tauriInvoke(C.floorSnapshotCapture, workspaceId, rect, maxWidth);
     }
   },
   floorHooks: {
-    get(workspaceId) {
+    get(workspaceId: string) {
       return tauriInvoke(C.floorHooksGet, workspaceId);
     },
-    replace(workspaceId, hooks) {
+    replace(workspaceId: string, hooks: any) {
       return tauriInvoke(C.floorHooksReplace, workspaceId, hooks);
     },
-    run(workspaceId, floorId, commandId) {
+    run(workspaceId: string, floorId: string, commandId: string) {
       return tauriInvoke(C.floorHooksRun, workspaceId, floorId, commandId);
     },
-    stop(commandId) {
+    stop(commandId: string) {
       return tauriInvoke(C.floorHooksStop, commandId);
     },
-    runSection(workspaceId, floorId, section) {
+    runSection(workspaceId: string, floorId: string, section: any) {
       return tauriInvoke(C.floorHooksRunSection, workspaceId, floorId, section);
     },
-    clearResult(commandId) {
+    clearResult(commandId: string) {
       return tauriInvoke(C.floorHooksClearResult, commandId);
     },
-    clearAllResults(workspaceId) {
+    clearAllResults(workspaceId: string) {
       return tauriInvoke(C.floorHooksClearAllResults, workspaceId);
     },
     runs() {
       return tauriInvoke(C.floorHooksRuns);
     },
-    onRunsChanged(handler) {
+    onRunsChanged(handler: (payload: any) => void) {
       return subscribe(C.floorHooksOnRunsChanged, handler);
     },
-    readOutput(commandId) {
+    readOutput(commandId: string) {
       return tauriInvoke(C.floorHooksReadOutput, commandId);
     },
-    onOutput(handler) {
+    onOutput(handler: (payload: any) => void) {
       return subscribe(C.floorHooksOnOutput, handler);
     },
-    write(commandId, data) {
+    write(commandId: string, data: string) {
       return tauriInvoke(C.floorHooksWrite, commandId, data);
     },
-    resize(commandId, cols, rows) {
+    resize(commandId: string, cols: number, rows: number) {
       return tauriInvoke(C.floorHooksResize, commandId, cols, rows);
     }
   },
   node: {
-    create(workspaceId, node) {
+    create(workspaceId: string, node: any) {
       return tauriInvoke(C.nodeCreate, workspaceId, node);
     },
-    patch(workspaceId, nodeId, patch) {
+    patch(workspaceId: string, nodeId: string, patch: any) {
       return tauriInvoke(C.nodePatch, workspaceId, nodeId, patch);
     },
-    patchFrames(workspaceId, patches) {
+    patchFrames(workspaceId: string, patches: any) {
       return tauriInvoke(C.nodePatchFrames, workspaceId, patches);
     },
-    delete(workspaceId, nodeId) {
+    delete(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.nodeDelete, workspaceId, nodeId);
     },
-    deleteMany(workspaceId, nodeIds) {
+    deleteMany(workspaceId: string, nodeIds: string[]) {
       return tauriInvoke(C.nodeDeleteMany, workspaceId, nodeIds);
     },
-    unload(workspaceId, nodeIds) {
+    unload(workspaceId: string, nodeIds: string[]) {
       return tauriInvoke(C.nodeUnload, workspaceId, nodeIds);
     },
-    setNodesRedacted(workspaceId, nodeIds, isRedacted) {
+    setNodesRedacted(workspaceId: string, nodeIds: string[], isRedacted: boolean) {
       return tauriInvoke(C.nodeSetRedacted, workspaceId, nodeIds, isRedacted);
     }
   },
   group: {
-    create(workspaceId, nodeIds) {
+    create(workspaceId: string, nodeIds: string[]) {
       return tauriInvoke(C.groupCreate, workspaceId, nodeIds);
     },
-    ungroup(workspaceId, nodeIds) {
+    ungroup(workspaceId: string, nodeIds: string[]) {
       return tauriInvoke(C.groupUngroup, workspaceId, nodeIds);
     },
-    rename(workspaceId, groupId, name) {
+    rename(workspaceId: string, groupId: string, name: string) {
       return tauriInvoke(C.groupRename, workspaceId, groupId, name);
     },
-    setColor(workspaceId, groupId, colorHex) {
+    setColor(workspaceId: string, groupId: string, colorHex: string) {
       return tauriInvoke(C.groupSetColor, workspaceId, groupId, colorHex);
     }
   },
@@ -551,14 +528,14 @@ app: {
   // rather than as a sequence of `node.patch` calls from the renderer.
   noteStack: {
     /** From loose notes, in canvas reading order. Null when nothing was fileable. */
-    create(workspaceId, noteNodeIds, name, defaultName) {
+    create(workspaceId: string, noteNodeIds: string[], name: string, defaultName: string) {
       return tauriInvoke(C.noteStackCreate, workspaceId, noteNodeIds, name, defaultName);
     },
     /** The mixed-selection verb: notes create one, a selected fichário receives, further ones merge in. */
-    fileSelection(workspaceId, nodeIds, defaultName) {
+    fileSelection(workspaceId: string, nodeIds: string[], defaultName: string) {
       return tauriInvoke(C.noteStackFileSelection, workspaceId, nodeIds, defaultName);
     },
-    addNotes(workspaceId, stackNodeId, noteNodeIds) {
+    addNotes(workspaceId: string, stackNodeId: string, noteNodeIds: string[]) {
       return tauriInvoke(C.noteStackAddNotes, workspaceId, stackNodeId, noteNodeIds);
     },
     /**
@@ -566,38 +543,38 @@ app: {
      * the note-file layer while the insert, the front flip, the tuck and the
      * uniform stamp remain one undo step. Returns the stored node.
      */
-    addPage(workspaceId, stackNodeId, pageNode, afterNoteNodeId) {
+    addPage(workspaceId: string, stackNodeId: string, pageNode: any, afterNoteNodeId?: string) {
       return tauriInvoke(C.noteStackAddPage, workspaceId, stackNodeId, pageNode, afterNoteNodeId);
     },
     /** One page back onto the canvas. Reports whether an unnamed stack dissolved behind it. */
-    spill(workspaceId, stackNodeId, noteNodeId, origin) {
+    spill(workspaceId: string, stackNodeId: string, noteNodeId: string, origin: any) {
       return tauriInvoke(C.noteStackSpill, workspaceId, stackNodeId, noteNodeId, origin);
     },
-    unstack(workspaceId, stackNodeId) {
+    unstack(workspaceId: string, stackNodeId: string) {
       return tauriInvoke(C.noteStackUnstack, workspaceId, stackNodeId);
     },
     /** The "Keep Notes" branch of the delete prompt: the folder goes, the pages fan out. */
-    deleteKeepingNotes(workspaceId, stackNodeId) {
+    deleteKeepingNotes(workspaceId: string, stackNodeId: string) {
       return tauriInvoke(C.noteStackDeleteKeepingNotes, workspaceId, stackNodeId);
     },
-    moveMember(workspaceId, stackNodeId, fromIndex, toIndex) {
+    moveMember(workspaceId: string, stackNodeId: string, fromIndex: number, toIndex: number) {
       return tauriInvoke(C.noteStackMoveMember, workspaceId, stackNodeId, fromIndex, toIndex);
     },
-    setFront(workspaceId, stackNodeId, noteNodeId) {
+    setFront(workspaceId: string, stackNodeId: string, noteNodeId: string) {
       return tauriInvoke(C.noteStackSetFront, workspaceId, stackNodeId, noteNodeId);
     },
-    rename(workspaceId, stackNodeId, name) {
+    rename(workspaceId: string, stackNodeId: string, name: string) {
       return tauriInvoke(C.noteStackRename, workspaceId, stackNodeId, name);
     },
-    clearCustomName(workspaceId, stackNodeId) {
+    clearCustomName(workspaceId: string, stackNodeId: string) {
       return tauriInvoke(C.noteStackClearCustomName, workspaceId, stackNodeId);
     },
     /** The drop-to-file commit. The note never moves to the release point. */
-    fileDroppedNote(workspaceId, noteNodeId, stackNodeId) {
+    fileDroppedNote(workspaceId: string, noteNodeId: string, stackNodeId: string) {
       return tauriInvoke(C.noteStackFileDroppedNote, workspaceId, noteNodeId, stackNodeId);
     },
     /** Lane to lane, without touching the canvas in between. Does not inherit the source's ropes. */
-    moveBetween(workspaceId, fromStackNodeId, toStackNodeId, noteNodeId) {
+    moveBetween(workspaceId: string, fromStackNodeId: string, toStackNodeId: string, noteNodeId: string) {
       return tauriInvoke(
         C.noteStackMoveBetween,
         workspaceId,
@@ -606,7 +583,7 @@ app: {
         noteNodeId
       );
     },
-    toggleUniformColor(workspaceId, stackNodeId) {
+    toggleUniformColor(workspaceId: string, stackNodeId: string) {
       return tauriInvoke(C.noteStackToggleUniformColor, workspaceId, stackNodeId);
     },
     /**
@@ -614,56 +591,56 @@ app: {
      * fichário retunes the whole stack in the same undo step, so every colour
      * control routes here rather than through `node.patch`.
      */
-    setNoteColor(workspaceId, noteNodeId, color, customColor) {
+    setNoteColor(workspaceId: string, noteNodeId: string, color: any, customColor?: string) {
       return tauriInvoke(C.noteStackSetNoteColor, workspaceId, noteNodeId, color, customColor);
     },
-    setEngaged(nodeIds) {
+    setEngaged(nodeIds: string[]) {
       tauriInvoke(C.noteStackSetEngaged, nodeIds);
     }
   },
   band: {
-    create(workspaceId, nodeIds, name, defaultName, focusedNodeId) {
+    create(workspaceId: string, nodeIds: string[], name: string, defaultName: string, focusedNodeId?: string) {
       return tauriInvoke(C.bandCreate, workspaceId, nodeIds, name, defaultName, focusedNodeId);
     },
-    addTerminals(workspaceId, bandNodeId, memberNodeIds, focusedNodeId) {
+    addTerminals(workspaceId: string, bandNodeId: string, memberNodeIds: string[], focusedNodeId?: string) {
       return tauriInvoke(C.bandAddTerminals, workspaceId, bandNodeId, memberNodeIds, focusedNodeId);
     },
-    removeMember(workspaceId, bandNodeId, memberNodeId, origin) {
+    removeMember(workspaceId: string, bandNodeId: string, memberNodeId: string, origin: any) {
       return tauriInvoke(C.bandRemoveMember, workspaceId, bandNodeId, memberNodeId, origin);
     },
-    moveMemberBetween(workspaceId, fromBandNodeId, toBandNodeId, memberNodeId) {
+    moveMemberBetween(workspaceId: string, fromBandNodeId: string, toBandNodeId: string, memberNodeId: string) {
       return tauriInvoke(C.bandMoveMemberBetween, workspaceId, fromBandNodeId, toBandNodeId, memberNodeId);
     },
-    dissolve(workspaceId, bandNodeId) {
+    dissolve(workspaceId: string, bandNodeId: string) {
       return tauriInvoke(C.bandDissolve, workspaceId, bandNodeId);
     },
-    moveMember(workspaceId, bandNodeId, memberNodeId, move) {
+    moveMember(workspaceId: string, bandNodeId: string, memberNodeId: string, move: any) {
       return tauriInvoke(C.bandMoveMember, workspaceId, bandNodeId, memberNodeId, move);
     },
-    setOrder(workspaceId, bandNodeId, memberNodeIds) {
+    setOrder(workspaceId: string, bandNodeId: string, memberNodeIds: string[]) {
       return tauriInvoke(C.bandSetOrder, workspaceId, bandNodeId, memberNodeIds);
     },
-    select(workspaceId, bandNodeId, memberNodeId) {
+    select(workspaceId: string, bandNodeId: string, memberNodeId: string) {
       return tauriInvoke(C.bandSelect, workspaceId, bandNodeId, memberNodeId);
     },
-    update(workspaceId, bandNodeId, patch, recordsUndo) {
+    update(workspaceId: string, bandNodeId: string, patch: any, recordsUndo?: boolean) {
       return tauriInvoke(C.bandUpdate, workspaceId, bandNodeId, patch, recordsUndo);
     },
-    rename(workspaceId, bandNodeId, name) {
+    rename(workspaceId: string, bandNodeId: string, name: string) {
       return tauriInvoke(C.bandRename, workspaceId, bandNodeId, name);
     },
-    setSidebarWidth(workspaceId, bandNodeId, width) {
+    setSidebarWidth(workspaceId: string, bandNodeId: string, width: number) {
       return tauriInvoke(C.bandSetSidebarWidth, workspaceId, bandNodeId, width);
     },
-    addNewMember(workspaceId, bandNodeId, node) {
+    addNewMember(workspaceId: string, bandNodeId: string, node: any) {
       return tauriInvoke(C.bandAddNewMember, workspaceId, bandNodeId, node);
     },
-    onAsksInFlight(handler) {
+    onAsksInFlight(handler: (payload: any) => void) {
       return subscribe(C.bandAsksInFlight, handler);
     }
   },
   agent: {
-    assignRole(terminalId, roleId) {
+    assignRole(terminalId: string, roleId: string) {
       return tauriInvoke(C.agentAssignRole, terminalId, roleId);
     },
     listWslDistros() {
@@ -675,51 +652,51 @@ app: {
     locateLocalTmux() {
       return tauriInvoke(C.agentLocateLocalTmux);
     },
-    discoverRoles(input) {
+    discoverRoles(input: any) {
       return tauriInvoke(C.agentDiscoverRoles, input);
     },
-    validateWslDirectory(distro, path, user) {
+    validateWslDirectory(distro: string, path: string, user?: string) {
       return tauriInvoke(C.agentValidateWslDirectory, distro, path, user);
     },
-    directorySuggestions(workspaceId, connection, partialPath, limit) {
+    directorySuggestions(workspaceId: string, connection: any, partialPath: string, limit?: number) {
       return tauriInvoke(C.agentDirectorySuggestions, workspaceId, connection, partialPath, limit);
     },
-    listDockerContainers(workspaceId, context) {
+    listDockerContainers(workspaceId: string, context: any) {
       return tauriInvoke(C.agentListDockerContainers, workspaceId, context);
     },
-    testDockerConnection(workspaceId, config) {
+    testDockerConnection(workspaceId: string, config: any) {
       return tauriInvoke(C.agentTestDockerConnection, workspaceId, config);
     },
-    listSandboxes(workspaceId, workspacePath) {
+    listSandboxes(workspaceId: string, workspacePath: string) {
       return tauriInvoke(C.agentListSandboxes, workspaceId, workspacePath);
     },
-    listSandboxAgents(workspaceId) {
+    listSandboxAgents(workspaceId: string) {
       return tauriInvoke(C.agentListSandboxAgents, workspaceId);
     },
-    createSandbox(workspaceId, request) {
+    createSandbox(workspaceId: string, request: any) {
       return tauriInvoke(C.agentCreateSandbox, workspaceId, request);
     },
-    testSandboxConnection(workspaceId, config) {
+    testSandboxConnection(workspaceId: string, config: any) {
       return tauriInvoke(C.agentTestSandboxConnection, workspaceId, config);
     }
   },
   drawing: {
-    recognize(workspaceId, points) {
-      return invokeWithLicenseFailure(C.drawingRecognize, workspaceId, points);
+    recognize(workspaceId: string, points: any) {
+      return tauriInvoke(C.drawingRecognize, workspaceId, points);
     },
-    create(workspaceId, drawing) {
+    create(workspaceId: string, drawing: any) {
       return tauriInvoke(C.drawingCreate, workspaceId, drawing);
     },
-    patch(workspaceId, drawingId, patch) {
+    patch(workspaceId: string, drawingId: string, patch: any) {
       return tauriInvoke(C.drawingPatch, workspaceId, drawingId, patch);
     },
-    delete(workspaceId, drawingId) {
+    delete(workspaceId: string, drawingId: string) {
       return tauriInvoke(C.drawingDelete, workspaceId, drawingId);
     },
-    group(workspaceId, drawingIds) {
+    group(workspaceId: string, drawingIds: string[]) {
       return tauriInvoke(C.drawingGroup, workspaceId, drawingIds);
     },
-    ungroup(workspaceId, drawingIds) {
+    ungroup(workspaceId: string, drawingIds: string[]) {
       return tauriInvoke(C.drawingUngroup, workspaceId, drawingIds);
     }
   },
@@ -730,136 +707,136 @@ app: {
     getAgentLimits() {
       return tauriInvoke('mindagentics:terminal:getAgentLimits');
     },
-    getAgentModels(presetId) {
+    getAgentModels(presetId: string) {
       return tauriInvoke('mindagentics:terminal:getAgentModels', presetId);
     },
-    setOrchestratorMode(terminalId, orchestratorMode) {
+    setOrchestratorMode(terminalId: string, orchestratorMode: boolean) {
       return tauriInvoke('mindagentics:terminal:setOrchestratorMode', terminalId, orchestratorMode);
     },
-    setMaestroMode(terminalId, maestroMode) {
+    setMaestroMode(terminalId: string, maestroMode: boolean) {
       return tauriInvoke('mindagentics:terminal:setMaestroMode', terminalId, maestroMode);
     },
-    spawn(input) {
+    spawn(input: any) {
       return tauriInvoke(C.terminalSpawn, input);
     },
-    write(terminalId, data) {
+    write(terminalId: string, data: string | Uint8Array) {
       tauriInvoke(C.terminalWrite, terminalId, data);
       return Promise.resolve();
     },
-    deliverPrompt(terminalId, text) {
+    deliverPrompt(terminalId: string, text: string) {
       return tauriInvoke(C.terminalDeliverPrompt, terminalId, text);
     },
-    dims(terminalId) {
+    dims(terminalId: string) {
       return tauriInvoke(C.terminalDims, terminalId);
     },
-    resize(terminalId, cols, rows, options) {
+    resize(terminalId: string, cols: number, rows: number, options?: any) {
       return tauriInvoke(C.terminalResize, terminalId, cols, rows, options);
     },
-    resolvePath(query) {
+    resolvePath(query: string) {
       return tauriInvoke(C.terminalResolvePath, query);
     },
-    kill(terminalId) {
+    kill(terminalId: string) {
       return tauriInvoke(C.terminalKill, terminalId);
     },
-    restart(terminalId) {
+    restart(terminalId: string) {
       return tauriInvoke(C.terminalRestart, terminalId);
     },
     reconfigure(arg1: any, arg2?: any) {
       return tauriInvoke(C.terminalReconfigure, arg1, arg2);
     },
-    attach(terminalId) {
+    attach(terminalId: string) {
       return tauriInvoke(C.terminalAttach, terminalId);
     },
-    getScrollback(terminalId) {
+    getScrollback(terminalId: string) {
       return tauriInvoke(C.terminalGetScrollback, terminalId);
     },
-    markSeen(terminalId) {
+    markSeen(terminalId: string) {
       tauriInvoke(C.terminalMarkSeen, terminalId);
     },
-    discardResume(workspaceId, nodeId) {
+    discardResume(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.terminalDiscardResume, workspaceId, nodeId);
     },
-    setFocused(terminalId) {
+    setFocused(terminalId: string) {
       tauriInvoke(C.terminalSetFocused, terminalId);
     },
-    onData(handler) {
+    onData(handler: (terminalId: string, data: string | Uint8Array) => void) {
       return subscribe(C.terminalOnData, handler);
     },
-    onExit(handler) {
+    onExit(handler: (terminalId: string, code: number) => void) {
       return subscribe(C.terminalOnExit, handler);
     },
-    onStatus(handler) {
+    onStatus(handler: (terminalId: string, status: any) => void) {
       return subscribe(C.terminalOnStatus, handler);
     },
-    onActivity(handler) {
+    onActivity(handler: (terminalId: string, activity: any) => void) {
       return subscribe(C.terminalActivity, handler);
     },
     memory() {
       return tauriInvoke(C.terminalMemory);
     },
-    onMemory(handler) {
+    onMemory(handler: (payload: any) => void) {
       return subscribe(C.terminalOnMemory, handler);
     },
-    processList(terminalId) {
+    processList(terminalId: string) {
       return tauriInvoke(C.terminalProcessList, terminalId);
     },
-    stopProcess(terminalId, pid, startTime) {
+    stopProcess(terminalId: string, pid: number, startTime?: number) {
       return tauriInvoke(C.terminalProcessStop, terminalId, pid, startTime);
     },
-    tmuxSession(terminalId) {
+    tmuxSession(terminalId: string) {
       return tauriInvoke(C.terminalTmuxSession, terminalId);
     },
-    endTmuxSession(terminalId) {
+    endTmuxSession(terminalId: string) {
       return tauriInvoke(C.terminalEndTmuxSession, terminalId);
     },
-    remoteSessionProcesses(terminalId) {
+    remoteSessionProcesses(terminalId: string) {
       return tauriInvoke(C.terminalRemoteSessionProcesses, terminalId);
     },
-    stopRemoteSessionProcess(terminalId, pid) {
+    stopRemoteSessionProcess(terminalId: string, pid: number) {
       return tauriInvoke(C.terminalStopRemoteSessionProcess, terminalId, pid);
     },
     roleInstallFailures() {
       return tauriInvoke(C.terminalRoleInstallFailures);
     },
-    onRoleInstallFailures(handler) {
+    onRoleInstallFailures(handler: (payload: any) => void) {
       return subscribe(C.terminalOnRoleInstallFailures, handler);
     },
-    onFocusRequested(handler) {
+    onFocusRequested(handler: (payload: any) => void) {
       return subscribe(C.terminalFocusRequested, handler);
     },
-    onGeometryPinned(handler) {
+    onGeometryPinned(handler: (payload: any) => void) {
       return subscribe(C.terminalOnGeometryPinned, handler);
     },
-    publishLiveColors(terminals) {
+    publishLiveColors(terminals: any) {
       return tauriInvoke(C.terminalPublishLiveColors, terminals);
     }
   },
   note: {
-    read(workspaceId, nodeId) {
+    read(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.noteRead, workspaceId, nodeId);
     },
-    write(workspaceId, nodeId, text) {
+    write(workspaceId: string, nodeId: string, text: string) {
       return tauriInvoke(C.noteWrite, workspaceId, nodeId, text);
     },
-    edit(workspaceId, nodeId, oldText, newText) {
+    edit(workspaceId: string, nodeId: string, oldText: string, newText: string) {
       return tauriInvoke(C.noteEdit, workspaceId, nodeId, oldText, newText);
     },
-    rename(workspaceId, nodeId, newFileName) {
+    rename(workspaceId: string, nodeId: string, newFileName: string) {
       return tauriInvoke(C.noteRename, workspaceId, nodeId, newFileName);
     },
-    reveal(workspaceId, nodeId) {
+    reveal(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.noteReveal, workspaceId, nodeId);
     },
-    moveToExternal(workspaceId, nodeId) {
+    moveToExternal(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.noteMoveToExternal, workspaceId, nodeId);
     },
-    moveToManaged(workspaceId, nodeId) {
+    moveToManaged(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.noteMoveToManaged, workspaceId, nodeId);
     },
-    createFromFile(workspaceId, node, sourcePath) {
+    createFromFile(workspaceId: string, node: any, sourcePath: string) {
       return tauriInvoke(C.noteCreateFromFile, workspaceId, node, sourcePath);
     },
-    createFromRemoteFile(workspaceId, node, connection, path, floorId) {
+    createFromRemoteFile(workspaceId: string, node: any, connection: any, path: string, floorId?: string) {
       return tauriInvoke(
         C.noteCreateFromRemoteFile,
         workspaceId,
@@ -869,126 +846,126 @@ app: {
         floorId
       );
     },
-    refreshFromRemoteFile(workspaceId, nodeId) {
+    refreshFromRemoteFile(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.noteRefreshFromRemoteFile, workspaceId, nodeId);
     },
-    onChange(handler) {
+    onChange(handler: (payload: any) => void) {
       return subscribe(C.noteOnChange, handler);
     },
-    attachImage(workspaceId, image) {
+    attachImage(workspaceId: string, image: { dataBase64: string; ext: string }) {
       return tauriInvoke(C.noteAttachImage, workspaceId, image.dataBase64, image.ext);
     },
-    notesDir(workspaceId) {
+    notesDir(workspaceId: string) {
       return tauriInvoke(C.noteNotesDir, workspaceId);
     },
-    mediaDir(workspaceId) {
+    mediaDir(workspaceId: string) {
       return tauriInvoke(C.noteMediaDir, workspaceId);
     }
   },
   fileTree: {
-    list(nodeId, directoryPath) {
+    list(nodeId: string, directoryPath: string) {
       return tauriInvoke(C.fileTreeList, nodeId, directoryPath);
     },
-    watch(nodeId, directoryPath) {
+    watch(nodeId: string, directoryPath: string) {
       return tauriInvoke(C.fileTreeWatch, nodeId, directoryPath);
     },
-    unwatch(nodeId) {
+    unwatch(nodeId: string) {
       return tauriInvoke(C.fileTreeUnwatch, nodeId);
     },
-    attachCheckout(path) {
+    attachCheckout(path: string) {
       return tauriInvoke(C.fileTreeAttachCheckout, path);
     },
-    onDidChange(handler) {
+    onDidChange(handler: (payload: any) => void) {
       return subscribe(C.fileTreeOnDidChange, handler);
     },
-    reveal(nodeId) {
+    reveal(nodeId: string) {
       return tauriInvoke(C.fileTreeReveal, nodeId);
     },
-    gitState(nodeId) {
+    gitState(nodeId: string) {
       return tauriInvoke(C.fileTreeGitState, nodeId);
     },
-    gitAction(nodeId, action) {
+    gitAction(nodeId: string, action: any) {
       return tauriInvoke(C.fileTreeGitAction, nodeId, action);
     },
-    gitChanges(nodeId) {
+    gitChanges(nodeId: string) {
       return tauriInvoke(C.fileTreeGitChanges, nodeId);
     },
-    gitCancel(nodeId) {
+    gitCancel(nodeId: string) {
       return tauriInvoke(C.fileTreeGitCancel, nodeId);
     },
-    gitIndexLock(nodeId) {
+    gitIndexLock(nodeId: string) {
       return tauriInvoke(C.fileTreeGitIndexLock, nodeId);
     },
-    searchContents(nodeId, query, showHidden) {
+    searchContents(nodeId: string, query: string, showHidden?: boolean) {
       return tauriInvoke(C.fileTreeSearchContents, nodeId, query, showHidden);
     },
-    searchFilenames(nodeId) {
+    searchFilenames(nodeId: string) {
       return tauriInvoke(C.fileTreeSearchFilenames, nodeId);
     },
-    cancelSearch(nodeId) {
+    cancelSearch(nodeId: string) {
       return tauriInvoke(C.fileTreeCancelSearch, nodeId);
     },
-    onSearchResults(handler) {
+    onSearchResults(handler: (payload: any) => void) {
       return subscribe(C.fileTreeOnSearchResults, handler);
     },
-    gitDiffFiles(nodeId, scope) {
+    gitDiffFiles(nodeId: string, scope: any) {
       return tauriInvoke(C.fileTreeGitDiffFiles, nodeId, scope);
     },
-    gitFileDiff(nodeId, scope, path, oldPath) {
+    gitFileDiff(nodeId: string, scope: any, path: string, oldPath?: string | null) {
       return tauriInvoke(C.fileTreeGitFileDiff, nodeId, scope, path, oldPath ?? null);
     },
-    gitHistory(nodeId, limit) {
+    gitHistory(nodeId: string, limit?: number) {
       return tauriInvoke(C.fileTreeGitHistory, nodeId, limit);
     },
-    gitCommitBody(nodeId, hash) {
+    gitCommitBody(nodeId: string, hash: string) {
       return tauriInvoke(C.fileTreeGitCommitBody, nodeId, hash);
     },
-    gitBranches(nodeId) {
+    gitBranches(nodeId: string) {
       return tauriInvoke(C.fileTreeGitBranches, nodeId);
     },
-    gitStashes(nodeId) {
+    gitStashes(nodeId: string) {
       return tauriInvoke(C.fileTreeGitStashes, nodeId);
     },
-    gitMergePreview(nodeId, source, target) {
+    gitMergePreview(nodeId: string, source: string, target: string) {
       return tauriInvoke(C.fileTreeGitMergePreview, nodeId, source, target);
     },
-    readFile(nodeId, path) {
+    readFile(nodeId: string, path: string) {
       return tauriInvoke(C.fileTreeReadFile, nodeId, path);
     },
-    writeFile(nodeId, path, text) {
+    writeFile(nodeId: string, path: string, text: string) {
       return tauriInvoke(C.fileTreeWriteFile, nodeId, path, text);
     },
-    probeMedia(nodeId, path) {
+    probeMedia(nodeId: string, path: string) {
       return tauriInvoke(C.fileTreeProbeMedia, nodeId, path);
     },
-    onFileChanged(handler) {
+    onFileChanged(handler: (payload: any) => void) {
       return subscribe(C.fileTreeOnFileChanged, handler);
     },
-    copyPath(nodeId, path) {
+    copyPath(nodeId: string, path: string) {
       return tauriInvoke(C.fileTreeCopyPath, nodeId, path);
     },
-    revealFile(nodeId, path) {
+    revealFile(nodeId: string, path: string) {
       return tauriInvoke(C.fileTreeRevealFile, nodeId, path);
     },
-    onGitActionProgress(handler) {
+    onGitActionProgress(handler: (payload: any) => void) {
       return subscribe(C.fileTreeOnGitActionProgress, handler);
     },
-    onGitState(handler) {
+    onGitState(handler: (payload: any) => void) {
       return subscribe(C.fileTreeOnGitState, handler);
     },
-    watchState(nodeId) {
+    watchState(nodeId: string) {
       return tauriInvoke(C.fileTreeWatchState, nodeId);
     },
-    retryWatch(nodeId) {
+    retryWatch(nodeId: string) {
       return tauriInvoke(C.fileTreeRetryWatch, nodeId);
     },
-    onWatchState(handler) {
+    onWatchState(handler: (payload: any) => void) {
       return subscribe(
         C.fileTreeOnWatchState,
         handler
       );
     },
-    fileOperation(nodeId, operation) {
+    fileOperation(nodeId: string, operation: any) {
       return tauriInvoke(C.fileTreeFileOperation, nodeId, operation);
     },
     fileClipboard() {
@@ -996,25 +973,25 @@ app: {
     }
   },
   files: {
-    storeAttachment(workspaceId, input) {
+    storeAttachment(workspaceId: string, input: any) {
       return tauriInvoke(C.filesStoreAttachment, workspaceId, input);
     },
-    openAttachment(workspaceId, nodeId) {
+    openAttachment(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.filesOpenAttachment, workspaceId, nodeId);
     },
-    revealAttachment(workspaceId, nodeId) {
+    revealAttachment(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.filesRevealAttachment, workspaceId, nodeId);
     },
-    revealPath(path) {
+    revealPath(path: string) {
       return tauriInvoke(C.filesRevealPath, path);
     },
-    linkPaths(paths) {
+    linkPaths(paths: string[]) {
       return tauriInvoke(C.filesLinkPaths, paths);
     },
-    resolveLocalPath(path, bases) {
+    resolveLocalPath(path: string, bases?: string[]) {
       return tauriInvoke(C.filesResolveLocalPath, path, bases);
     },
-    stagePastedImage(dataBase64, ext) {
+    stagePastedImage(dataBase64: string, ext: string) {
       return tauriInvoke(C.filesStagePastedImage, dataBase64, ext);
     },
     clipboardFilePaths() {
@@ -1022,14 +999,14 @@ app: {
     }
   },
   clipboard: {
-    // Plain `invoke`, not the licence-failure wrapper: this answers a boolean,
-    // and a copy the user just clicked must not reject mid-gesture.
-    writeImage(png) {
+    // Plain `invoke`: this answers a boolean, and a copy the user just clicked
+    // must not reject mid-gesture.
+    writeImage(png: any) {
       return tauriInvoke(C.clipboardWriteImage, png);
     }
   },
   connection: {
-    createTerminalConnection(workspaceId, terminalIdA, terminalIdB, fromWorkspaceId) {
+    createTerminalConnection(workspaceId: string, terminalIdA: string, terminalIdB: string, fromWorkspaceId?: string) {
       return tauriInvoke(
         C.connectionCreateTerminal,
         workspaceId,
@@ -1038,13 +1015,13 @@ app: {
         fromWorkspaceId
       );
     },
-    createNoteConnection(workspaceId, terminalId, noteNodeId) {
+    createNoteConnection(workspaceId: string, terminalId: string, noteNodeId: string) {
       return tauriInvoke(C.connectionCreateNote, workspaceId, terminalId, noteNodeId);
     },
-    turnFileIntoNote(workspaceId, sourceNodeId, fileNodeId) {
+    turnFileIntoNote(workspaceId: string, sourceNodeId: string, fileNodeId: string) {
       return tauriInvoke(C.connectionTurnFileIntoNote, workspaceId, sourceNodeId, fileNodeId);
     },
-    createNoteToNoteConnection(workspaceId, noteNodeIdA, noteNodeIdB) {
+    createNoteToNoteConnection(workspaceId: string, noteNodeIdA: string, noteNodeIdB: string) {
       return tauriInvoke(
         C.connectionCreateNoteToNote,
         workspaceId,
@@ -1052,10 +1029,10 @@ app: {
         noteNodeIdB
       );
     },
-    createPortalConnection(workspaceId, terminalId, portalNodeId) {
+    createPortalConnection(workspaceId: string, terminalId: string, portalNodeId: string) {
       return tauriInvoke(C.connectionCreatePortal, workspaceId, terminalId, portalNodeId);
     },
-    createPortalToPortalConnection(workspaceId, portalNodeIdA, portalNodeIdB) {
+    createPortalToPortalConnection(workspaceId: string, portalNodeIdA: string, portalNodeIdB: string) {
       return tauriInvoke(
         C.connectionCreatePortalToPortal,
         workspaceId,
@@ -1063,7 +1040,7 @@ app: {
         portalNodeIdB
       );
     },
-    createCrossFloorConnection(workspaceId, sourceTerminalId, targetTerminalId) {
+    createCrossFloorConnection(workspaceId: string, sourceTerminalId: string, targetTerminalId: string) {
       return tauriInvoke(
         C.connectionCreateCrossFloor,
         workspaceId,
@@ -1071,68 +1048,68 @@ app: {
         targetTerminalId
       );
     },
-    connectNodes(workspaceId, fromNodeId, toNodeId, fromWorkspaceId) {
+    connectNodes(workspaceId: string, fromNodeId: string, toNodeId: string, fromWorkspaceId?: string) {
       return tauriInvoke(C.connectionConnectNodes, workspaceId, fromNodeId, toNodeId, fromWorkspaceId);
     },
-    updateRopePoints(workspaceId, connectionId, ropePoints) {
+    updateRopePoints(workspaceId: string, connectionId: string, ropePoints: any) {
       return tauriInvoke(C.connectionUpdateRopePoints, workspaceId, connectionId, ropePoints);
     },
-    updateRopePointsMany(workspaceId, snapshot) {
+    updateRopePointsMany(workspaceId: string, snapshot: any) {
       return tauriInvoke(C.connectionUpdateRopePointsMany, workspaceId, snapshot);
     },
-    delete(workspaceId, connectionId) {
+    delete(workspaceId: string, connectionId: string) {
       return tauriInvoke(C.connectionDelete, workspaceId, connectionId);
     },
-    deleteMany(workspaceId, connectionIds) {
+    deleteMany(workspaceId: string, connectionIds: string[]) {
       return tauriInvoke(C.connectionDeleteMany, workspaceId, connectionIds);
     },
-    disconnectNodes(workspaceId, fromNodeId, toNodeId) {
+    disconnectNodes(workspaceId: string, fromNodeId: string, toNodeId: string) {
       return tauriInvoke(C.connectionDisconnectNodes, workspaceId, fromNodeId, toNodeId);
     },
-    removeAllFor(workspaceId, nodeId) {
+    removeAllFor(workspaceId: string, nodeId: string) {
       return tauriInvoke(C.connectionRemoveAllFor, workspaceId, nodeId);
     },
-    onTransferActive(handler) {
+    onTransferActive(handler: (payload: any) => void) {
       return subscribe(C.connectionTransferActive, handler);
     }
   },
   cableTie: {
-    create(workspaceId, tie) {
+    create(workspaceId: string, tie: any) {
       return tauriInvoke(C.cableTieCreate, workspaceId, tie);
     },
-    move(workspaceId, tieId, position) {
+    move(workspaceId: string, tieId: string, position: any) {
       return tauriInvoke(C.cableTieMove, workspaceId, tieId, position);
     },
-    delete(workspaceId, tieId) {
+    delete(workspaceId: string, tieId: string) {
       return tauriInvoke(C.cableTieDelete, workspaceId, tieId);
     },
-    prune(workspaceId) {
+    prune(workspaceId: string) {
       return tauriInvoke(C.cableTiePrune, workspaceId);
     }
   },
   portal: {
-    register(portalId, webContentsId) {
+    register(portalId: string, webContentsId: number) {
       return tauriInvoke(C.portalRegister, portalId, webContentsId);
     },
-    unregister(portalId) {
+    unregister(portalId: string) {
       return tauriInvoke(C.portalUnregister, portalId);
     },
-    resolveSource(path) {
+    resolveSource(path: string) {
       return tauriInvoke(C.portalResolveSource, path);
     },
-    directoryIndex(directory) {
+    directoryIndex(directory: string) {
       return tauriInvoke(C.portalDirectoryIndex, directory);
     },
-    watchFile(portalId, file) {
+    watchFile(portalId: string, file: string) {
       return tauriInvoke(C.portalWatchFile, portalId, file);
     },
-    unwatchFile(portalId) {
+    unwatchFile(portalId: string) {
       return tauriInvoke(C.portalUnwatchFile, portalId);
     },
-    onFileChanged(handler) {
+    onFileChanged(handler: (payload: any) => void) {
       return subscribe(C.portalFileChanged, handler);
     },
-    onWakeRequested(handler) {
+    onWakeRequested(handler: (payload: any) => void) {
       return subscribe(C.portalWake, handler);
     }
   },
@@ -1141,97 +1118,97 @@ app: {
     view() {
       return tauriInvoke(C.accountsView);
     },
-    add(name, cli, connection, host) {
+    add(name: string, cli: string, connection: any, host?: string) {
       return tauriInvoke(C.accountsAdd, name, cli, connection, host);
     },
-    addApiKey(name, cli, key, endpoint, connection) {
+    addApiKey(name: string, cli: string, key: string, endpoint: string, connection: any) {
       return tauriInvoke(C.accountsAddApiKey, name, cli, key, endpoint, connection);
     },
-    replaceKey(accountId, key) {
+    replaceKey(accountId: string, key: string) {
       return tauriInvoke(C.accountsReplaceKey, accountId, key);
     },
-    setEndpoint(accountId, endpoint) {
+    setEndpoint(accountId: string, endpoint: string) {
       return tauriInvoke(C.accountsSetEndpoint, accountId, endpoint);
     },
-    signOut(accountId) {
+    signOut(accountId: string) {
       return tauriInvoke(C.accountsSignOut, accountId);
     },
-    rename(accountId, cli, name) {
+    rename(accountId: string, cli: string, name: string) {
       return tauriInvoke(C.accountsRename, accountId, cli, name);
     },
-    remove(accountId) {
+    remove(accountId: string) {
       return tauriInvoke(C.accountsRemove, accountId);
     },
-    moveTerminalsToDefault(accountId) {
+    moveTerminalsToDefault(accountId: string) {
       return tauriInvoke(C.accountsMoveToDefault, accountId);
     },
-    watchSignIn(accountId, terminalId) {
+    watchSignIn(accountId: string, terminalId: string) {
       return tauriInvoke(C.accountsWatchSignIn, accountId, terminalId);
     },
-    watchSignOut(accountId, terminalId) {
+    watchSignOut(accountId: string, terminalId: string) {
       return tauriInvoke(C.accountsWatchSignOut, accountId, terminalId);
     },
     refresh() {
       return tauriInvoke(C.accountsRefresh);
     },
-    refreshPlace(connection) {
+    refreshPlace(connection: any) {
       return tauriInvoke(C.accountsRefreshPlace, connection);
     },
     signOutAll() {
       return tauriInvoke(C.accountsSignOutAll);
     },
-    keepsSessionAlive(terminalId) {
+    keepsSessionAlive(terminalId: string) {
       return tauriInvoke(C.accountsKeepsSessionAlive, terminalId);
     },
-    setTerminalAccount(workspaceId, terminalId, accountId, restartNow) {
+    setTerminalAccount(workspaceId: string, terminalId: string, accountId: string, restartNow?: boolean) {
       return tauriInvoke(C.accountsSetTerminal, workspaceId, terminalId, accountId, restartNow);
     },
-    describe(request) {
+    describe(request: any) {
       return tauriInvoke(C.accountsDescribe, request);
     },
-    onChanged(handler) {
+    onChanged(handler: (payload: any) => void) {
       return subscribe(C.accountsOnChanged, handler);
     },
-    onSignedIn(handler) {
+    onSignedIn(handler: (payload: any) => void) {
       return subscribe(C.accountsOnSignedIn, handler);
     },
     providers() {
       return tauriInvoke(C.accountsProviders);
     },
-    setProvidersViewer(viewerId, isShowing) {
+    setProvidersViewer(viewerId: string, isShowing: boolean) {
       tauriInvoke(C.accountsSetProvidersViewer, viewerId, isShowing);
     },
-    onProvidersChanged(handler) {
+    onProvidersChanged(handler: (payload: any) => void) {
       return subscribe(C.accountsOnProvidersChanged, handler);
     },
-    approveProvider(providerId, digest) {
+    approveProvider(providerId: string, digest: string) {
       return tauriInvoke(C.accountsApproveProvider, providerId, digest);
     },
     restoreBuiltInProviders() {
       return tauriInvoke(C.accountsRestoreBuiltInProviders);
     },
-    restoreProvider(providerId, expectedDigest) {
+    restoreProvider(providerId: string, expectedDigest: string) {
       return tauriInvoke(C.accountsRestoreProvider, providerId, expectedDigest);
     },
     revealProvidersFolder() {
       return tauriInvoke(C.accountsRevealProvidersFolder);
     },
-    revealProviderFile(providerId) {
+    revealProviderFile(providerId: string) {
       return tauriInvoke(C.accountsRevealProviderFile, providerId);
     }
   },
-  // Portal Design. Plain `invoke` on all four, never invokeWithLicenseFailure:
-  // this surface answers null for every unhappy path — dead daemon, hidden
-  // guest, malformed reply, license denial — and the renderer degrades to the
-  // plain padded crop rather than handling a rejection mid-gesture.
+  // Portal Design. Plain `invoke` on all four: this surface answers null for
+  // every unhappy path — dead daemon, hidden guest, malformed reply — and the
+  // renderer degrades to the plain padded crop rather than handling a rejection
+  // mid-gesture.
   portalDesign: {
-    capture(portalId) {
+    capture(portalId: string) {
       return tauriInvoke(C.portalDesignCapture, portalId);
     },
-    resolveScript(workspaceId, stroke, imageSize) {
+    resolveScript(workspaceId: string, stroke: any, imageSize: any) {
       return tauriInvoke(C.portalDesignResolveScript, workspaceId, stroke, imageSize);
     },
-    region(workspaceId, strokeBounds, candidates, displaySize) {
+    region(workspaceId: string, strokeBounds: any, candidates: any, displaySize: any) {
       return tauriInvoke(
         C.portalDesignRegion,
         workspaceId,
@@ -1240,32 +1217,32 @@ app: {
         displaySize
       );
     },
-    pick(workspaceId, point, candidates) {
+    pick(workspaceId: string, point: any, candidates: any) {
       return tauriInvoke(C.portalDesignPick, workspaceId, point, candidates);
     }
   },
   device: {
-    contract(workspaceId) {
+    contract(workspaceId: string) {
       return tauriInvoke(C.deviceContract, workspaceId);
     },
-    discover(workspaceId) {
+    discover(workspaceId: string) {
       return tauriInvoke(C.deviceDiscover, workspaceId);
     },
-    automation(request) {
+    automation(request: any) {
       return tauriInvoke(C.deviceAutomation, request);
     },
-    onFrameCaptureRequested(handler) {
+    onFrameCaptureRequested(handler: (payload: any) => void) {
       return subscribe(C.deviceFrameCaptureRequest, handler);
     },
-    completeFrameCapture(requestId, result) {
+    completeFrameCapture(requestId: string, result: any) {
       return tauriInvoke(C.deviceFrameCaptureResult, requestId, result);
     },
-    publishSessions(sessions) {
+    publishSessions(sessions: any) {
       return tauriInvoke(C.deviceSessionsPublish, sessions);
     }
   },
   interAgent: {
-    listPeers(terminalId) {
+    listPeers(terminalId: string) {
       return tauriInvoke(C.interAgentListPeers, terminalId);
     }
   },
@@ -1273,10 +1250,10 @@ app: {
     get() {
       return tauriInvoke(C.sidebarLayoutGet);
     },
-    set(layout) {
+    set(layout: any) {
       return tauriInvoke(C.sidebarLayoutSet, layout);
     },
-    onChanged(handler) {
+    onChanged(handler: (payload: any) => void) {
       return subscribe(C.sidebarLayoutOnChanged, handler);
     }
   },
@@ -1311,7 +1288,7 @@ app: {
     backupNow() {
       return tauriInvoke(C.dataBackupNow);
     },
-    deleteBackup(path) {
+    deleteBackup(path: string) {
       return tauriInvoke(C.dataDeleteBackup, path);
     },
     exportBackup() {
@@ -1320,41 +1297,41 @@ app: {
     pickBackupToImport() {
       return tauriInvoke(C.dataPickBackupToImport);
     },
-    importBackup(path, kind) {
+    importBackup(path: string, kind: any) {
       return tauriInvoke(C.dataImportBackup, path, kind);
     },
     clearGlobalPortalStorage() {
       return tauriInvoke(C.dataClearGlobalPortalStorage);
     },
-    onStoreReloaded(handler) {
+    onStoreReloaded(handler: (payload: any) => void) {
       return subscribe(C.dataOnStoreReloaded, handler);
     }
   },
   palette: {
-    rank(workspaceId, query, candidates) {
+    rank(workspaceId: string, query: string, candidates: any[]) {
       return tauriInvoke(C.paletteRank, workspaceId, query, candidates);
     }
   },
   prompter: {
-    serialize(workspaceId, segments) {
+    serialize(workspaceId: string, segments: any[]) {
       return tauriInvoke(C.prompterSerialize, workspaceId, segments);
     },
-    deliver(terminalId, prompt, segments) {
+    deliver(terminalId: string, prompt: string, segments: any[]) {
       return tauriInvoke(C.prompterDeliver, terminalId, prompt, segments);
     },
-    materialize(terminalId, prompt, segments, files) {
+    materialize(terminalId: string, prompt: string, segments: any[], files: any[]) {
       return tauriInvoke(C.prompterMaterialize, terminalId, prompt, segments, files);
     },
-    mentionTargets(terminalId) {
+    mentionTargets(terminalId: string) {
       return tauriInvoke(C.prompterMentionTargets, terminalId);
     },
-    fileIndex(terminalId) {
+    fileIndex(terminalId: string) {
       return tauriInvoke(C.prompterFileIndex, terminalId);
     },
-    cancelFileIndex(terminalId) {
+    cancelFileIndex(terminalId: string) {
       return tauriInvoke(C.prompterCancelFileIndex, terminalId);
     },
-    fileIcon(path) {
+    fileIcon(path: string) {
       return tauriInvoke(C.prompterFileIcon, path);
     }
   },
@@ -1362,22 +1339,22 @@ app: {
     getState() {
       return tauriInvoke(C.agentUsageGetState);
     },
-    refresh(providerID) {
+    refresh(providerID: string) {
       return tauriInvoke(C.agentUsageRefresh, providerID);
     },
     refreshAll() {
       return tauriInvoke(C.agentUsageRefreshAll);
     },
-    restoreDefaults(targets) {
+    restoreDefaults(targets: any) {
       return tauriInvoke(C.agentUsageRestoreDefaults, targets);
     },
     revealProvidersFolder() {
       return tauriInvoke(C.agentUsageRevealProvidersFolder);
     },
-    setViewer(viewerId, isShowing) {
+    setViewer(viewerId: string, isShowing: boolean) {
       tauriInvoke(C.agentUsageSetViewer, viewerId, isShowing);
     },
-    onStateChanged(listener) {
+    onStateChanged(listener: (payload: any) => void) {
       return subscribe(C.agentUsageOnStateChanged, listener);
     }
   },
@@ -1385,13 +1362,13 @@ app: {
     configure() {
       return tauriInvoke(C.gitHostsConfigure);
     },
-    restoreDefault(id, expectedDigest) {
+    restoreDefault(id: string, expectedDigest: string) {
       return tauriInvoke(C.gitHostsRestoreDefault, id, expectedDigest);
     },
     restoreMissingDefaults() {
       return tauriInvoke(C.gitHostsRestoreMissingDefaults);
     },
-    checkAccount(providerId) {
+    checkAccount(providerId: string) {
       return tauriInvoke(C.gitHostsCheckAccount, providerId);
     },
     revealProvidersFolder() {
@@ -1399,193 +1376,170 @@ app: {
     }
   },
   pullRequests: {
-    imagePrefix: (workspaceId, floorId) => tauriInvoke(C.pullRequestsImagePrefix, workspaceId, floorId),
-    keepImage: (workspaceId, floorId, dataBase64, format) => tauriInvoke(C.pullRequestsKeepImage, workspaceId, floorId, dataBase64, format),
-    imagesExist: (workspaceId, floorId) => tauriInvoke(C.pullRequestsImagesExist, workspaceId, floorId),
-    showImages: (workspaceId, floorId) => tauriInvoke(C.pullRequestsShowImages, workspaceId, floorId),
-    closeImages: (workspaceId, floorId) => tauriInvoke(C.pullRequestsCloseImages, workspaceId, floorId),
-    imagesDismissed: (workspaceId, floorId, recordId) => tauriInvoke(C.pullRequestsImagesDismissed, workspaceId, floorId, recordId),
+    imagePrefix: (workspaceId: string, floorId: string) => tauriInvoke(C.pullRequestsImagePrefix, workspaceId, floorId),
+    keepImage: (workspaceId: string, floorId: string, dataBase64: string, format: string) => tauriInvoke(C.pullRequestsKeepImage, workspaceId, floorId, dataBase64, format),
+    imagesExist: (workspaceId: string, floorId: string) => tauriInvoke(C.pullRequestsImagesExist, workspaceId, floorId),
+    showImages: (workspaceId: string, floorId: string) => tauriInvoke(C.pullRequestsShowImages, workspaceId, floorId),
+    closeImages: (workspaceId: string, floorId: string) => tauriInvoke(C.pullRequestsCloseImages, workspaceId, floorId),
+    imagesDismissed: (workspaceId: string, floorId: string, recordId: string) => tauriInvoke(C.pullRequestsImagesDismissed, workspaceId, floorId, recordId),
     getState() {
       return tauriInvoke(C.pullRequestsGetState);
     },
-    onStateChanged(listener) {
+    onStateChanged(listener: (payload: any) => void) {
       return subscribe(C.pullRequestsOnStateChanged, listener);
     },
-    onOpenSheet(listener) {
+    onOpenSheet(listener: (payload: any) => void) {
       return subscribe(C.pullRequestsOnOpenSheet, listener);
     },
-    setPresented(floor) {
+    setPresented(floor: any) {
       tauriInvoke(C.pullRequestsSetPresented, floor);
     },
-    prepare(workspaceId, floorId, base) {
+    prepare(workspaceId: string, floorId: string, base?: string) {
       return tauriInvoke(C.pullRequestsPrepare, workspaceId, floorId, base);
     },
-    account(workspaceId, floorId, base) {
+    account(workspaceId: string, floorId: string, base?: string) {
       return tauriInvoke(C.pullRequestsAccount, workspaceId, floorId, base);
     },
-    checkoutIsRemote(workspaceId, floorId) {
+    checkoutIsRemote(workspaceId: string, floorId: string) {
       return tauriInvoke(C.pullRequestsCheckoutIsRemote, workspaceId, floorId);
     },
-    lookForExisting(workspaceId, floorId) {
+    lookForExisting(workspaceId: string, floorId: string) {
       return tauriInvoke(C.pullRequestsLookForExisting, workspaceId, floorId);
     },
-    open(workspaceId, floorId, request) {
+    open(workspaceId: string, floorId: string, request: any) {
       return tauriInvoke(C.pullRequestsOpen, workspaceId, floorId, request);
     },
-    openOnWebsite(workspaceId, floorId, request) {
+    openOnWebsite(workspaceId: string, floorId: string, request: any) {
       return tauriInvoke(C.pullRequestsOpenOnWebsite, workspaceId, floorId, request);
     },
-    check(workspaceId, floorId) {
+    check(workspaceId: string, floorId: string) {
       return tauriInvoke(C.pullRequestsCheck, workspaceId, floorId);
     },
-    markSeen(workspaceId, floorId) {
+    markSeen(workspaceId: string, floorId: string) {
       return tauriInvoke(C.pullRequestsMarkSeen, workspaceId, floorId);
     },
-    push(workspaceId, floorId, recordId) {
+    push(workspaceId: string, floorId: string, recordId: string) {
       return tauriInvoke(C.pullRequestsPush, workspaceId, floorId, recordId);
     },
-    merge(workspaceId, floorId, recordId, method) {
+    merge(workspaceId: string, floorId: string, recordId: string, method: any) {
       return tauriInvoke(C.pullRequestsMerge, workspaceId, floorId, recordId, method);
     },
-    forget(workspaceId, floorId, recordId) {
+    forget(workspaceId: string, floorId: string, recordId: string) {
       return tauriInvoke(C.pullRequestsForget, workspaceId, floorId, recordId);
     },
-    removeMerged(workspaceId, floorId, recordId, confirmExtraWork) {
+    removeMerged(workspaceId: string, floorId: string, recordId: string, confirmExtraWork?: boolean) {
       return tauriInvoke(C.pullRequestsRemoveMerged, workspaceId, floorId, recordId, confirmExtraWork);
     },
-    handOff(workspaceId, floorId, request) {
+    handOff(workspaceId: string, floorId: string, request: any) {
       return tauriInvoke(C.pullRequestsHandOff, workspaceId, floorId, request);
     },
     folders: {
-      openFromTree: (workspaceId, nodeId) => tauriInvoke(C.pullRequestFoldersOpen, workspaceId, nodeId),
-      branches: (folderId) => tauriInvoke(C.pullRequestFoldersBranches, folderId),
-      prepare: (folderId, base) => tauriInvoke(C.pullRequestFoldersPrepare, folderId, base),
-      account: (folderId, base) => tauriInvoke(C.pullRequestFoldersAccount, folderId, base),
-      diff: (folderId, base) => tauriInvoke(C.pullRequestFoldersDiff, folderId, base),
-      fileDiff: (folderId, base, path, oldPath) => tauriInvoke(C.pullRequestFoldersFileDiff, folderId, base, path, oldPath),
-      open: (folderId, request) => tauriInvoke(C.pullRequestFoldersOpenPullRequest, folderId, request),
-      openOnWebsite: (folderId, request) => tauriInvoke(C.pullRequestFoldersOpenOnWebsite, folderId, request),
-      imagePrefix: (folderId) => tauriInvoke(C.pullRequestFoldersImagePrefix, folderId),
-      keepImage: (folderId, dataBase64, format) => tauriInvoke(C.pullRequestFoldersKeepImage, folderId, dataBase64, format),
-      imagesExist: (folderId) => tauriInvoke(C.pullRequestFoldersImagesExist, folderId),
-      showImages: (folderId) => tauriInvoke(C.pullRequestFoldersShowImages, folderId),
-      close: (folderId) => tauriInvoke(C.pullRequestFoldersClose, folderId)
+      openFromTree: (workspaceId: string, nodeId: string) => tauriInvoke(C.pullRequestFoldersOpen, workspaceId, nodeId),
+      branches: (folderId: string) => tauriInvoke(C.pullRequestFoldersBranches, folderId),
+      prepare: (folderId: string, base?: string) => tauriInvoke(C.pullRequestFoldersPrepare, folderId, base),
+      account: (folderId: string, base?: string) => tauriInvoke(C.pullRequestFoldersAccount, folderId, base),
+      diff: (folderId: string, base?: string) => tauriInvoke(C.pullRequestFoldersDiff, folderId, base),
+      fileDiff: (folderId: string, base: string, path: string, oldPath?: string | null) => tauriInvoke(C.pullRequestFoldersFileDiff, folderId, base, path, oldPath),
+      open: (folderId: string, request: any) => tauriInvoke(C.pullRequestFoldersOpenPullRequest, folderId, request),
+      openOnWebsite: (folderId: string, request: any) => tauriInvoke(C.pullRequestFoldersOpenOnWebsite, folderId, request),
+      imagePrefix: (folderId: string) => tauriInvoke(C.pullRequestFoldersImagePrefix, folderId),
+      keepImage: (folderId: string, dataBase64: string, format: string) => tauriInvoke(C.pullRequestFoldersKeepImage, folderId, dataBase64, format),
+      imagesExist: (folderId: string) => tauriInvoke(C.pullRequestFoldersImagesExist, folderId),
+      showImages: (folderId: string) => tauriInvoke(C.pullRequestFoldersShowImages, folderId),
+      close: (folderId: string) => tauriInvoke(C.pullRequestFoldersClose, folderId)
     }
   },
   chat: {
-    conversation(terminalId, slot) {
+    conversation(terminalId: string, slot: any) {
       return tauriInvoke(C.chatConversation, terminalId, slot);
     },
-    loadOlderHistory(terminalId, conversationId) {
+    loadOlderHistory(terminalId: string, conversationId: string) {
       return tauriInvoke(C.chatLoadOlderHistory, terminalId, conversationId);
     },
-    loadHistoryBackTo(terminalId, conversationId, entryId) {
+    loadHistoryBackTo(terminalId: string, conversationId: string, entryId: string) {
       return tauriInvoke(C.chatLoadHistoryBackTo, terminalId, conversationId, entryId);
     },
-    searchHistory(terminalId, conversationId, query, requestId) {
+    searchHistory(terminalId: string, conversationId: string, query: string, requestId?: string) {
       return tauriInvoke(C.chatSearchHistory, terminalId, conversationId, query, requestId);
     },
-    cancelSearchHistory(requestId) {
+    cancelSearchHistory(requestId: string) {
       return tauriInvoke(C.chatCancelSearchHistory, requestId);
     },
-    threads(terminalId) {
+    threads(terminalId: string) {
       return tauriInvoke(C.chatThreads, terminalId);
     },
-    enter(terminalId) {
+    enter(terminalId: string) {
       return tauriInvoke(C.chatEnter, terminalId);
     },
-    exit(terminalId) {
+    exit(terminalId: string) {
       return tauriInvoke(C.chatExit, terminalId);
     },
-    setShowsShellWindowDuringTurns(terminalId, shows) {
+    setShowsShellWindowDuringTurns(terminalId: string, shows: boolean) {
       return tauriInvoke(C.chatSetShowsShellWindowDuringTurns, terminalId, shows);
     },
-    send(terminalId, segments, text, entryId) {
+    send(terminalId: string, segments: any[], text: string, entryId?: string) {
       return tauriInvoke(C.chatSend, terminalId, segments, text, entryId);
     },
-    interrupt(terminalId) {
+    interrupt(terminalId: string) {
       return tauriInvoke(C.chatInterrupt, terminalId);
     },
-    acknowledgeAttention(terminalId) {
+    acknowledgeAttention(terminalId: string) {
       return tauriInvoke(C.chatAcknowledgeAttention, terminalId);
     },
-    markRead(terminalId) {
+    markRead(terminalId: string) {
       return tauriInvoke(C.chatMarkRead, terminalId);
     },
-    switchThread(terminalId, slot) {
+    switchThread(terminalId: string, slot: any) {
       return tauriInvoke(C.chatSwitchThread, terminalId, slot);
     },
-    clearThread(terminalId, slot) {
+    clearThread(terminalId: string, slot: any) {
       return tauriInvoke(C.chatClearThread, terminalId, slot);
     },
-    deleteEntry(terminalId, entryId) {
+    deleteEntry(terminalId: string, entryId: string) {
       return tauriInvoke(C.chatDeleteEntry, terminalId, entryId);
     },
-    deleteAttachment(terminalId, attachmentId) {
+    deleteAttachment(terminalId: string, attachmentId: string) {
       return tauriInvoke(C.chatDeleteAttachment, terminalId, attachmentId);
     },
-    onConversationEvent(handler) {
+    onConversationEvent(handler: (payload: any) => void) {
       return subscribe(C.chatOnConversationEvent, handler);
     },
-    attachmentFacts(path) {
+    attachmentFacts(path: string) {
       return tauriInvoke(C.chatAttachmentFacts, path);
     },
-    openAttachment(path) {
+    openAttachment(path: string) {
       return tauriInvoke(C.chatOpenAttachment, path);
     },
-    startAttachmentDrag(path) {
+    startAttachmentDrag(path: string) {
       tauriInvoke(C.chatStartAttachmentDrag, path);
     },
-    askNames(terminalId) {
+    askNames(terminalId: string) {
       return tauriInvoke(C.chatAskNames, terminalId);
     },
-    captureChatArchives(terminalIds) {
+    captureChatArchives(terminalIds: string[]) {
       return tauriInvoke(C.chatCaptureArchives, terminalIds);
     },
-    copyChats(copies, archives) {
+    copyChats(copies: any, archives: any) {
       return tauriInvoke(C.chatCopyChats, copies, archives);
     },
-    discardCopiedChats(conversationIds) {
+    discardCopiedChats(conversationIds: string[]) {
       return tauriInvoke(C.chatDiscardCopiedChats, conversationIds);
     },
-    sendComposedPrompt(terminalId, text, content) {
+    sendComposedPrompt(terminalId: string, text: string, content: any) {
       return tauriInvoke(C.chatSendComposedPrompt, terminalId, text, content);
     },
-    searchConversations(query, limit, labels) {
+    searchConversations(query: string, limit?: number, labels?: string[]) {
       return tauriInvoke(C.chatSearchConversations, query, limit, labels);
     },
     releaseConversationSearch() {
       return tauriInvoke(C.chatReleaseConversationSearch);
     }
   },
-  pathForFile(file) {
+  pathForFile(file: File | { path?: string; name?: string }) {
     try {
       return (file as any)?.path || file?.name || '';
     } catch {
       return "";
-    }
-  },
-  license: {
-    get() {
-      return tauriInvoke(C.licenseGet);
-    },
-    activate(key) {
-      return invokeLicenseCommand(C.licenseActivate, key);
-    },
-    deactivate() {
-      return invokeLicenseCommand(C.licenseDeactivate);
-    },
-    selectFreeWorkspace(workspaceId) {
-      return invokeLicenseCommand(C.licenseSelectFreeWorkspace, workspaceId);
-    },
-    clearFreeWorkspaceSelection() {
-      return invokeLicenseCommand(C.licenseClearFreeWorkspace);
-    },
-    onChanged(handler) {
-      return subscribe(C.licenseOnChanged, handler);
-    },
-    setDevOverride(status) {
-      return tauriInvoke(C.licenseSetDevOverride, status);
     }
   },
   codex: {
@@ -1595,7 +1549,7 @@ app: {
      * boolean: false is also a non-Codex command or a core that cannot
      * answer, and the call never rejects.
      */
-    isMissingFlag(command, target) {
+    isMissingFlag(command: string, target: any) {
       return tauriInvoke(C.codexIsMissingFlag, command, target);
     }
   },
@@ -1603,34 +1557,34 @@ app: {
     list() {
       return tauriInvoke(C.routineList);
     },
-    create(input) {
+    create(input: any) {
       return tauriInvoke(C.routineCreate, input);
     },
-    update(id, patch) {
+    update(id: string, patch: any) {
       return tauriInvoke(C.routineUpdate, id, patch);
     },
-    delete(id) {
+    delete(id: string) {
       return tauriInvoke(C.routineDelete, id);
     },
-    setEnabled(id, enabled) {
+    setEnabled(id: string, enabled: boolean) {
       return tauriInvoke(C.routineSetEnabled, id, enabled);
     },
-    runNow(id) {
+    runNow(id: string) {
       return tauriInvoke(C.routineRunNow, id);
     },
-    onChanged(handler) {
+    onChanged(handler: (payload: any) => void) {
       return subscribe(C.routineOnChanged, handler);
     },
     history() {
       return tauriInvoke(C.routineHistory);
     },
-    historyRemove(id) {
+    historyRemove(id: string) {
       return tauriInvoke(C.routineHistoryRemove, id);
     },
     historyClear() {
       return tauriInvoke(C.routineHistoryClear);
     },
-    onHistoryChanged(handler) {
+    onHistoryChanged(handler: (payload: any) => void) {
       return subscribe(C.routineOnHistoryChanged, handler);
     }
   },
@@ -1638,7 +1592,7 @@ app: {
     getState() {
       return tauriInvoke(C.remoteGetState);
     },
-    onStateChanged(handler) {
+    onStateChanged(handler: (payload: any) => void) {
       return subscribe(C.remoteOnStateChanged, handler);
     },
     beginPairingWindow() {
@@ -1647,53 +1601,53 @@ app: {
     endPairingWindow() {
       return tauriInvoke(C.remoteEndPairingWindow);
     },
-    setEnabled(enabled) {
+    setEnabled(enabled: boolean) {
       return tauriInvoke(C.remoteSetEnabled, enabled);
     },
-    setPort(port) {
+    setPort(port: number) {
       return tauriInvoke(C.remoteSetPort, port);
     },
-    setTailnetOnly(tailnetOnly) {
+    setTailnetOnly(tailnetOnly: boolean) {
       return tauriInvoke(C.remoteSetTailnetOnly, tailnetOnly);
     },
-    setPassword(password) {
+    setPassword(password: string) {
       return tauriInvoke(C.remoteSetPassword, password);
     },
-    revokeDevice(id) {
+    revokeDevice(id: string) {
       return tauriInvoke(C.remoteRevokeDevice, id);
     },
-    setDeviceRole(id, role) {
+    setDeviceRole(id: string, role: string) {
       return tauriInvoke(C.remoteSetDeviceRole, id, role);
     },
-    renameDevice(id, name) {
+    renameDevice(id: string, name: string) {
       return tauriInvoke(C.remoteRenameDevice, id, name);
     },
-    onPresence(handler) {
+    onPresence(handler: (payload: any) => void) {
       const unsubscribe = subscribe(C.remoteOnPresence, handler);
       tauriInvoke(C.remotePresenceResend);
       return unsubscribe;
     },
-    onCameraFrame(handler) {
+    onCameraFrame(handler: (payload: any) => void) {
       return subscribe(C.remoteOnCameraFrame, handler);
     },
-    onPartituraPreviewRequested(handler) {
+    onPartituraPreviewRequested(handler: (payload: any) => void) {
       return subscribe(C.remotePartituraPreviewRequest, handler);
     },
-    completePartituraPreview(requestId, result) {
+    completePartituraPreview(requestId: string, result: any) {
       return tauriInvoke(C.remotePartituraPreviewResult, requestId, result);
     },
-    onPortalReloadRequested(handler) {
+    onPortalReloadRequested(handler: (payload: any) => void) {
       return subscribe(C.remotePortalReloadRequest, handler);
     },
-    completePortalReload(requestId, result) {
+    completePortalReload(requestId: string, result: any) {
       return tauriInvoke(C.remotePortalReloadResult, requestId, result);
     }
   },
-  snapNode(context) {
-    return invokeWithLicenseFailure(C.snapNode, context);
+  snapNode(context: any) {
+    return tauriInvoke(C.snapNode, context);
   },
-  tidyNode(request) {
-    return invokeWithLicenseFailure(C.tidyNode, request);
+  tidyNode(request: any) {
+    return tauriInvoke(C.tidyNode, request);
   },
   onNodePlaced(handler: (payload: any) => void) {
     return subscribe('mindagentics:canvas:nodePlaced', handler);

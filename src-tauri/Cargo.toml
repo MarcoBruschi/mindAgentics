@@ -5,10 +5,19 @@ description = "mindAgentics — High-Performance Autonomous Multi-Agent Canvas (
 authors = ["mindAgentics Team"]
 edition = "2021"
 license = "MIT"
+default-run = "mindagentics-tauri"
 
 [lib]
 name = "mindagentics_lib"
 crate-type = ["rlib"]
+
+[[bin]]
+name = "mindagentics-tauri"
+path = "src/main.rs"
+
+[[bin]]
+name = "mindagentics"
+path = "src/bin/mindagentics.rs"
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }

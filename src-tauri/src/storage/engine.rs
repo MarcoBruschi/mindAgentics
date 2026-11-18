@@ -26,7 +26,11 @@ impl Default for StorageEngine {
 
 impl StorageEngine {
     pub fn new() -> Self {
-        let data_dir = Self::resolve_data_dir();
+        Self::with_data_dir(Self::resolve_data_dir())
+    }
+
+    /// Creates a `StorageEngine` rooted at an explicit `data_dir`, ensuring required subdirectories exist.
+    pub fn with_data_dir(data_dir: PathBuf) -> Self {
         for sub in [
             "",
             "workspaces",
@@ -1634,53 +1638,162 @@ impl StorageEngine {
         let json = serde_json::to_vec_pretty(&envelope)?;
         self.replace_file_atomically(&p, &json).await
     }
+}
 
-    // ==========================================
-    // License
-    // ==========================================
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    pub async fn get_license(&self) -> Result<LicenseInfo> {
-        let p = self.data_dir.join("license.json");
-        if let Some(val) = self.read_json_value_with_fallback(&p).await? {
-            let payload = Self::unwrap_envelope(val);
-            if let Ok(license) = serde_json::from_value::<LicenseInfo>(payload) {
-                return Ok(license);
-            }
-        }
-        Ok(LicenseInfo::default())
+    struct TempStorageDir {
+        path: PathBuf,
     }
 
-    pub async fn activate_license(&self, key: &str) -> Result<LicenseInfo> {
-        let trimmed = key.trim();
-        if trimmed.is_empty() {
-            bail!("License key cannot be empty");
+    impl TempStorageDir {
+        fn new(prefix: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "mindagentics-{}-{}",
+                prefix,
+                uuid::Uuid::new_v4()
+            ));
+            fs::create_dir_all(&dir).expect("failed to create temp test directory");
+            Self { path: dir }
         }
-        let license = LicenseInfo {
-            license_type: "license".to_string(),
-            is_trial: false,
-            is_valid: true,
-            days_remaining: None,
-            key: Some(trimmed.to_string()),
-            activated_at: Some(chrono::Utc::now().to_rfc3339()),
-            state: Some("active".to_string()),
-            license_key: Some(trimmed.to_string()),
-            plan_type: Some("pro".to_string()),
-            expires_at: None,
-            extra: serde_json::Map::new(),
-        };
-        let p = self.data_dir.join("license.json");
-        let envelope = StorageEnvelope::new("license", &license);
-        let json = serde_json::to_vec_pretty(&envelope)?;
-        self.replace_file_atomically(&p, &json).await?;
-        Ok(license)
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
     }
 
-    pub async fn deactivate_license(&self) -> Result<LicenseInfo> {
-        let license = LicenseInfo::default();
-        let p = self.data_dir.join("license.json");
-        let envelope = StorageEnvelope::new("license", &license);
-        let json = serde_json::to_vec_pretty(&envelope)?;
-        self.replace_file_atomically(&p, &json).await?;
-        Ok(license)
+    impl Drop for TempStorageDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn creates_storage_engine_in_isolated_temp_dir() {
+        let temp = TempStorageDir::new("engine-init");
+        let engine = StorageEngine::with_data_dir(temp.path().to_path_buf());
+
+        assert_eq!(engine.get_data_dir(), temp.path().to_path_buf());
+        for sub in [
+            "workspaces",
+            "backups",
+            "accounts",
+            "git-hosts",
+            "usage",
+            "partituras",
+        ] {
+            assert!(
+                temp.path().join(sub).is_dir(),
+                "expected subdirectory '{sub}' to be created"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn atomic_workspace_and_profile_roundtrip() {
+        let temp = TempStorageDir::new("engine-roundtrip");
+        let engine = StorageEngine::with_data_dir(temp.path().to_path_buf());
+
+        // Creating and listing workspaces
+        let created = engine
+            .create_workspace(serde_json::json!({
+                "id": "ws-test-1",
+                "name": "Alpha Workspace",
+                "workingDirectory": temp.path().to_string_lossy().to_string(),
+                "preferredIde": "vscode"
+            }))
+            .await
+            .expect("create_workspace should succeed");
+
+        assert_eq!(created.id, "ws-test-1");
+        assert_eq!(created.name, "Alpha Workspace");
+
+        let workspaces = engine
+            .list_workspaces()
+            .await
+            .expect("list_workspaces should succeed");
+        assert_eq!(workspaces.len(), 1);
+        assert_eq!(workspaces[0].id, "ws-test-1");
+        assert_eq!(workspaces[0].name, "Alpha Workspace");
+
+        let fetched = engine
+            .get_workspace("ws-test-1")
+            .await
+            .expect("get_workspace should succeed")
+            .expect("workspace should exist");
+        assert_eq!(fetched.name, "Alpha Workspace");
+
+        // Reading and updating user profile atomically
+        let default_profile = engine
+            .get_profile()
+            .await
+            .expect("get_profile should succeed");
+        assert_eq!(default_profile.name, "Orchestrator");
+
+        let updated_profile = engine
+            .update_profile(serde_json::json!({
+                "name": "Lead Engineer",
+                "callsign": "MIND-42"
+            }))
+            .await
+            .expect("update_profile should succeed");
+        assert_eq!(updated_profile.name, "Lead Engineer");
+        assert_eq!(updated_profile.callsign, "MIND-42");
+
+        let reloaded_profile = engine
+            .get_profile()
+            .await
+            .expect("reloaded get_profile should succeed");
+        assert_eq!(reloaded_profile.name, "Lead Engineer");
+        assert_eq!(reloaded_profile.callsign, "MIND-42");
+    }
+
+    #[tokio::test]
+    async fn recovers_safely_from_corrupted_json_without_panic() {
+        let temp = TempStorageDir::new("engine-corrupt");
+        let engine = StorageEngine::with_data_dir(temp.path().to_path_buf());
+
+        // Write corrupted JSON into app-state.json and profile.json
+        let app_state_path = temp.path().join("app-state.json");
+        fs::write(&app_state_path, b"{ invalid json ::: [unterminated")
+            .expect("write corrupted app-state.json");
+
+        let profile_path = temp.path().join("profile.json");
+        fs::write(&profile_path, b"corrupted-bytes-not-json")
+            .expect("write corrupted profile.json");
+
+        // Should return default AppState without panicking and quarantine the damaged file
+        let app_state = engine
+            .get_app_state()
+            .await
+            .expect("get_app_state should recover safely");
+        assert!(app_state.clean_shutdown);
+        assert!(!app_state.has_completed_onboarding);
+        assert_eq!(app_state.active_workspace_id, None);
+        assert!(app_state.recent_workspace_ids.is_empty());
+
+        // Should return default UserProfile without panicking
+        let profile = engine
+            .get_profile()
+            .await
+            .expect("get_profile should recover safely");
+        assert_eq!(profile.name, UserProfile::default().name);
+
+        // Verify quarantine files were created for corrupted artifacts
+        let entries: Vec<String> = fs::read_dir(temp.path())
+            .expect("read_dir temp")
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+        assert!(
+            entries.iter().any(|n| n.starts_with("app-state.json.corrupted.")),
+            "expected quarantined app-state.json.corrupted.*, found: {entries:?}"
+        );
+        assert!(
+            entries.iter().any(|n| n.starts_with("profile.json.corrupted.")),
+            "expected quarantined profile.json.corrupted.*, found: {entries:?}"
+        );
     }
 }

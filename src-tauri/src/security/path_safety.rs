@@ -123,25 +123,39 @@ pub fn assert_safe_path_string(input: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(input))
 }
 
+fn normalize_lexical(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut out = PathBuf::new();
+    for comp in path.components() {
+        match comp {
+            Component::Prefix(_) | Component::RootDir => out.push(comp.as_os_str()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if matches!(out.components().next_back(), Some(Component::Normal(_))) {
+                    out.pop();
+                } else if !out.has_root() {
+                    out.push(comp.as_os_str());
+                }
+            }
+            Component::Normal(s) => out.push(s),
+        }
+    }
+    out
+}
+
 pub fn is_inside(parent: &Path, child: &Path) -> bool {
-    let p = dunce::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
-    let c = dunce::canonicalize(child).unwrap_or_else(|_| child.to_path_buf());
+    let p = dunce::canonicalize(parent).unwrap_or_else(|_| normalize_lexical(parent));
+    let c = dunce::canonicalize(child).unwrap_or_else(|_| normalize_lexical(child));
 
     #[cfg(windows)]
-    let (p_str, c_str) = (
-        p.to_string_lossy().to_lowercase(),
-        c.to_string_lossy().to_lowercase(),
+    let (p_cmp, c_cmp) = (
+        PathBuf::from(p.to_string_lossy().to_lowercase()),
+        PathBuf::from(c.to_string_lossy().to_lowercase()),
     );
     #[cfg(not(windows))]
-    let (p_str, c_str) = (
-        p.to_string_lossy().to_string(),
-        c.to_string_lossy().to_string(),
-    );
+    let (p_cmp, c_cmp) = (p, c);
 
-    if c_str == p_str {
-        return true;
-    }
-    c.starts_with(&p)
+    c_cmp.starts_with(&p_cmp)
 }
 
 pub fn resolve_workspace_path(
@@ -193,5 +207,78 @@ pub fn resolve_workspace_path(
                 )
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blocks_path_traversal_outside_workspace() {
+        let ws = std::env::temp_dir().join(format!("mindagentics_ps_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(ws.join("sub")).unwrap();
+
+        let res1 = resolve_workspace_path(&ws, "../outside.txt", false);
+        assert!(!res1.ok);
+        assert_eq!(res1.reason, Some(PathSafetyError::OutsideWorkspace));
+
+        let res2 = resolve_workspace_path(&ws, "sub/../../outside.txt", false);
+        assert!(!res2.ok);
+        assert_eq!(res2.reason, Some(PathSafetyError::OutsideWorkspace));
+
+        let _ = std::fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn blocks_unc_and_device_namespace_paths() {
+        let unc_win = check_path_string(r"\\server\share\secret.txt");
+        assert!(!unc_win.ok);
+        assert_eq!(unc_win.reason, Some(PathSafetyError::UncPath));
+
+        let unc_fwd = check_path_string("//server/share/secret.txt");
+        assert!(!unc_fwd.ok);
+        assert_eq!(unc_fwd.reason, Some(PathSafetyError::UncPath));
+
+        let dev = check_path_string(r"\\.\PhysicalDrive0");
+        assert!(!dev.ok);
+        assert_eq!(dev.reason, Some(PathSafetyError::DeviceNamespace));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn blocks_reserved_dos_device_names() {
+        for name in ["CON", "NUL", "COM1", "LPT1", "subdir/con.txt"] {
+            let res = check_path_string(name);
+            assert!(!res.ok, "expected {name} to be blocked");
+            assert!(matches!(res.reason, Some(PathSafetyError::ReservedDevice(_))));
+        }
+    }
+
+    #[test]
+    fn blocks_null_bytes_and_control_chars() {
+        let nul = check_path_string("src/main.rs\0.txt");
+        assert!(!nul.ok);
+        assert_eq!(nul.reason, Some(PathSafetyError::ControlChars));
+
+        let ctrl = check_path_string("src/\nmain.rs");
+        assert!(!ctrl.ok);
+        assert_eq!(ctrl.reason, Some(PathSafetyError::ControlChars));
+    }
+
+    #[test]
+    fn accepts_legitimate_paths_inside_workspace() {
+        let ws = std::env::temp_dir().join(format!("mindagentics_ps_ok_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(ws.join("src")).unwrap();
+        let file = ws.join("src").join("lib.rs");
+        std::fs::write(&file, "// ok").unwrap();
+
+        let existing = resolve_workspace_path(&ws, "src/lib.rs", false);
+        assert!(existing.ok, "expected existing file to pass: {:?}", existing.message);
+
+        let nested_new = resolve_workspace_path(&ws, "./src/../src/new_mod.rs", false);
+        assert!(nested_new.ok, "expected normalized internal path to pass: {:?}", nested_new.message);
+
+        let _ = std::fs::remove_dir_all(&ws);
     }
 }

@@ -71,13 +71,6 @@ export class DaemonState {
     byTerminal: {},
   };
 
-  // License state
-  public license = {
-    state: 'active' as 'active' | 'trial' | 'expired' | 'revoked',
-    daysRemaining: 30,
-    licenseKey: null as string | null,
-  };
-
   // Workspace & Floors index
   public workspaces: Map<string, { id: string; name: string; workingDirectory: string }> = new Map();
   public floors: Map<string, { id: string; workspaceId: string; name: string; branch: string | null; isGround: boolean }> = new Map();

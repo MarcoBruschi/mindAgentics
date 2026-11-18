@@ -1,3 +1,2 @@
-// @ts-nocheck
-export * from '../tauriBackend.js';
-export { tauriBackend as default } from '../tauriBackend.js';
+export * from '../tauriBackend';
+export { tauriBackend as default } from '../tauriBackend';

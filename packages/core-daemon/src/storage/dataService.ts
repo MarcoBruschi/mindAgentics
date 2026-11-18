@@ -368,15 +368,6 @@ export class DataService {
       await this.replaceFileAtomically(prefPath, JSON.stringify(defaultPreferences, null, 2));
     }
 
-    // Initialize license.json if missing
-    const licensePath = path.join(this.dataDir, 'license.json');
-    if (!fs.existsSync(licensePath)) {
-      await this.replaceFileAtomically(
-        licensePath,
-        JSON.stringify({ type: 'trial', isTrial: true, isValid: true, daysRemaining: 30 }, null, 2)
-      );
-    }
-
     // Initialize routines.json if missing
     const routinesPath = path.join(this.dataDir, 'routines.json');
     if (!fs.existsSync(routinesPath)) {
@@ -883,25 +874,6 @@ export class DataService {
       schemaVersion: 1,
       records: capped
     };
-    await this.replaceFileAtomically(filePath, JSON.stringify(doc, null, 2));
-  }
-
-  // ==========================================
-  // License
-  // ==========================================
-
-  public async getLicense(): Promise<any> {
-    const filePath = path.join(this.dataDir, 'license.json');
-    return this.readJsonFile(filePath, {
-      type: 'trial',
-      isTrial: true,
-      isValid: true,
-      daysRemaining: 30
-    });
-  }
-
-  public async saveLicense(doc: any): Promise<void> {
-    const filePath = path.join(this.dataDir, 'license.json');
     await this.replaceFileAtomically(filePath, JSON.stringify(doc, null, 2));
   }
 

@@ -1,5 +1,47 @@
 /// <reference types="vite/client" />
 
+type WindowProfileBadgeTier = 'bronze' | 'silver' | 'gold' | 'platinum';
+
+interface WindowUserBadge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  tier: WindowProfileBadgeTier;
+  unlockedAt?: string;
+  progress?: number;
+  maxProgress?: number;
+}
+
+interface WindowOrchestratorStats {
+  recruitsCount: number;
+  tasksDelegated: number;
+  portalsOpened: number;
+  knowledgeGraphsBuilt: number;
+  routinesExecuted: number;
+  totalCanvasTimeMinutes: number;
+}
+
+interface WindowUserProfile {
+  id: string;
+  name: string;
+  callsign: string;
+  avatarId: string;
+  avatarUrl?: string;
+  title: string;
+  level: number;
+  currentXp: number;
+  xpToNextLevel: number;
+  totalXp: number;
+  streakDays: number;
+  longestStreakDays?: number;
+  lastActiveDate: string;
+  activityHistory?: Record<string, number>;
+  hasCompletedOnboarding?: boolean;
+  badges: WindowUserBadge[];
+  stats: WindowOrchestratorStats;
+}
+
 interface MindAgenticsWindowBridge {
   terminal: {
     detectAgents?: () => Promise<any[]>;
@@ -41,12 +83,12 @@ interface MindAgenticsWindowBridge {
     sync: (data: { nodes: any[]; cableTies: any[]; workspaceId?: string; floorId?: string }) => void;
   };
   profile?: {
-    get: () => Promise<import('@mindagentics/shared').UserProfile>;
-    update: (patch: Partial<import('@mindagentics/shared').UserProfile>) => Promise<import('@mindagentics/shared').UserProfile>;
-    awardXp: (xp: number, statKey?: keyof import('@mindagentics/shared').OrchestratorStats) => Promise<{
-      profile: import('@mindagentics/shared').UserProfile;
+    get: () => Promise<WindowUserProfile>;
+    update: (patch: Partial<WindowUserProfile>) => Promise<WindowUserProfile>;
+    awardXp: (xp: number, statKey?: keyof WindowOrchestratorStats) => Promise<{
+      profile: WindowUserProfile;
       leveledUp: boolean;
-      unlockedBadges: import('@mindagentics/shared').UserBadge[];
+      unlockedBadges: WindowUserBadge[];
     }>;
   };
 }
